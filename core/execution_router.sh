@@ -35,24 +35,22 @@ PID_AUDIO=""
 PID_LIVE=""
 
 transition_to_post_processing() {
-    echo -e "\n\n[Router] Dictation ended. Intercepting signal and halting capture..."
+    echo -e "\n\n[Router] Dictation ended. Intercepting signal..."
     
-    # 1. Terminate child binaries (The Zombie Fix)
-    pkill -P $PID_LIVE 2>/dev/null
-    pkill -P $PID_AUDIO 2>/dev/null
-    
-    # 2. Terminate the bash wrappers
+    # 1. Kill the live dictation wrapper and binary
     kill $PID_LIVE 2>/dev/null
-    kill $PID_AUDIO 2>/dev/null
+    pkill -P $PID_LIVE 2>/dev/null
     
-    # 3. Aggressive safety net to release hardware locks
-    killall -q whisper-stream arecord ffmpeg 2>/dev/null
+    # 2. DO NOT kill $PID_AUDIO. Wait for it to finish the ffmpeg conversion.
+    # The Ctrl+C already killed `arecord`, so the audio_capture script is now processing.
     wait $PID_AUDIO 2>/dev/null
+    
+    # 3. Clean up any rogue binaries just in case
+    killall -q whisper-stream arecord ffmpeg 2>/dev/null
     
     echo "[Router] Finalized raw audio segment: $FILE_WAV"
     echo "[Router] Booting primary whisper_transcribe.sh on the full audio file..."
 
-    # Pass the standard.env, NOT the static.json
     bash core/whisper_transcribe.sh \
         --input "$FILE_WAV" \
         --config "$CONFIG_FULL" \
