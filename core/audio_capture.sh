@@ -23,20 +23,18 @@ function audio_capture() {
     fi
 
     mkdir -p "$(dirname "$output_file")"
-    
-    # Fixed suffix duplication: Use a clean temporary extension
     local temp_wav="${output_file}.tmp.wav"
 
-    echo "🎙️ Recording audio... Press [Enter] or [Ctrl+C] to stop."
-    
+    # Trap SIGINT so this wrapper survives Ctrl+C and proceeds to ffmpeg processing
+    trap 'echo "[Audio Capture] Intercepted SIGINT. Stopping recording..."' SIGINT
+
     arecord -f cd -t wav "$temp_wav" &>/dev/null &
     local rec_pid=$!
 
-    trap "kill $rec_pid 2>/dev/null; wait $rec_pid 2>/dev/null" SIGINT
-    read -r
-    
-    kill $rec_pid 2>/dev/null
-    wait $rec_pid 2>/dev/null
+    # Wait indefinitely for arecord to terminate (it will naturally die on Ctrl+C)
+    wait $rec_pid 2>/dev/null || true
+
+    # Reset trap to default
     trap - SIGINT
 
     echo "-> Processing audio format (16kHz, mono)..."
@@ -45,12 +43,6 @@ function audio_capture() {
 
     if [ "$normalize" = true ]; then
         echo "   [Pending Implementation] Normalization requested."
-    fi
-    if [ "$remove_silence" = true ]; then
-        echo "   [Pending Implementation] Silence removal requested."
-    fi
-    if [ "$highpass_filter" = true ]; then
-         echo "   [Pending Implementation] Highpass filter requested."
     fi
 
     if [ -n "$filters" ]; then
