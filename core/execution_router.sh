@@ -14,6 +14,11 @@ if [[ ! -f "$CONFIG_STATIC" ]]; then
     exit 1
 fi
 
+if [[ ! -f "$CONFIG_FULL" ]]; then
+    echo "Error: Configuration file $CONFIG_FULL not found."
+    exit 1
+fi
+
 # Dynamically build the workspace layout
 RAW_BASE_DIR=$(jq -r '.storage.base_dir' "$CONFIG_STATIC")
 BASE_DIR="${RAW_BASE_DIR/#\~/$HOME}"
@@ -44,11 +49,26 @@ if [[ -f "$FILE_WAV" ]]; then
 
     echo "[Router] JSON Ground Truth generated at $FILE_JSON"
     
-    # 3. Deterministic Post-Processing
+    # 3. Configuration-Aware Post-Processing
     if [[ -f "$FILE_JSON" ]]; then
         echo "[Router] Booting deterministic cleaner..."
-        # Ensure python3 is used and point to the correct script path
-        python3 post_processing/deterministic_cleaner.py "$FILE_JSON"
+        
+        # Parse post-processing flags from standard.env (Requires you to add them to standard.env)
+        # Fallback to "false" if the user has not defined them yet.
+        MARK_CONFIDENCE=$(grep "^MARK_CONFIDENCE=" "$CONFIG_FULL" | cut -d'"' -f2 || echo "false")
+        COMPRESS_REPETITIONS=$(grep "^COMPRESS_REPETITIONS=" "$CONFIG_FULL" | cut -d'"' -f2 || echo "false")
+
+        # Dynamically build Python arguments
+        PY_ARGS=()
+        if [[ "$MARK_CONFIDENCE" == "true" ]]; then
+            PY_ARGS+=("--mark-confidence")
+        fi
+        if [[ "$COMPRESS_REPETITIONS" == "true" ]]; then
+            PY_ARGS+=("--compress-repetitions")
+        fi
+
+        # Execute Python script with dynamic arguments
+        python3 post_processing/deterministic_cleaner.py "${PY_ARGS[@]}" "$FILE_JSON"
         
         if [[ $? -eq 0 ]]; then
             echo "[Router] Post-processing complete."
