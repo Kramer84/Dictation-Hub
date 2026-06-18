@@ -1,8 +1,5 @@
 #!/bin/bash
-
 # core/audio_capture.sh
-# Handles audio recording and standardizes output to 16kHz mono WAV for Whisper.cpp.
-# This is legacy, since we use live_dictate to save the audio directly in the correct format. However, this script can still be used for testing or as a standalone utility.
 
 function audio_capture() {
     local output_file=""
@@ -10,7 +7,6 @@ function audio_capture() {
     local remove_silence=false
     local highpass_filter=false
 
-    # Strict parser for --flag syntax
     while [[ "$#" -gt 0 ]]; do
         case $1 in
             --output) output_file="$2"; shift 2 ;;
@@ -27,11 +23,13 @@ function audio_capture() {
     fi
 
     mkdir -p "$(dirname "$output_file")"
-    local raw_wav="${output_file}_raw.wav"
+    
+    # Fixed suffix duplication: Use a clean temporary extension
+    local temp_wav="${output_file}.tmp.wav"
 
     echo "🎙️ Recording audio... Press [Enter] or [Ctrl+C] to stop."
     
-    arecord -f cd -t wav "$raw_wav" &>/dev/null &
+    arecord -f cd -t wav "$temp_wav" &>/dev/null &
     local rec_pid=$!
 
     trap "kill $rec_pid 2>/dev/null; wait $rec_pid 2>/dev/null" SIGINT
@@ -42,7 +40,7 @@ function audio_capture() {
     trap - SIGINT
 
     echo "-> Processing audio format (16kHz, mono)..."
-    local ffmpeg_cmd="ffmpeg -hide_banner -loglevel error -y -i \"$raw_wav\" -ar 16000 -ac 1 -c:a pcm_s16le"
+    local ffmpeg_cmd="ffmpeg -hide_banner -loglevel error -y -i \"$temp_wav\" -ar 16000 -ac 1 -c:a pcm_s16le"
     local filters=""
 
     if [ "$normalize" = true ]; then
@@ -56,16 +54,14 @@ function audio_capture() {
     fi
 
     if [ -n "$filters" ]; then
-        filters=${filters%,}
         ffmpeg_cmd+=" -af \"$filters\""
     fi
 
     eval "$ffmpeg_cmd \"$output_file\""
-    rm -f "$raw_wav"
+    rm -f "$temp_wav"
     echo "✅ Audio saved to $output_file"
 }
 
-# Allow direct execution if not sourced
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     audio_capture "$@"
 fi
