@@ -25,16 +25,22 @@ function audio_capture() {
     mkdir -p "$(dirname "$output_file")"
     local temp_wav="${output_file}.tmp.wav"
 
-    # Trap SIGINT so this wrapper survives Ctrl+C and proceeds to ffmpeg processing
-    trap 'echo "[Audio Capture] Intercepted SIGINT. Stopping recording..."' SIGINT
-
+    echo "🎙️ Recording audio... Press [Enter] or [Ctrl+C] to stop."
+    
     arecord -f cd -t wav "$temp_wav" &>/dev/null &
     local rec_pid=$!
 
-    # Wait indefinitely for arecord to terminate (it will naturally die on Ctrl+C)
-    wait $rec_pid 2>/dev/null || true
+    # Trap Ctrl+C to kill the recording binary and safely interrupt the read prompt
+    trap 'kill $rec_pid 2>/dev/null' SIGINT
 
-    # Reset trap to default
+    # Suspend execution until the user presses Enter (or triggers SIGINT)
+    read -r
+
+    # Ensure arecord is dead regardless of which method was used to stop
+    kill $rec_pid 2>/dev/null
+    wait $rec_pid 2>/dev/null
+    
+    # Reset the trap so subsequent Ctrl+C presses act normally
     trap - SIGINT
 
     echo "-> Processing audio format (16kHz, mono)..."
