@@ -7,7 +7,6 @@ if ! command -v jq &> /dev/null; then
 fi
 
 CONFIG_STATIC="configs/static.json"
-CONFIG_LIVE="configs/live_transcription_preview.env"
 CONFIG_FULL="configs/standard.env"
 
 if [[ ! -f "$CONFIG_STATIC" ]]; then
@@ -15,6 +14,7 @@ if [[ ! -f "$CONFIG_STATIC" ]]; then
     exit 1
 fi
 
+# Dynamically build the workspace layout
 RAW_BASE_DIR=$(jq -r '.storage.base_dir' "$CONFIG_STATIC")
 BASE_DIR="${RAW_BASE_DIR/#\~/$HOME}"
 FORMAT=$(jq -r '.storage.folder_format' "$CONFIG_STATIC")
@@ -24,52 +24,45 @@ WORKSPACE="$BASE_DIR/$TIMESTAMP"
 mkdir -p "$WORKSPACE"
 
 FILE_WAV="$WORKSPACE/${TIMESTAMP}$(jq -r '.suffixes.audio' "$CONFIG_STATIC")"
-FILE_LIVE="$WORKSPACE/${TIMESTAMP}$(jq -r '.suffixes.live_text' "$CONFIG_STATIC")"
 FILE_JSON="$WORKSPACE/${TIMESTAMP}$(jq -r '.suffixes.full_json' "$CONFIG_STATIC")"
 
 echo "========================================================"
 echo " Workspace Created: $WORKSPACE"
 echo "========================================================"
 
-PID_AUDIO=""
-PID_LIVE=""
+# 1. Blocking Audio Capture
+bash core/audio_capture.sh --output "$FILE_WAV"
 
-transition_to_post_processing() {
-    echo -e "\n\n[Router] Dictation ended. Intercepting signal..."
+# 2. Sequential Transcription
+if [[ -f "$FILE_WAV" ]]; then
+    echo "[Router] Audio capture finalized. Booting Whisper inference..."
     
-    # 1. Kill the live dictation wrapper and binary
-    kill $PID_LIVE 2>/dev/null
-    pkill -P $PID_LIVE 2>/dev/null
-    
-    # 2. DO NOT kill $PID_AUDIO. Wait for it to finish the ffmpeg conversion.
-    # The Ctrl+C already killed `arecord`, so the audio_capture script is now processing.
-    wait $PID_AUDIO 2>/dev/null
-    
-    # 3. Clean up any rogue binaries just in case
-    killall -q whisper-stream arecord ffmpeg 2>/dev/null
-    
-    echo "[Router] Finalized raw audio segment: $FILE_WAV"
-    echo "[Router] Booting primary whisper_transcribe.sh on the full audio file..."
-
     bash core/whisper_transcribe.sh \
         --input "$FILE_WAV" \
         --config "$CONFIG_FULL" \
         --output "$FILE_JSON"
 
     echo "[Router] JSON Ground Truth generated at $FILE_JSON"
+    
+    # 3. Deterministic Post-Processing
+    if [[ -f "$FILE_JSON" ]]; then
+        echo "[Router] Booting deterministic cleaner..."
+        # Ensure python3 is used and point to the correct script path
+        python3 post_processing/deterministic_cleaner.py "$FILE_JSON"
+        
+        if [[ $? -eq 0 ]]; then
+            echo "[Router] Post-processing complete."
+        else
+            echo "[Router] Error: deterministic_cleaner.py failed."
+            exit 1
+        fi
+    else
+        echo "[Router] Error: $FILE_JSON was not created. Skipping post-processing."
+        exit 1
+    fi
+
     echo "[Router] Pipeline sequence complete."
-    exit 0
-}
-
-trap transition_to_post_processing SIGINT
-
-echo "[Router] Initializing parallel capture and live preview..."
-echo "[Router] Press [Ctrl+C] when dictation is complete."
-
-bash core/audio_capture.sh --output "$FILE_WAV" &
-PID_AUDIO=$!
-
-bash core/live_dictate.sh --config "$CONFIG_LIVE" --output "$FILE_LIVE" &
-PID_LIVE=$!
-
-wait $PID_LIVE
+else
+    echo "[Router] Error: $FILE_WAV was not created. Aborting transcription."
+    exit 1
+fi
