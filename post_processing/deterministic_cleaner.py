@@ -7,7 +7,7 @@ import argparse
 import os
 import string
 
-# --- Constants Ported from aside.py ---
+# --- Constants ---
 BACKCHANNEL_WORDS = {
     "yeah", "yeah.", "mm-hmm", "mm-hmm.", "mhm", "mhm.", "mm", "hmm",
     "wow", "wow.", "nice", "nice.", "sure", "sure.", "right", "right.",
@@ -24,7 +24,7 @@ FILLER_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-MAX_WORD_DURATION_MS = 5000  # Cutoff for stretched hallucination artifacts
+MAX_WORD_DURATION_MS = 5000 
 
 def parse_whisper_json(filepath):
     with open(filepath, 'r', encoding='utf-8') as f:
@@ -32,7 +32,6 @@ def parse_whisper_json(filepath):
     return data.get('transcription', data.get('segments', []))
 
 def add_confidence_marker(text, p_value):
-    """Applies legacy confidence tracking markers to the token text."""
     if p_value < 0.4:
         return f"{text}[---]"
     elif p_value < 0.6:
@@ -45,62 +44,92 @@ def add_confidence_marker(text, p_value):
 
 def compress_repetitions_marked(text, min_phrase_len=2, max_phrase_len=60):
     """
-    Scans for repeating phrases and collapses them into a marker [Rx].
+    Scans for repeating phrases and collapses them using a Maximum Coverage strategy.
+    Prioritizes the smallest foundational n-gram over compound segments.
     """
-    if not text: 
+    if not text:
         return ""
 
     tokens = text.split()
-    n = len(tokens)
-
+    
     def clean_token(t):
         t_base = re.sub(r'\[[-+_.\d]+\]', '', t)
         t_base = re.sub(r'\[_EOT_\]', '', t_base)
         t_base = re.sub(r'\[_TT_\d+\]|\[_BEG_\]', '', t_base)
         return t_base.lower().strip(string.punctuation)
 
-    cleaned_tokens = [clean_token(t) for t in tokens]
+    cleaned_words = []
+    valid_mapping = []
+
+    for idx, t in enumerate(tokens):
+        c = clean_token(t)
+        if c:  
+            cleaned_words.append(c)
+            valid_mapping.append(idx)
+
+    n = len(cleaned_words)
     output_tokens = []
+    
     i = 0
+    last_orig_idx = -1
 
     while i < n:
         best_len = 0
         best_count = 0
+        max_coverage = 0
 
-        for L in range(max_phrase_len, min_phrase_len - 1, -1):
+        # Maximum Coverage Search
+        for L in range(min_phrase_len, max_phrase_len + 1):
             if i + 2*L > n: 
-                continue
-
-            pat = cleaned_tokens[i : i+L]
-            nxt = cleaned_tokens[i+L : i+2*L]
+                break
+                
+            pat = cleaned_words[i : i+L]
+            nxt = cleaned_words[i+L : i+2*L]
 
             if pat == nxt:
                 count = 1
-                curr_idx = i + L
-                while curr_idx + L <= n:
-                    if cleaned_tokens[curr_idx : curr_idx+L] == pat:
+                curr = i + L
+                while curr + L <= n:
+                    if cleaned_words[curr : curr+L] == pat:
                         count += 1
-                        curr_idx += L
+                        curr += L
                     else:
                         break
-                best_len = L
-                best_count = count
-                break 
+                
+                coverage = L * count
+                # Keep the smallest L if coverage is identical (e.g., L22x4 beats L44x2)
+                if coverage > max_coverage:
+                    max_coverage = coverage
+                    best_len = L
+                    best_count = count
 
         if best_len > 0:
-            output_tokens.extend(tokens[i : i+best_len])
-            output_tokens.append(f" [R{best_count}] ")
+            start_idx = valid_mapping[i]
+            end_first_idx = valid_mapping[i + best_len - 1]
+            end_total_idx = valid_mapping[i + best_len * best_count - 1]
+
+            if start_idx > last_orig_idx + 1:
+                output_tokens.extend(tokens[last_orig_idx + 1 : start_idx])
+
+            output_tokens.extend(tokens[start_idx : end_first_idx + 1])
+            output_tokens.append(f"[R{best_count}]")
+            
+            last_orig_idx = end_total_idx
             i += best_len * best_count
         else:
-            output_tokens.append(tokens[i])
+            orig_idx = valid_mapping[i]
+            if orig_idx > last_orig_idx + 1:
+                output_tokens.extend(tokens[last_orig_idx + 1 : orig_idx])
+            output_tokens.append(tokens[orig_idx])
+            last_orig_idx = orig_idx
             i += 1
+
+    if last_orig_idx + 1 < len(tokens):
+        output_tokens.extend(tokens[last_orig_idx + 1 :])
 
     return " ".join(output_tokens)
 
 def dedup_and_filter_hallucinations(segments, mark_confidence=False):
-    """
-    Stage 1 & 2: Token-level deduplication and Stretched Artifact Defense.
-    """
     cleaned_segments = []
     
     for seg in segments:
@@ -108,7 +137,6 @@ def dedup_and_filter_hallucinations(segments, mark_confidence=False):
         start_ms = offsets.get('from', seg.get('start', 0) * 1000 if 'start' in seg else 0)
         end_ms = offsets.get('to', seg.get('end', 0) * 1000 if 'end' in seg else 0)
         
-        # Guard against malformed JSON from whisper implementations
         if isinstance(start_ms, float): start_ms = int(start_ms)
         if isinstance(end_ms, float): end_ms = int(end_ms)
         
@@ -126,7 +154,6 @@ def dedup_and_filter_hallucinations(segments, mark_confidence=False):
         streak = 1
 
         for i in range(len(tokens)):
-            # Handle mixed token structures
             token_obj = tokens[i]
             if isinstance(token_obj, dict):
                 raw_text = token_obj.get('text', '')
@@ -148,7 +175,6 @@ def dedup_and_filter_hallucinations(segments, mark_confidence=False):
                 else:
                     streak = 1
             
-            # Apply confidence marker if flag is present
             final_text = raw_text
             if mark_confidence:
                 final_text = add_confidence_marker(raw_text, p_val)
@@ -181,9 +207,6 @@ def _is_fragment(text):
     return False
 
 def phrase_level_cleanup(entries, gap_threshold_ms=3000, apply_compression=False):
-    """
-    Stage 3 - 5: Phrase Level Cleanup (Filler Strip, Fragment Purge, Gap Merge)
-    """
     no_fillers = [e for e in entries if not _is_pure_filler(e["text"].strip())]
     no_fragments = [e for e in no_fillers if not _is_fragment(e["text"])]
 
@@ -232,20 +255,16 @@ def main():
     
     raw_segments = parse_whisper_json(args.input_json)
     
-    # Execution Pipeline
     deduped_entries = dedup_and_filter_hallucinations(raw_segments, mark_confidence=args.mark_confidence)
     final_cleaned_entries = phrase_level_cleanup(deduped_entries, apply_compression=args.compress_repetitions)
 
-    # Output Paths
     base_name = os.path.splitext(args.input_json)[0]
     out_json = f"{base_name}_cleaned.json"
     out_md = f"{base_name}_cleaned.md"
 
-    # Save Sanitized JSON
     with open(out_json, 'w', encoding='utf-8') as f:
         json.dump({"segments": final_cleaned_entries}, f, indent=2)
 
-    # Save Human-Readable Markdown
     with open(out_md, 'w', encoding='utf-8') as f:
         f.write("# Cleaned Transcription\n\n")
         for e in final_cleaned_entries:
