@@ -36,7 +36,7 @@ echo " Workspace Created: $WORKSPACE"
 echo "========================================================"
 
 # 1. Blocking Audio Capture
-bash core/audio_capture.sh --output "$FILE_WAV"
+bash core/audio_capture.sh --output "$FILE_WAV" --normalize 
 
 # 2. Sequential Transcription
 if [[ -f "$FILE_WAV" ]]; then

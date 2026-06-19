@@ -48,7 +48,12 @@ function audio_capture() {
     local filters=""
 
     if [ "$normalize" = true ]; then
-        echo "   [Pending Implementation] Normalization requested."
+        echo "   -> Applying EBU R128 loudness normalization (Target: -16 LUFS, Max Peak: -1.5dBTP)..."
+        if [ -n "$filters" ]; then
+            filters+=",loudnorm=I=-16:TP=-1.5:LRA=11"
+        else
+            filters="loudnorm=I=-16:TP=-1.5:LRA=11"
+        fi
     fi
 
     if [ -n "$filters" ]; then
