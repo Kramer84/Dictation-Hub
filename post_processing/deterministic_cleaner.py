@@ -183,6 +183,12 @@ def dedup_and_filter_hallucinations(segments, mark_confidence=False):
 
         if cleaned_tokens:
             reconstructed_text = "".join(cleaned_tokens)
+            
+            # Universal Control Token Scrub
+            reconstructed_text = re.sub(r'\[_EOT_\]', '', reconstructed_text)
+            reconstructed_text = re.sub(r'\[_TT_\d+\]', '', reconstructed_text)
+            reconstructed_text = re.sub(r'\[_BEG_\]', '', reconstructed_text)
+            
             cleaned_segments.append({
                 "start_ms": start_ms,
                 "end_ms": end_ms,
@@ -190,7 +196,6 @@ def dedup_and_filter_hallucinations(segments, mark_confidence=False):
             })
 
     return cleaned_segments
-
 def _is_pure_filler(text):
     stripped = PURE_FILLER_RE.sub("", text).strip()
     return not stripped

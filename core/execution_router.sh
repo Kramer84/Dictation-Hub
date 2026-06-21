@@ -80,7 +80,16 @@ if [[ -f "$FILE_WAV" ]]; then
         echo "[Router] Error: $FILE_JSON was not created. Skipping post-processing."
         exit 1
     fi
-
+    # Clipboard Injection
+    if command -v wl-copy &> /dev/null; then
+        jq -r '.segments[].text' "${FILE_JSON%.*}_cleaned.json" | tr -d '\n' | wl-copy
+        echo "[Router] Cleaned text copied to Wayland clipboard."
+    elif command -v xclip &> /dev/null; then
+        jq -r '.segments[].text' "${FILE_JSON%.*}_cleaned.json" | tr -d '\n' | xclip -selection clipboard
+        echo "[Router] Cleaned text copied to X11 clipboard."
+    else
+        echo "[Router] Warning: Neither xclip nor wl-copy found. Cannot copy to clipboard."
+    fi
     echo "[Router] Pipeline sequence complete."
 else
     echo "[Router] Error: $FILE_WAV was not created. Aborting transcription."

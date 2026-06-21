@@ -1,0 +1,8 @@
+In the analysis of sensitivities of model output, imprecise probabilities can provide useful new insights with features for systematic and extended investigations. 
+The consideration of imprecise parameters on a set-theoretical basis enables the investigation of sensitivities with respect to changes of the parameters in the entire set of the input. 
+This reveals sensitivities in a global sense over a finite domain rather than in a differential manner. 
+Tolerances given in absolute terms can thereby be translated directly to bounds for model output without extrapolation as required in differential approaches. 
+The advantages are obvious in cases when the model behavior is strongly nonlinear or discontinuous or when derivatives cannot be determined for some reason. 
+Results from a set-theoretical approach are then more robust and reliable. 
+Another advantage of the exploration of an entire domain for input parameters is the identification of favorable and less favorable parameter adjustments. 
+This information can be used to collect further information or to perform further analyses systematically in order to identify the causes for sensitivities or to exclude sensitivities by parameter restrictions.
