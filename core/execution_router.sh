@@ -6,8 +6,21 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
-CONFIG_STATIC="configs/static.json"
-CONFIG_FULL="configs/standard.env"
+# ---------------------------------------------------------
+# Dynamic Path Resolution (Symlink Proof)
+# ---------------------------------------------------------
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+    DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+# ---------------------------------------------------------
+
+CONFIG_STATIC="$REPO_ROOT/configs/static.json"
+CONFIG_FULL="$REPO_ROOT/configs/standard.env"
 
 if [[ ! -f "$CONFIG_STATIC" ]]; then
     echo "Error: Configuration file $CONFIG_STATIC not found."
@@ -36,13 +49,13 @@ echo " Workspace Created: $WORKSPACE"
 echo "========================================================"
 
 # 1. Blocking Audio Capture
-bash core/audio_capture.sh --output "$FILE_WAV" --normalize 
+bash "$SCRIPT_DIR/audio_capture.sh" --output "$FILE_WAV" --normalize 
 
 # 2. Sequential Transcription
 if [[ -f "$FILE_WAV" ]]; then
     echo "[Router] Audio capture finalized. Booting Whisper inference..."
     
-    bash core/whisper_transcribe.sh \
+    bash "$SCRIPT_DIR/whisper_transcribe.sh" \
         --input "$FILE_WAV" \
         --config "$CONFIG_FULL" \
         --output "$FILE_JSON"
@@ -67,8 +80,7 @@ if [[ -f "$FILE_WAV" ]]; then
             PY_ARGS+=("--compress-repetitions")
         fi
 
-        # Execute Python script with dynamic arguments
-        python3 post_processing/deterministic_cleaner.py "${PY_ARGS[@]}" "$FILE_JSON"
+        python3 "$REPO_ROOT/post_processing/deterministic_cleaner.py" "${PY_ARGS[@]}" "$FILE_JSON"
         
         if [[ $? -eq 0 ]]; then
             echo "[Router] Post-processing complete."
@@ -80,6 +92,7 @@ if [[ -f "$FILE_WAV" ]]; then
         echo "[Router] Error: $FILE_JSON was not created. Skipping post-processing."
         exit 1
     fi
+
     # Clipboard Injection
     if command -v wl-copy &> /dev/null; then
         jq -r '.segments[].text' "${FILE_JSON%.*}_cleaned.json" | tr -d '\n' | wl-copy

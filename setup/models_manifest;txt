@@ -1,0 +1,6 @@
+# Standard Whisper Models
+small
+large-v3-turbo
+
+# VAD Models
+silero-v6.2.0
