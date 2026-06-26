@@ -43,11 +43,20 @@ CURL_PID=$!
 
 # 3. Launch audio capture, intercepting hardware errors to a file instead of /dev/null
 if [ "$AUDIO_BACKEND" == "arecord" ]; then
-    arecord -f cd -t wav > "$TEMP_FIFO" 2> "$TEMP_ERR" &
+    # Attempt to route through PulseAudio/PipeWire bridge to bypass dsnoop locks
+    arecord -D pulse -f cd -t wav > "$TEMP_FIFO" 2> "$TEMP_ERR" &
+    REC_PID=$!
+    
+    # If pulse device fails instantly, fallback to ALSA default
+    sleep 0.1
+    if ! kill -0 $REC_PID 2>/dev/null; then
+        arecord -D default -f cd -t wav > "$TEMP_FIFO" 2> "$TEMP_ERR" &
+        REC_PID=$!
+    fi
 else
     rec -r 44100 -b 16 -c 1 -t wav - > "$TEMP_FIFO" 2> "$TEMP_ERR" &
+    REC_PID=$!
 fi
-REC_PID=$!
 
 # 4. Asynchronous kill-switches (Bypassing fragile bash timeout loops)
 sleep 0.5 # Buffer to prevent accidental double-taps of the Enter key on launch
