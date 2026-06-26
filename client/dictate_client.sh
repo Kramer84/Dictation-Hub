@@ -23,37 +23,59 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
+# 1. Terminate ghost processes locking the microphone
+killall arecord 2>/dev/null
+killall rec 2>/dev/null
+
 TEMP_FIFO="/tmp/dictation_fifo_$$"
 TEMP_RESP="/tmp/dictation_resp_$$"
+TEMP_ERR="/tmp/dictation_err_$$"
+TEMP_STOP="/tmp/dictation_stop_$$"
+
+rm -f "$TEMP_STOP" "$TEMP_ERR"
 mkfifo "$TEMP_FIFO"
 
 echo "🎙️ Recording and streaming... Press [Enter] or [Ctrl+C] to stop."
 
-# Stream from the FIFO using chunked transfer encoding (-T - reads from stdin)
+# 2. Launch curl stream listener in background
 curl -s -X POST -T - "http://$SERVER_IP:$SERVER_PORT/transcribe" < "$TEMP_FIFO" > "$TEMP_RESP" &
 CURL_PID=$!
 
-# Revert to standard ALSA format to prevent hardware driver crashes
+# 3. Launch audio capture, intercepting hardware errors to a file instead of /dev/null
 if [ "$AUDIO_BACKEND" == "arecord" ]; then
-    arecord -f cd -t wav > "$TEMP_FIFO" 2>/dev/null &
+    arecord -f cd -t wav > "$TEMP_FIFO" 2> "$TEMP_ERR" &
 else
-    rec -r 44100 -b 16 -c 1 -t wav - > "$TEMP_FIFO" 2>/dev/null &
+    rec -r 44100 -b 16 -c 1 -t wav - > "$TEMP_FIFO" 2> "$TEMP_ERR" &
 fi
 REC_PID=$!
 
-trap 'kill $REC_PID 2>/dev/null' SIGINT
+# 4. Asynchronous kill-switches (Bypassing fragile bash timeout loops)
+sleep 0.5 # Buffer to prevent accidental double-taps of the Enter key on launch
+( read -r; touch "$TEMP_STOP" ) &
+READ_PID=$!
 
-# Flush residual standard input (e.g., the Enter keystroke used to launch the script)
-while read -r -t 0.1; do :; done
+trap 'touch "$TEMP_STOP"' SIGINT
 
+# 5. Core execution lock
 while kill -0 $REC_PID 2>/dev/null; do
-    if read -r -t 0.1; then
+    if [ -f "$TEMP_STOP" ]; then
         kill $REC_PID 2>/dev/null
         break
     fi
+    sleep 0.1
 done
 
-wait $REC_PID 2>/dev/null
+# 6. Hardware Failure Diagnosis Check
+if [ ! -f "$TEMP_STOP" ]; then
+    echo "❌ Audio capture died instantly. Hardware Error Log:"
+    cat "$TEMP_ERR"
+    # Ensure curl closes out gracefully if the pipeline failed early
+    kill $CURL_PID 2>/dev/null
+    exit 1
+fi
+
+# Cleanup listeners
+kill $READ_PID 2>/dev/null
 trap - SIGINT
 
 echo "-> Audio capture stopped. Waiting for server inference..."
@@ -61,7 +83,7 @@ echo "-> Audio capture stopped. Waiting for server inference..."
 wait $CURL_PID
 
 RESPONSE=$(cat "$TEMP_RESP" 2>/dev/null)
-rm -f "$TEMP_FIFO" "$TEMP_RESP"
+rm -f "$TEMP_FIFO" "$TEMP_RESP" "$TEMP_ERR" "$TEMP_STOP"
 
 TEXT=$(echo "$RESPONSE" | jq -r '.text' 2>/dev/null)
 
