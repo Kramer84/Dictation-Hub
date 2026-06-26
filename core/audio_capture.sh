@@ -25,22 +25,24 @@ function audio_capture() {
     mkdir -p "$(dirname "$output_file")"
     local temp_wav="${output_file}.tmp.wav"
 
-    echo "🎙️ Recording audio... Press [Enter] or [Ctrl+C] to stop."
+    echo "  Recording audio... Press [Enter] or [Ctrl+C] to stop."
     
     arecord -f cd -t wav "$temp_wav" &>/dev/null &
     local rec_pid=$!
 
-    # Trap Ctrl+C to kill the recording binary and safely interrupt the read prompt
+    # Trap Ctrl+C to kill the recording binary
     trap 'kill $rec_pid 2>/dev/null' SIGINT
 
-    # Suspend execution until the user presses Enter (or triggers SIGINT)
-    read -r
+    # Non-blocking loop. Exits if user hits Enter (read succeeds) 
+    # OR if Ctrl+C triggers the trap and kills arecord (kill -0 fails).
+    while kill -0 $rec_pid 2>/dev/null; do
+        if read -r -t 0.1; then
+            kill $rec_pid 2>/dev/null
+            break
+        fi
+    done
 
-    # Ensure arecord is dead regardless of which method was used to stop
-    kill $rec_pid 2>/dev/null
     wait $rec_pid 2>/dev/null
-    
-    # Reset the trap so subsequent Ctrl+C presses act normally
     trap - SIGINT
 
     echo "-> Processing audio format (16kHz, mono)..."
