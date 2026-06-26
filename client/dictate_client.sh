@@ -23,82 +23,128 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
-# 1. Terminate ghost processes locking the microphone
-killall arecord 2>/dev/null
-killall rec 2>/dev/null
+killall arecord parec parecord rec ffmpeg 2>/dev/null
 
 TEMP_FIFO="/tmp/dictation_fifo_$$"
 TEMP_RESP="/tmp/dictation_resp_$$"
 TEMP_ERR="/tmp/dictation_err_$$"
-TEMP_STOP="/tmp/dictation_stop_$$"
 
-rm -f "$TEMP_STOP" "$TEMP_ERR"
+rm -f "$TEMP_ERR" "$TEMP_FIFO" "$TEMP_RESP"
 mkfifo "$TEMP_FIFO"
 
-echo "🎙️ Recording and streaming... Press [Enter] or [Ctrl+C] to stop."
+# 1. Open the dummy FD to keep the pipe alive
+exec 3<> "$TEMP_FIFO"
 
-# 2. Launch curl stream listener in background
-curl -s -X POST -T - "http://$SERVER_IP:$SERVER_PORT/transcribe" < "$TEMP_FIFO" > "$TEMP_RESP" &
+# 2. Launch curl. 3>&- prevents curl from inheriting the write FD and causing a deadlock.
+curl -s -X POST -H "Transfer-Encoding: chunked" -H "Expect:" --data-binary @- "http://$SERVER_IP:$SERVER_PORT/transcribe" < "$TEMP_FIFO" > "$TEMP_RESP" 3>&- &
 CURL_PID=$!
 
-# 3. Launch audio capture, intercepting hardware errors to a file instead of /dev/null
-if [ "$AUDIO_BACKEND" == "arecord" ]; then
-    # Attempt to route through PulseAudio/PipeWire bridge to bypass dsnoop locks
-    arecord -D pulse -f cd -t wav > "$TEMP_FIFO" 2> "$TEMP_ERR" &
-    REC_PID=$!
-    
-    # If pulse device fails instantly, fallback to ALSA default
-    sleep 0.1
-    if ! kill -0 $REC_PID 2>/dev/null; then
-        arecord -D default -f cd -t wav > "$TEMP_FIFO" 2> "$TEMP_ERR" &
+SELECTED_BACKEND=""
+
+launch_capture() {
+    if command -v parecord &> /dev/null; then
+        > "$TEMP_ERR"
+        # 3>&- isolates the background process from the dummy pipe lock
+        parecord --file-format=wav > "$TEMP_FIFO" 2> "$TEMP_ERR" 3>&- &
         REC_PID=$!
+        sleep 0.2
+        if kill -0 $REC_PID 2>/dev/null; then
+            SELECTED_BACKEND="parecord (PulseAudio/PipeWire)"
+            return 0
+        fi
     fi
-else
-    rec -r 44100 -b 16 -c 1 -t wav - > "$TEMP_FIFO" 2> "$TEMP_ERR" &
-    REC_PID=$!
-fi
 
-# 4. Asynchronous kill-switches (Bypassing fragile bash timeout loops)
-sleep 0.5 # Buffer to prevent accidental double-taps of the Enter key on launch
-( read -r; touch "$TEMP_STOP" ) &
-READ_PID=$!
-
-trap 'touch "$TEMP_STOP"' SIGINT
-
-# 5. Core execution lock
-while kill -0 $REC_PID 2>/dev/null; do
-    if [ -f "$TEMP_STOP" ]; then
-        kill $REC_PID 2>/dev/null
-        break
+    if command -v rec &> /dev/null; then
+        > "$TEMP_ERR"
+        rec -q -r 44100 -b 16 -c 1 -t wav - > "$TEMP_FIFO" 2> "$TEMP_ERR" 3>&- &
+        REC_PID=$!
+        sleep 0.2
+        if kill -0 $REC_PID 2>/dev/null; then
+            SELECTED_BACKEND="rec (SoX)"
+            return 0
+        fi
     fi
-    sleep 0.1
-done
 
-# 6. Hardware Failure Diagnosis Check
-if [ ! -f "$TEMP_STOP" ]; then
+    if command -v arecord &> /dev/null; then
+        > "$TEMP_ERR"
+        arecord -D pulse -f cd -t wav > "$TEMP_FIFO" 2> "$TEMP_ERR" 3>&- &
+        REC_PID=$!
+        sleep 0.2
+        if kill -0 $REC_PID 2>/dev/null; then
+            SELECTED_BACKEND="arecord (pulse bridge)"
+            return 0
+        fi
+
+        > "$TEMP_ERR"
+        arecord -D plughw:1,0 -f cd -t wav > "$TEMP_FIFO" 2> "$TEMP_ERR" 3>&- &
+        REC_PID=$!
+        sleep 0.2
+        if kill -0 $REC_PID 2>/dev/null; then
+            SELECTED_BACKEND="arecord (plughw:1,0)"
+            return 0
+        fi
+
+        > "$TEMP_ERR"
+        arecord -D default -f cd -t wav > "$TEMP_FIFO" 2> "$TEMP_ERR" 3>&- &
+        REC_PID=$!
+        sleep 0.2
+        if kill -0 $REC_PID 2>/dev/null; then
+            SELECTED_BACKEND="arecord (default)"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+launch_capture
+if [ $? -ne 0 ]; then
     echo "❌ Audio capture died instantly. Hardware Error Log:"
     cat "$TEMP_ERR"
-    # Ensure curl closes out gracefully if the pipeline failed early
+    exec 3>&-
     kill $CURL_PID 2>/dev/null
+    rm -f "$TEMP_FIFO" "$TEMP_RESP" "$TEMP_ERR"
     exit 1
 fi
 
-# Cleanup listeners
-kill $READ_PID 2>/dev/null
+echo "✅ Audio Backend Secured: $SELECTED_BACKEND"
+echo "🎙️ Recording and streaming... Press [Enter] or [Ctrl+C] to stop."
+
+while read -r -t 0.1; do :; done
+
+# Use SIGTERM (kill). Background jobs in bash ignore SIGINT.
+trap 'kill $REC_PID 2>/dev/null' SIGINT
+
+while kill -0 $REC_PID 2>/dev/null; do
+    if read -r -t 0.1; then
+        kill $REC_PID 2>/dev/null
+        break
+    fi
+done
+
 trap - SIGINT
 
-echo "-> Audio capture stopped. Waiting for server inference..."
+# Send EOF to curl by dropping the main script's lock on the pipe
+exec 3>&-
 
+echo "-> Audio capture stopped. Waiting for server inference..."
 wait $CURL_PID
 
 RESPONSE=$(cat "$TEMP_RESP" 2>/dev/null)
-rm -f "$TEMP_FIFO" "$TEMP_RESP" "$TEMP_ERR" "$TEMP_STOP"
 
 TEXT=$(echo "$RESPONSE" | jq -r '.text' 2>/dev/null)
+
+if [[ "$TEXT" == *"empty audio stream"* ]]; then
+     echo "❌ Server rejected stream. Client-side Hardware Error Log:"
+     cat "$TEMP_ERR" 2>/dev/null
+     rm -f "$TEMP_FIFO" "$TEMP_RESP" "$TEMP_ERR"
+     exit 1
+fi
 
 if [ -z "$TEXT" ] || [ "$TEXT" == "null" ]; then
      echo "❌ Error parsing server response:"
      echo "$RESPONSE"
+     rm -f "$TEMP_FIFO" "$TEMP_RESP" "$TEMP_ERR"
      exit 1
 fi
 
@@ -116,3 +162,5 @@ elif command -v pbcopy &> /dev/null; then
 else
     echo "⚠️ No clipboard utility found on client. Text printed above."
 fi
+
+rm -f "$TEMP_FIFO" "$TEMP_RESP" "$TEMP_ERR"
