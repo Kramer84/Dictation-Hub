@@ -202,13 +202,13 @@ def _is_pure_filler(text):
 
 def _is_fragment(text):
     text = text.strip()
+    # 1. Catch explicit filler words defined in your regex
     if FILLER_PATTERN.match(text):
         return True
-    words = text.split()
-    if len(words) <= 3 and len(text) < 25:
-        if text.endswith(("?", ".")) and text[0].isupper():
-            return False
+    # 2. Flag completely non-alphanumeric noise (e.g., lone punctuation or symbols)
+    if not re.search(r'[a-zA-Z0-9]', text):
         return True
+    # If it contains actual letters and isn't filler, trust it as a valid dictation.
     return False
 
 def phrase_level_cleanup(entries, gap_threshold_ms=3000, apply_compression=False):
