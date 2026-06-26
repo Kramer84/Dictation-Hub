@@ -29,20 +29,20 @@ mkfifo "$TEMP_FIFO"
 
 echo "🎙️ Recording and streaming... Press [Enter] or [Ctrl+C] to stop."
 
-# Start curl in the background, reading directly from the FIFO
-curl -s -X POST -T "$TEMP_FIFO" "http://$SERVER_IP:$SERVER_PORT/transcribe" > "$TEMP_RESP" &
+# Stream from the FIFO using chunked transfer encoding via stdin
+curl -s -X POST -H "Transfer-Encoding: chunked" --data-binary @- "http://$SERVER_IP:$SERVER_PORT/transcribe" < "$TEMP_FIFO" > "$TEMP_RESP" &
 CURL_PID=$!
 
+# Record raw PCM data instead of WAV to prevent broken header issues
 if [ "$AUDIO_BACKEND" == "arecord" ]; then
-    arecord -f cd -t wav > "$TEMP_FIFO" 2>/dev/null &
+    arecord -f S16_LE -c 1 -r 16000 -t raw > "$TEMP_FIFO" 2>/dev/null &
 else
-    rec -r 44100 -b 16 -c 1 -t wav - > "$TEMP_FIFO" 2>/dev/null &
+    rec -r 16000 -b 16 -c 1 -t raw - > "$TEMP_FIFO" 2>/dev/null &
 fi
 REC_PID=$!
 
 trap 'kill $REC_PID 2>/dev/null' SIGINT
 
-# Non-blocking loop allows both Enter (stdin read) and Ctrl+C (trap) to break
 while kill -0 $REC_PID 2>/dev/null; do
     if read -r -t 0.1; then
         kill $REC_PID 2>/dev/null
