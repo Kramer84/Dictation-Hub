@@ -15,6 +15,7 @@ if [ -L "$TARGET_LINK" ]; then
     rm "$TARGET_LINK"
 fi
 
+chmod +x "$CLIENT_DIR/dictate_client.sh"
 ln -s "$CLIENT_DIR/dictate_client.sh" "$TARGET_LINK"
 echo "✅ Client symlink created at: $TARGET_LINK"
 
