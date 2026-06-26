@@ -1,7 +1,6 @@
 #!/bin/bash
 # client/dictate_client.sh
 
-# Resolve physical path to find the client.env file dynamically
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do
     DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
@@ -14,49 +13,53 @@ ENV_FILE="$SCRIPT_DIR/client.env"
 
 if [ ! -f "$ENV_FILE" ]; then
     echo "Error: $ENV_FILE not found."
-    echo "Please copy client.env.template to client.env and configure your Tailscale IP."
     exit 1
 fi
 
 source "$ENV_FILE"
 
-# Ensure jq is installed
 if ! command -v jq &> /dev/null; then
-    echo "Error: jq is required to parse the server response."
+    echo "Error: jq is required."
     exit 1
 fi
 
-TEMP_WAV="/tmp/dictation_capture_$$.wav"
+TEMP_FIFO="/tmp/dictation_fifo_$$"
+TEMP_RESP="/tmp/dictation_resp_$$"
+mkfifo "$TEMP_FIFO"
 
-echo "🎙️ Recording audio... Press [Enter] to stop."
+echo "🎙️ Recording and streaming... Press [Enter] or [Ctrl+C] to stop."
+
+# Start curl in the background, reading directly from the FIFO
+curl -s -X POST -T "$TEMP_FIFO" "http://$SERVER_IP:$SERVER_PORT/transcribe" > "$TEMP_RESP" &
+CURL_PID=$!
 
 if [ "$AUDIO_BACKEND" == "arecord" ]; then
-    arecord -f cd -t wav "$TEMP_WAV" &>/dev/null &
+    arecord -f cd -t wav > "$TEMP_FIFO" 2>/dev/null &
 else
-    # Fallback for macOS utilizing sox
-    rec -r 44100 -b 16 -c 1 "$TEMP_WAV" &>/dev/null &
+    rec -r 44100 -b 16 -c 1 -t wav - > "$TEMP_FIFO" 2>/dev/null &
 fi
-
 REC_PID=$!
-read -r
-kill $REC_PID 2>/dev/null
+
+trap 'kill $REC_PID 2>/dev/null' SIGINT
+
+# Non-blocking loop allows both Enter (stdin read) and Ctrl+C (trap) to break
+while kill -0 $REC_PID 2>/dev/null; do
+    if read -r -t 0.1; then
+        kill $REC_PID 2>/dev/null
+        break
+    fi
+done
+
 wait $REC_PID 2>/dev/null
+trap - SIGINT
 
-echo "-> Transmitting to Tailscale node ($SERVER_IP:$SERVER_PORT)..."
+echo "-> Audio capture stopped. Waiting for server inference..."
 
-# Fire the audio to the FastAPI endpoint
-RESPONSE=$(curl -s -X POST "http://$SERVER_IP:$SERVER_PORT/transcribe" \
-     -H "Content-Type: multipart/form-data" \
-     -F "file=@$TEMP_WAV")
+wait $CURL_PID
 
-rm -f "$TEMP_WAV"
+RESPONSE=$(cat "$TEMP_RESP" 2>/dev/null)
+rm -f "$TEMP_FIFO" "$TEMP_RESP"
 
-if [ $? -ne 0 ]; then
-    echo "❌ Error: Failed to connect to server via Tailscale."
-    exit 1
-fi
-
-# Extract text payload
 TEXT=$(echo "$RESPONSE" | jq -r '.text' 2>/dev/null)
 
 if [ -z "$TEXT" ] || [ "$TEXT" == "null" ]; then
@@ -67,7 +70,6 @@ fi
 
 echo -e "\n$TEXT\n"
 
-# Client-Side Clipboard Injection
 if command -v wl-copy &> /dev/null; then
     echo -n "$TEXT" | wl-copy
     echo "✅ Copied to Wayland clipboard."
