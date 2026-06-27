@@ -7,18 +7,25 @@
   "profiles": {
     "standard": {
       "env": "standard.env",
+      "env_overrides": {},
       "post_processing": []
     },
     "mail": {
       "env": "standard.env",
+      "env_overrides": {
+        "MARK_CONFIDENCE": "true"
+      },
       "post_processing": [
-        "python3 {repo_root}/post_processing/llm_pipeline.py --mode mail"
+        "python3 {repo_root}/post_processing/llm_pipeline.py --mode mail --language '{language}'"
       ]
     },
     "notes": {
       "env": "standard.env",
+      "env_overrides": {
+        "MARK_CONFIDENCE": "true"
+      },
       "post_processing": [
-        "python3 {repo_root}/post_processing/llm_pipeline.py --mode notes"
+        "python3 {repo_root}/post_processing/llm_pipeline.py --mode notes --language '{language}'"
       ]
     }
   }

@@ -32,11 +32,7 @@ fi
 declare -A OVERRIDES
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        --*)
-            KEY="${1#--}"
-            OVERRIDES[$KEY]="$2"
-            shift 2
-            ;;
+        --*) KEY="${1#--}"; OVERRIDES[$KEY]="$2"; shift 2 ;;
         *) shift ;;
     esac
 done
@@ -51,30 +47,41 @@ BASE_ENV=$(jq -r ".profiles[\"$PROFILE\"].env" "$CONFIG_JSON")
 VALID_ARGS=$(jq -r ".valid_arguments[]?" "$CONFIG_JSON")
 CONFIG_FULL="$REPO_ROOT/configs/$BASE_ENV"
 
+if [[ ! -f "$CONFIG_FULL" ]]; then
+    echo "Error: Base environment $CONFIG_FULL not found."
+    exit 1
+fi
+
 RAW_BASE_DIR=$(jq -r '.storage.base_dir' "$CONFIG_STATIC")
 BASE_DIR="${RAW_BASE_DIR/#\~/$HOME}"
 FORMAT=$(jq -r '.storage.folder_format' "$CONFIG_STATIC")
 TIMESTAMP=$(date +"$FORMAT")
 
-# --- Dynamic Naming ---
-WORKSPACE_NAME="${TIMESTAMP}_${PROFILE}"
-WORKSPACE="$BASE_DIR/$WORKSPACE_NAME"
-mkdir -p "$WORKSPACE"
+# Apply folder suffix
+WORKSPACE="$BASE_DIR/${TIMESTAMP}_${PROFILE}"
 
-FILE_WAV="$WORKSPACE/${WORKSPACE_NAME}$(jq -r '.suffixes.audio' "$CONFIG_STATIC")"
-FILE_JSON="$WORKSPACE/${WORKSPACE_NAME}$(jq -r '.suffixes.full_json' "$CONFIG_STATIC")"
+mkdir -p "$WORKSPACE"
+FILE_WAV="$WORKSPACE/${TIMESTAMP}$(jq -r '.suffixes.audio' "$CONFIG_STATIC")"
+FILE_JSON="$WORKSPACE/${TIMESTAMP}$(jq -r '.suffixes.full_json' "$CONFIG_STATIC")"
 
 echo "========================================================"
-echo " Workspace Created: $WORKSPACE"
+echo " Workspace Created: $WORKSPACE (Profile: $PROFILE)"
 echo "========================================================"
 
 TEMP_ENV=$(mktemp)
 cat "$CONFIG_FULL" > "$TEMP_ENV"
 echo -e "\n# --- DYNAMIC OVERRIDES ---" >> "$TEMP_ENV"
+
+# Inject JSON hard overrides first
+jq -r ".profiles[\"$PROFILE\"].env_overrides | to_entries[] | \"\(.key)=\\\"\(.value)\\\"\"" "$CONFIG_JSON" 2>/dev/null >> "$TEMP_ENV"
+
+# Inject CLI arguments second
 for KEY in "${!OVERRIDES[@]}"; do
     if echo "$VALID_ARGS" | grep -qw "$KEY"; then
         UPPER_KEY=$(echo "$KEY" | tr 'a-z' 'A-Z')
         echo "${UPPER_KEY}=\"${OVERRIDES[$KEY]}\"" >> "$TEMP_ENV"
+    else
+        echo "[Router] Warning: Argument '$KEY' is not in valid_arguments."
     fi
 done
 
@@ -91,24 +98,27 @@ if [[ -f "$FILE_WAV" ]]; then
     rm "$TEMP_ENV"
 
     if [[ -f "$FILE_JSON" ]]; then
-        # --- Metadata & Language Extraction ---
-        LANG_DETECTED=$(jq -r '.language // "unknown"' "$FILE_JSON")
+        # Extract Language & Metadata
+        LANG_CODE=$(jq -r '.result.language // "auto"' "$FILE_JSON" 2>/dev/null)
         cat <<EOF > "$WORKSPACE/metadata.json"
 {
-  "timestamp": "$TIMESTAMP",
   "profile": "$PROFILE",
-  "detected_language": "$LANG_DETECTED"
+  "language": "$LANG_CODE",
+  "timestamp": "$TIMESTAMP"
 }
 EOF
-        
+
         echo "[Router] Booting deterministic cleaner..."
-        POST_STEPS=$(jq -r ".profiles[\"$PROFILE\"].post_processing[]?" "$CONFIG_JSON" 2>/dev/null)
         
-        PY_ARGS=("--compress-repetitions")
-        # Force confidence markers if we are passing this to an LLM
-        if [[ -n "$POST_STEPS" ]]; then
-            PY_ARGS+=("--mark-confidence")
+        # Check if config forced confidence markers
+        MARK_CONF=$(grep "^MARK_CONFIDENCE=" "$TEMP_ENV" | cut -d'"' -f2 || echo "false")
+        if [[ -z "$MARK_CONF" ]]; then
+            MARK_CONF=$(grep "^MARK_CONFIDENCE=" "$CONFIG_FULL" | cut -d'"' -f2 || echo "false")
         fi
+
+        PY_ARGS=()
+        [[ "$MARK_CONF" == "true" ]] && PY_ARGS+=("--mark-confidence")
+        PY_ARGS+=("--compress-repetitions")
 
         python3 "$REPO_ROOT/post_processing/deterministic_cleaner.py" "${PY_ARGS[@]}" "$FILE_JSON"
         
@@ -119,14 +129,15 @@ EOF
         FINAL_TEXT="$RAW_TEXT"
         CURRENT_INPUT="$RAW_TXT_PATH"
 
+        POST_STEPS=$(jq -r ".profiles[\"$PROFILE\"].post_processing[]?" "$CONFIG_JSON" 2>/dev/null)
         if [[ -n "$POST_STEPS" ]]; then
             STEP=1
             while IFS= read -r script_cmd; do
                 if [ -n "$script_cmd" ]; then
                     STEP_OUT="${FILE_JSON%.*}_step${STEP}.txt"
                     cmd="${script_cmd//\{repo_root\}/$REPO_ROOT}"
-                    # Dynamically inject the language argument
-                    cmd="$cmd --input \"$CURRENT_INPUT\" --output \"$STEP_OUT\" --language \"$LANG_DETECTED\""
+                    cmd="${cmd//\{language\}/$LANG_CODE}"
+                    cmd="$cmd --input \"$CURRENT_INPUT\" --output \"$STEP_OUT\""
                     
                     echo "[Router] Running Post-Processing Step $STEP..."
                     eval "$cmd"
@@ -166,6 +177,6 @@ EOF
         exit 1
     fi
 else
-    echo "[Router] Error: $FILE_WAV was not created."
+    echo "[Router] Error: $FILE_WAV was not created. Aborting transcription."
     exit 1
 fi

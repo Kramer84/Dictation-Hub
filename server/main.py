@@ -16,22 +16,23 @@ async def transcribe(request: Request):
     query_params = dict(request.query_params)
     profile_name = query_params.get("profile", "standard")
     
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    workspace_name = f"{timestamp}_{profile_name}"
-    workspace = os.path.expanduser(f"~/.whisper_transcriptions/{workspace_name}")
-    os.makedirs(workspace, exist_ok=True)
-    
-    raw_audio = os.path.join(workspace, f"{workspace_name}_client.wav")
-    norm_wav = os.path.join(workspace, f"{workspace_name}_raw.wav")
-    json_out = os.path.join(workspace, f"{workspace_name}_full.json")
-    
     with open(CONFIG_JSON_PATH, "r", encoding="utf-8") as f:
         config = json.load(f)
         
     profile_data = config.get("profiles", {}).get(profile_name, config["profiles"]["standard"])
     base_env = profile_data.get("env", "standard.env")
+    env_overrides = profile_data.get("env_overrides", {})
     valid_args = config.get("valid_arguments", [])
 
+    # Apply folder suffix
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    workspace = os.path.expanduser(f"~/.whisper_transcriptions/{timestamp}_{profile_name}")
+    os.makedirs(workspace, exist_ok=True)
+    
+    raw_audio = os.path.join(workspace, f"{timestamp}_client.wav")
+    norm_wav = os.path.join(workspace, f"{timestamp}_raw.wav")
+    json_out = os.path.join(workspace, f"{timestamp}_full.json")
+    
     with open(raw_audio, "wb") as f:
         async for chunk in request.stream():
             f.write(chunk)
@@ -50,6 +51,10 @@ async def transcribe(request: Request):
         with open(os.path.join(REPO_ROOT, "configs", base_env), "r") as base:
             f.write(base.read())
         f.write("\n# --- DYNAMIC OVERRIDES ---\n")
+        # JSON-defined overrides first
+        for key, val in env_overrides.items():
+            f.write(f'{key.upper()}="{val}"\n')
+        # Client query overrides second (client wins)
         for key, val in query_params.items():
             if key in valid_args:
                 f.write(f'{key.upper()}="{val}"\n')
@@ -58,4 +63,63 @@ async def transcribe(request: Request):
     
     subprocess.run([
         "bash", transcribe_script,
-        "--input", norm
+        "--input", norm_wav,
+        "--config", temp_env_path,
+        "--output", json_out
+    ], check=True)
+    
+    os.remove(temp_env_path)
+
+    # --- Language Extraction & Metadata ---
+    detected_lang = "auto"
+    if os.path.exists(json_out):
+        with open(json_out, "r", encoding="utf-8") as f:
+            whisper_data = json.load(f)
+            detected_lang = whisper_data.get("language", "auto")
+            
+    metadata = {
+        "profile": profile_name,
+        "language": detected_lang,
+        "timestamp": timestamp
+    }
+    with open(os.path.join(workspace, "metadata.json"), "w", encoding="utf-8") as f:
+        json.dump(metadata, f, indent=2)
+
+    # Check if confidence markers should be applied
+    use_confidence = "true" if env_overrides.get("MARK_CONFIDENCE", "false").lower() == "true" else "false"
+    cleaner_args = ["python3", os.path.join(REPO_ROOT, "post_processing", "deterministic_cleaner.py"), "--compress-repetitions"]
+    if use_confidence == "true":
+        cleaner_args.append("--mark-confidence")
+    cleaner_args.append(json_out)
+    
+    subprocess.run(cleaner_args, check=True)
+    
+    cleaned_json = json_out.replace(".json", "_cleaned.json")
+    with open(cleaned_json, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    
+    raw_text = " ".join([seg["text"] for seg in data.get("segments", [])]).strip()
+    
+    raw_txt_path = json_out.replace(".json", "_raw.txt")
+    with open(raw_txt_path, "w", encoding="utf-8") as f:
+        f.write(raw_text)
+
+    # --- LLM Pipeline Execution ---
+    final_text = raw_text
+    current_input = raw_txt_path
+    post_steps = profile_data.get("post_processing", [])
+    
+    for i, script_cmd in enumerate(post_steps):
+        step_out = json_out.replace(".json", f"_step{i+1}.txt")
+        cmd = script_cmd.replace("{repo_root}", REPO_ROOT).replace("{language}", detected_lang)
+        cmd = f"{cmd} --input '{current_input}' --output '{step_out}'"
+        
+        subprocess.run(cmd, shell=True, check=True)
+        current_input = step_out
+        
+        with open(current_input, "r", encoding="utf-8") as f:
+            final_text = f.read().strip()
+
+    open(os.path.join(workspace, ".completed"), 'a').close()
+
+    return {"raw_text": raw_text, "final_text": final_text}
