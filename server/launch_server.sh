@@ -19,4 +19,4 @@ fi
 source venv/bin/activate
 
 echo "🔒 Starting Server securely locked to Tailscale interface: $TS_IP"
-uvicorn main:app --host "$TS_IP" --port 8000
+exec uvicorn main:app --host "$TS_IP" --port 8000
