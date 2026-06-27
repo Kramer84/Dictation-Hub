@@ -8,20 +8,34 @@ while [ -h "$SOURCE" ]; do
     [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
-
 ENV_FILE="$SCRIPT_DIR/client.env"
 
 if [ ! -f "$ENV_FILE" ]; then
     echo "Error: $ENV_FILE not found."
     exit 1
 fi
-
 source "$ENV_FILE"
 
-if ! command -v jq &> /dev/null; then
-    echo "Error: jq is required."
-    exit 1
+# --- Dynamic Argument Parsing ---
+PROFILE="standard"
+if [[ $# -gt 0 && ! "$1" == --* ]]; then
+    PROFILE="$1"
+    shift
 fi
+
+QUERY_STRING="profile=$PROFILE"
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --*)
+            KEY="${1#--}"
+            VAL="$2"
+            QUERY_STRING="${QUERY_STRING}&${KEY}=${VAL}"
+            shift 2
+            ;;
+        *) shift ;;
+    esac
+done
+# ---------------------------------
 
 killall arecord parec parecord rec ffmpeg 2>/dev/null
 
@@ -32,68 +46,37 @@ TEMP_ERR="/tmp/dictation_err_$$"
 rm -f "$TEMP_ERR" "$TEMP_FIFO" "$TEMP_RESP"
 mkfifo "$TEMP_FIFO"
 
-# 1. Open the dummy FD to keep the pipe alive
 exec 3<> "$TEMP_FIFO"
 
-# 2. Launch curl. 3>&- prevents curl from inheriting the write FD and causing a deadlock.
-curl -s -X POST -H "Transfer-Encoding: chunked" -H "Expect:" --data-binary @- "http://$SERVER_IP:$SERVER_PORT/transcribe" < "$TEMP_FIFO" > "$TEMP_RESP" 3>&- &
+# Send chunked audio stream with dynamic query parameters appended to the URL
+curl -s -X POST -H "Transfer-Encoding: chunked" -H "Expect:" --data-binary @- "http://$SERVER_IP:$SERVER_PORT/transcribe?${QUERY_STRING}" < "$TEMP_FIFO" > "$TEMP_RESP" 3>&- &
 CURL_PID=$!
 
 SELECTED_BACKEND=""
-
 launch_capture() {
     if command -v parecord &> /dev/null; then
         > "$TEMP_ERR"
-        # 3>&- isolates the background process from the dummy pipe lock
         parecord --file-format=wav > "$TEMP_FIFO" 2> "$TEMP_ERR" 3>&- &
         REC_PID=$!
-        sleep 0.2
-        if kill -0 $REC_PID 2>/dev/null; then
-            SELECTED_BACKEND="parecord (PulseAudio/PipeWire)"
-            return 0
-        fi
+        sleep 0.2; kill -0 $REC_PID 2>/dev/null && { SELECTED_BACKEND="parecord"; return 0; }
     fi
-
     if command -v rec &> /dev/null; then
         > "$TEMP_ERR"
         rec -q -r 44100 -b 16 -c 1 -t wav - > "$TEMP_FIFO" 2> "$TEMP_ERR" 3>&- &
         REC_PID=$!
-        sleep 0.2
-        if kill -0 $REC_PID 2>/dev/null; then
-            SELECTED_BACKEND="rec (SoX)"
-            return 0
-        fi
+        sleep 0.2; kill -0 $REC_PID 2>/dev/null && { SELECTED_BACKEND="rec (SoX)"; return 0; }
     fi
-
     if command -v arecord &> /dev/null; then
         > "$TEMP_ERR"
         arecord -D pulse -f cd -t wav > "$TEMP_FIFO" 2> "$TEMP_ERR" 3>&- &
         REC_PID=$!
-        sleep 0.2
-        if kill -0 $REC_PID 2>/dev/null; then
-            SELECTED_BACKEND="arecord (pulse bridge)"
-            return 0
-        fi
-
-        > "$TEMP_ERR"
-        arecord -D plughw:1,0 -f cd -t wav > "$TEMP_FIFO" 2> "$TEMP_ERR" 3>&- &
-        REC_PID=$!
-        sleep 0.2
-        if kill -0 $REC_PID 2>/dev/null; then
-            SELECTED_BACKEND="arecord (plughw:1,0)"
-            return 0
-        fi
-
+        sleep 0.2; kill -0 $REC_PID 2>/dev/null && { SELECTED_BACKEND="arecord (pulse)"; return 0; }
+        
         > "$TEMP_ERR"
         arecord -D default -f cd -t wav > "$TEMP_FIFO" 2> "$TEMP_ERR" 3>&- &
         REC_PID=$!
-        sleep 0.2
-        if kill -0 $REC_PID 2>/dev/null; then
-            SELECTED_BACKEND="arecord (default)"
-            return 0
-        fi
+        sleep 0.2; kill -0 $REC_PID 2>/dev/null && { SELECTED_BACKEND="arecord (default)"; return 0; }
     fi
-
     return 1
 }
 
@@ -107,60 +90,60 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "✅ Audio Backend Secured: $SELECTED_BACKEND"
+echo "✅ Audio Backend Secured: $SELECTED_BACKEND (Profile: $PROFILE)"
 echo "🎙️ Recording and streaming... Press [Enter] or [Ctrl+C] to stop."
 
 while read -r -t 0.1; do :; done
-
-# Use SIGTERM (kill). Background jobs in bash ignore SIGINT.
 trap 'kill $REC_PID 2>/dev/null' SIGINT
-
 while kill -0 $REC_PID 2>/dev/null; do
     if read -r -t 0.1; then
         kill $REC_PID 2>/dev/null
         break
     fi
 done
-
 trap - SIGINT
 
-# Send EOF to curl by dropping the main script's lock on the pipe
 exec 3>&-
-
 echo "-> Audio capture stopped. Waiting for server inference..."
 wait $CURL_PID
 
 RESPONSE=$(cat "$TEMP_RESP" 2>/dev/null)
 
-TEXT=$(echo "$RESPONSE" | jq -r '.text' 2>/dev/null)
-
-if [[ "$TEXT" == *"empty audio stream"* ]]; then
-     echo "❌ Server rejected stream. Client-side Hardware Error Log:"
-     cat "$TEMP_ERR" 2>/dev/null
+if [[ "$RESPONSE" == *"empty audio stream"* ]]; then
+     echo "❌ Server rejected stream."
      rm -f "$TEMP_FIFO" "$TEMP_RESP" "$TEMP_ERR"
      exit 1
 fi
 
-if [ -z "$TEXT" ] || [ "$TEXT" == "null" ]; then
+RAW_TEXT=$(echo "$RESPONSE" | jq -r '.raw_text' 2>/dev/null)
+FINAL_TEXT=$(echo "$RESPONSE" | jq -r '.final_text' 2>/dev/null)
+
+if [ -z "$RAW_TEXT" ] || [ "$RAW_TEXT" == "null" ]; then
      echo "❌ Error parsing server response:"
      echo "$RESPONSE"
      rm -f "$TEMP_FIFO" "$TEMP_RESP" "$TEMP_ERR"
      exit 1
 fi
 
-echo -e "\n$TEXT\n"
+echo -e "\n=== RAW TEXT ==="
+echo -e "$RAW_TEXT"
+
+if [[ "$RAW_TEXT" != "$FINAL_TEXT" && -n "$FINAL_TEXT" ]]; then
+    echo -e "\n=== POST-PROCESSED TEXT ==="
+    echo -e "$FINAL_TEXT"
+fi
+
+TEXT_TO_COPY="${FINAL_TEXT:-$RAW_TEXT}"
 
 if command -v wl-copy &> /dev/null; then
-    echo -n "$TEXT" | wl-copy
-    echo "✅ Copied to Wayland clipboard."
+    echo -n "$TEXT_TO_COPY" | wl-copy
+    echo -e "\n✅ Copied to Wayland clipboard."
 elif command -v xclip &> /dev/null; then
-    echo -n "$TEXT" | xclip -selection clipboard
-    echo "✅ Copied to X11 clipboard."
+    echo -n "$TEXT_TO_COPY" | xclip -selection clipboard
+    echo -e "\n✅ Copied to X11 clipboard."
 elif command -v pbcopy &> /dev/null; then
-    echo -n "$TEXT" | pbcopy
-    echo "✅ Copied to macOS clipboard."
-else
-    echo "⚠️ No clipboard utility found on client. Text printed above."
+    echo -n "$TEXT_TO_COPY" | pbcopy
+    echo -e "\n✅ Copied to macOS clipboard."
 fi
 
 rm -f "$TEMP_FIFO" "$TEMP_RESP" "$TEMP_ERR"
