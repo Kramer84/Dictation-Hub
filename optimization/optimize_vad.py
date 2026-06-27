@@ -89,6 +89,29 @@ def main():
             print("[DONE] Recording complete.")
             # Convert to 1D torch tensor required by Silero
             wav_tensor = torch.from_numpy(recorded_audio).squeeze()
+
+            # -----------------------------------------------------------------
+            # PEAK NORMALIZATION PROCESSING (Matches Bash Script Engine)
+            # -----------------------------------------------------------------
+            # Extract the absolute peak value from the tensor
+            max_amplitude = torch.max(torch.abs(wav_tensor)).item()
+            
+            if max_amplitude > 0:
+                target_peak_db = -6.0
+                # Convert the -6.0 dB target value to a linear amplitude scale
+                target_linear = 10 ** (target_peak_db / 20.0)
+                
+                # Calculate the exact static scalar multiplier
+                multiplier = target_linear / max_amplitude
+                
+                # Calculate the exact dB adjustment for visual logging consistency
+                gain_db = target_peak_db - (20.0 * np.log10(max_amplitude))
+                
+                # Apply the uniform linear gain shift across the array
+                wav_tensor = wav_tensor * multiplier
+                print(f"   -> Applied static whole-file peak gain adjustment: {gain_db:.2f}dB (Target: {target_peak_db}dB)")
+            else:
+                print("   ⚠️ Warning: Could not detect audio peak (silent recording). Skipping normalization.")
             
         elif choice == '2' and wav_tensor is not None:
             print("\nPlaying Original Audio...")

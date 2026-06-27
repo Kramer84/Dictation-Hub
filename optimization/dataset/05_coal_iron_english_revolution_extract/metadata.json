@@ -1,26 +1,26 @@
 {
     "take_01": {
-        "background_noise": "no",
-        "noise_type": "none",
-        "filler_words": "no",
-        "long_pauses": "no",
-        "environment": "clean",
-        "language": "en"
+        "language": "en",
+        "background_noise": "y",
+        "noise_type": "fan",
+        "filler_words": "n",
+        "long_pauses": "y",
+        "environment": "clean"
     },
     "take_02": {
-        "background_noise": "no",
+        "language": "en",
+        "background_noise": "n",
         "noise_type": "none",
-        "filler_words": "no",
-        "long_pauses": "no",
-        "environment": "clean",
-        "language": "en"
+        "filler_words": "y",
+        "long_pauses": "y",
+        "environment": "clean"
     },
     "take_03": {
-        "background_noise": "no",
-        "noise_type": "none",
-        "filler_words": "no",
-        "long_pauses": "no",
-        "environment": "clean",
-        "language": "en"
+        "language": "en",
+        "background_noise": "y",
+        "noise_type": "fan",
+        "filler_words": "n",
+        "long_pauses": "n",
+        "environment": "clean"
     }
 }

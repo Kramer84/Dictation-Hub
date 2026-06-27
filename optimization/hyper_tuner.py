@@ -4,25 +4,27 @@ import logging
 import json
 import optuna
 from core.whisper_interface import run_whisper_trial
-from core.evaluator import calculate_wer, normalize_text
+from core.evaluator import normalize_text, get_error_metrics
+from search_space import get_search_space
 
 DATASET_DIR = "optimization/dataset"
 LOG_FILE = "optimization/hyper_tuning.log"
 
-def get_test_cases(filter_noise=None):
+def get_test_cases():
     cases = []
     for folder in os.listdir(DATASET_DIR):
         folder_path = os.path.join(DATASET_DIR, folder)
-        if not os.path.isdir(folder_path): continue
+        if not os.path.isdir(folder_path): 
+            continue
         
         ref_path = os.path.join(folder_path, "reference.txt")
         meta_path = os.path.join(folder_path, "metadata.json")
         
         if not os.path.exists(ref_path) or not os.path.exists(meta_path): 
             continue
-            
+        
         with open(ref_path, "r", encoding="utf-8") as f:
-            reference_text = f.read()
+            reference_text = f.read().strip()
             
         with open(meta_path, "r", encoding="utf-8") as f:
             metadata = json.load(f)
@@ -32,108 +34,104 @@ def get_test_cases(filter_noise=None):
                 take_key = file.replace(".wav", "")
                 take_meta = metadata.get(take_key, {})
                 
-                # Filter logic for sequential tuning
-                is_noisy = take_meta.get("background_noise") in ['yes', 'y']
-                if filter_noise is True and not is_noisy:
-                    continue
-                if filter_noise is False and is_noisy:
-                    continue
-                    
                 cases.append({
                     "audio": os.path.join(folder_path, file),
                     "reference": reference_text,
-                    "language": take_meta.get("language", "en")
+                    "language": take_meta.get("language", "en") # Bypasses auto-detect
                 })
     return cases
 
 # ==========================================
-# STAGE 1: VAD OPTIMIZATION
+# DECODER OBJECTIVE FUNCTION
 # ==========================================
-def objective_stage_1(trial):
-    params = {
-        "VAD_THOLD": trial.suggest_float("VAD_THOLD", 0.3, 0.9),
-        "USE_VAD": "true",
-        # Keep Whisper defaults static during VAD tuning
-        "BEAM_SIZE": 5,
-        "ENTROPY_THOLD": 2.4,
-        "LOGPROB_THOLD": -1.0
-    }
+def objective(trial):
+    params = get_search_space(trial)
+    test_cases = get_test_cases()
     
-    # Only test on noisy audio to tune the pre-filter
-    test_cases = get_test_cases(filter_noise=True)
     if not test_cases:
-        raise ValueError("No noisy test cases found for Stage 1. Record noisy data first.")
+        raise ValueError("No test cases found in dataset directory.")
         
-    total_wer = 0
-    for step, case in enumerate(test_cases):
-        params["LANGUAGE"] = case["language"]
-        output = run_whisper_trial(case["audio"], params)
-        if not output: return float('inf')
-            
-        hypothesis = " ".join([seg.get('text', '') for seg in output.get('transcription', [])])
-        total_wer += calculate_wer(normalize_text(case["reference"]), normalize_text(hypothesis))
-        
-        trial.report(total_wer / (step + 1), step)
-        if trial.should_prune(): raise optuna.exceptions.TrialPruned()
-            
-    return total_wer / len(test_cases)
-
-# ==========================================
-# STAGE 2: DECODER OPTIMIZATION
-# ==========================================
-def objective_stage_2(trial, best_vad_params):
-    params = {
-        "BEAM_SIZE": trial.suggest_int("BEAM_SIZE", 2, 8),
-        "ENTROPY_THOLD": trial.suggest_float("ENTROPY_THOLD", 1.8, 3.0),
-        "LOGPROB_THOLD": trial.suggest_float("LOGPROB_THOLD", -2.0, -0.5),
-        "USE_VAD": "true",
-        "VAD_THOLD": best_vad_params["VAD_THOLD"]
-    }
+    total_weighted_wer = 0
     
-    # Tune decoder heuristics on clean audio to maximize wording accuracy
-    test_cases = get_test_cases(filter_noise=False)
-    if not test_cases:
-        raise ValueError("No clean test cases found for Stage 2.")
-        
-    total_wer = 0
     for step, case in enumerate(test_cases):
-        params["LANGUAGE"] = case["language"]
-        output = run_whisper_trial(case["audio"], params)
-        if not output: return float('inf')
-            
-        hypothesis = " ".join([seg.get('text', '') for seg in output.get('transcription', [])])
-        total_wer += calculate_wer(normalize_text(case["reference"]), normalize_text(hypothesis))
+        # Dynamically inject the known language from metadata into the trial parameters
+        lang = case.get("language", "en")
+        params["LANGUAGE"] = lang
         
-        trial.report(total_wer / (step + 1), step)
-        if trial.should_prune(): raise optuna.exceptions.TrialPruned()
+        output = run_whisper_trial(case["audio"], params)
+        
+        if not output:
+            return float('inf')
             
-    return total_wer / len(test_cases)
+        segments = output.get('transcription', output.get('segments', []))
+        hypothesis = " ".join([seg.get('text', '') for seg in segments])
+        
+        norm_ref = normalize_text(case["reference"], lang=lang)
+        norm_hyp = normalize_text(hypothesis, lang=lang)
+        
+        metrics = get_error_metrics(norm_ref, norm_hyp)
+        
+        # CUSTOM PENALTY LOGIC
+        # Define how much you hate each type of error.
+        # This makes the tuner "smarter" about what it avoids.
+        penalty_score = (
+            (metrics["insertions"] * 1.5) +  # Hallucinations are costly
+            (metrics["deletions"] * 1.0) +   # Missed words are standard
+            (metrics["substitutions"] * 1.2) # Wrong words are problematic
+        )
+        
+        # Normalize the penalty by the length of the reference 
+        # so it remains a percentage-like score
+        ref_len = len(norm_ref.split())
+        weighted_wer = penalty_score / ref_len if ref_len > 0 else float('inf')
+        
+        total_weighted_wer += weighted_wer
+        
+        # Report intermediate performance to Optuna
+        avg_wer_so_far = total_weighted_wer / (step + 1)
+        trial.report(avg_wer_so_far, step)
+        
+        # Prune the trial if the first few files yield terrible WER compared to previous trials
+        if trial.should_prune():
+            raise optuna.exceptions.TrialPruned()
+            
+    avg_wer = total_weighted_wer / len(test_cases)
+    return avg_wer
 
 if __name__ == "__main__":
+    print("Starting Hyperparameter Optimization...")
+    
+    # ==========================================
+    # FILE LOGGING CONFIGURATION
+    # ==========================================
     os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
-    logger.addHandler(logging.FileHandler(LOG_FILE))
+    
+    file_handler = logging.FileHandler(LOG_FILE)
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    logger.addHandler(file_handler)
+    
     optuna.logging.enable_propagation()  
     optuna.logging.disable_default_handler() 
     
-    print("--- STARTING STAGE 1: VAD OPTIMIZATION ---")
-    study_stage_1 = optuna.create_study(direction="minimize", pruner=optuna.pruners.MedianPruner(n_warmup_steps=2))
-    study_stage_1.optimize(objective_stage_1, n_trials=20)
-    best_vad = study_stage_1.best_params
-    print(f"Stage 1 Complete. Optimal VAD: {best_vad['VAD_THOLD']:.2f}")
+    # MedianPruner aborts unpromising parameter sets early based on reported steps
+    study = optuna.create_study(
+        direction="minimize", 
+        pruner=optuna.pruners.MedianPruner(n_warmup_steps=2)
+    )
     
-    print("\n--- STARTING STAGE 2: DECODER OPTIMIZATION ---")
-    study_stage_2 = optuna.create_study(direction="minimize", pruner=optuna.pruners.MedianPruner(n_warmup_steps=2))
-    study_stage_2.optimize(lambda trial: objective_stage_2(trial, best_vad), n_trials=30)
+    try:
+        study.optimize(objective, n_trials=50, show_progress_bar=True)
+    except KeyboardInterrupt:
+        print("\nOptimization interrupted by user.")
     
     print("\n========================================================")
-    print(" Sequential Optimization Complete")
+    print(" Optimization Complete")
     print("========================================================")
-    print(f"Final Average WER (Clean Data): {study_stage_2.best_value:.2%}")
+    print(f"Best Average WWER: {study.best_value:.2%}")
     print("\nOptimal Parameters:")
-    print(f'VAD_THOLD="{best_vad["VAD_THOLD"]:.2f}"')
-    for key, value in study_stage_2.best_params.items():
+    for key, value in study.best_params.items():
         if isinstance(value, float):
             print(f'{key}="{value:.2f}"')
         else:

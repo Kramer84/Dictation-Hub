@@ -5,7 +5,7 @@ import subprocess
 import json
 
 DATASET_DIR = "optimization/dataset"
-TAKES = 5
+TAKES = 3
 
 def get_or_create_metadata(folder_path):
     meta_path = os.path.join(folder_path, "metadata.json")
