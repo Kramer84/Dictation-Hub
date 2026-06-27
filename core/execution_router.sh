@@ -95,8 +95,6 @@ if [[ -f "$FILE_WAV" ]]; then
         --config "$TEMP_ENV" \
         --output "$FILE_JSON"
 
-    rm "$TEMP_ENV"
-
     if [[ -f "$FILE_JSON" ]]; then
         # Extract Language & Metadata
         LANG_CODE=$(jq -r '.result.language // "auto"' "$FILE_JSON" 2>/dev/null)
@@ -115,6 +113,8 @@ EOF
         if [[ -z "$MARK_CONF" ]]; then
             MARK_CONF=$(grep "^MARK_CONFIDENCE=" "$CONFIG_FULL" | cut -d'"' -f2 || echo "false")
         fi
+
+        rm "$TEMP_ENV"
 
         PY_ARGS=()
         [[ "$MARK_CONF" == "true" ]] && PY_ARGS+=("--mark-confidence")

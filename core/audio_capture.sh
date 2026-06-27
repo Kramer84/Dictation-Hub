@@ -49,12 +49,29 @@ function audio_capture() {
     local ffmpeg_cmd="ffmpeg -hide_banner -loglevel error -y -i \"$temp_wav\" -ar 16000 -ac 1 -c:a pcm_s16le"
     local filters=""
 
+    # -----------------------------------------------------------------
+    # PEAK NORMALIZATION PROCESSING (Two-Pass Static Gain)
+    # -----------------------------------------------------------------
     if [ "$normalize" = true ]; then
-        echo "   -> Applying EBU R128 loudness normalization (Target: -16 LUFS, Max Peak: -1.5dBTP)..."
-        if [ -n "$filters" ]; then
-            filters+=",loudnorm=I=-16:TP=-1.5:LRA=11"
+        echo "   -> Analyzing audio for peak normalization..."
+        
+        # 1. Run volumedetect on the recorded temp file to extract max_volume
+        local max_vol
+        max_vol=$(ffmpeg -i "$temp_wav" -af volumedetect -f null /dev/null 2>&1 | grep "max_volume:" | awk '{print $5}')
+        
+        if [ -n "$max_vol" ]; then
+            # Target Peak: -6.0 dB to leave headroom for transcoding/resampling
+            local target_peak="-6.0"
+            
+            # Calculate static gain adjustment required (Target - Max Peak)
+            # e.g., if max_volume is -12.5dB, gain needs to be +11.5dB
+            local gain
+            gain=$(awk "BEGIN {print $target_peak - ($max_vol)}")
+            
+            echo "   -> Applying static whole-file peak gain adjustment: ${gain}dB (Target: ${target_peak}dB)..."
+            filters="volume=${gain}dB"
         else
-            filters="loudnorm=I=-16:TP=-1.5:LRA=11"
+            echo "   ⚠️ Warning: Could not detect audio peak. Skipping normalization."
         fi
     fi
 

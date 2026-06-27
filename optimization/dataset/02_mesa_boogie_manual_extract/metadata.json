@@ -1,0 +1,26 @@
+{
+    "take_01": {
+        "background_noise": "no",
+        "noise_type": "none",
+        "filler_words": "no",
+        "long_pauses": "no",
+        "environment": "clean",
+        "language": "en"
+    },
+    "take_02": {
+        "background_noise": "no",
+        "noise_type": "none",
+        "filler_words": "no",
+        "long_pauses": "no",
+        "environment": "clean",
+        "language": "en"
+    },
+    "take_03": {
+        "background_noise": "no",
+        "noise_type": "none",
+        "filler_words": "no",
+        "long_pauses": "no",
+        "environment": "clean",
+        "language": "en"
+    }
+}
