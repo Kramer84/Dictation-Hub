@@ -11,6 +11,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DICTATE="$BIN_DIR/dictate"
 TARGET_START="$BIN_DIR/dictate-server-start"
 TARGET_STOP="$BIN_DIR/dictate-server-stop"
+TARGET_SETUP="$BIN_DIR/dictate-server-setup"
 
 echo "========================================"
 echo " Initializing Global Workspace Commands"
@@ -25,10 +26,12 @@ chmod +x "$REPO_ROOT/server/"*.sh
 ln -sf "$REPO_ROOT/core/execution_router.sh" "$TARGET_DICTATE"
 ln -sf "$REPO_ROOT/server/start_server.sh" "$TARGET_START"
 ln -sf "$REPO_ROOT/server/stop_server.sh" "$TARGET_STOP"
+ln -sf "$REPO_ROOT/server/setup_server.sh" "$TARGET_SETUP"
 
 echo "✅ Created symlink: $TARGET_DICTATE"
 echo "✅ Created symlink: $TARGET_START"
 echo "✅ Created symlink: $TARGET_STOP"
+echo "✅ Created symlink: $TARGET_SETUP"
 
 if ! grep -qF 'export PATH="$HOME/.local/bin:$PATH"' "$HOME/.bashrc"; then
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
