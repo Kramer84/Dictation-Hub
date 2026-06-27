@@ -1,0 +1,25 @@
+{
+  "valid_arguments": [
+    "language",
+    "model",
+    "temperature"
+  ],
+  "profiles": {
+    "standard": {
+      "env": "standard.env",
+      "post_processing": []
+    },
+    "mail": {
+      "env": "standard.env",
+      "post_processing": [
+        "python3 {repo_root}/post_processing/llm_pipeline.py --mode mail"
+      ]
+    },
+    "notes": {
+      "env": "standard.env",
+      "post_processing": [
+        "python3 {repo_root}/post_processing/llm_pipeline.py --mode notes"
+      ]
+    }
+  }
+}
