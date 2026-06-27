@@ -23,7 +23,6 @@ if [[ ! -f "$CONFIG_STATIC" || ! -f "$CONFIG_JSON" ]]; then
     exit 1
 fi
 
-# --- Dynamic Argument Parsing ---
 PROFILE="standard"
 if [[ $# -gt 0 && ! "$1" == --* ]]; then
     PROFILE="$1"
@@ -52,26 +51,23 @@ BASE_ENV=$(jq -r ".profiles[\"$PROFILE\"].env" "$CONFIG_JSON")
 VALID_ARGS=$(jq -r ".valid_arguments[]?" "$CONFIG_JSON")
 CONFIG_FULL="$REPO_ROOT/configs/$BASE_ENV"
 
-if [[ ! -f "$CONFIG_FULL" ]]; then
-    echo "Error: Base environment $CONFIG_FULL not found."
-    exit 1
-fi
-
 RAW_BASE_DIR=$(jq -r '.storage.base_dir' "$CONFIG_STATIC")
 BASE_DIR="${RAW_BASE_DIR/#\~/$HOME}"
 FORMAT=$(jq -r '.storage.folder_format' "$CONFIG_STATIC")
 TIMESTAMP=$(date +"$FORMAT")
-WORKSPACE="$BASE_DIR/$TIMESTAMP"
 
+# --- Dynamic Naming ---
+WORKSPACE_NAME="${TIMESTAMP}_${PROFILE}"
+WORKSPACE="$BASE_DIR/$WORKSPACE_NAME"
 mkdir -p "$WORKSPACE"
-FILE_WAV="$WORKSPACE/${TIMESTAMP}$(jq -r '.suffixes.audio' "$CONFIG_STATIC")"
-FILE_JSON="$WORKSPACE/${TIMESTAMP}$(jq -r '.suffixes.full_json' "$CONFIG_STATIC")"
+
+FILE_WAV="$WORKSPACE/${WORKSPACE_NAME}$(jq -r '.suffixes.audio' "$CONFIG_STATIC")"
+FILE_JSON="$WORKSPACE/${WORKSPACE_NAME}$(jq -r '.suffixes.full_json' "$CONFIG_STATIC")"
 
 echo "========================================================"
-echo " Workspace Created: $WORKSPACE (Profile: $PROFILE)"
+echo " Workspace Created: $WORKSPACE"
 echo "========================================================"
 
-# --- Build Temporary Override ENV ---
 TEMP_ENV=$(mktemp)
 cat "$CONFIG_FULL" > "$TEMP_ENV"
 echo -e "\n# --- DYNAMIC OVERRIDES ---" >> "$TEMP_ENV"
@@ -79,12 +75,9 @@ for KEY in "${!OVERRIDES[@]}"; do
     if echo "$VALID_ARGS" | grep -qw "$KEY"; then
         UPPER_KEY=$(echo "$KEY" | tr 'a-z' 'A-Z')
         echo "${UPPER_KEY}=\"${OVERRIDES[$KEY]}\"" >> "$TEMP_ENV"
-    else
-        echo "[Router] Warning: Argument '$KEY' is not in valid_arguments."
     fi
 done
 
-# 1. Blocking Audio Capture
 bash "$SCRIPT_DIR/audio_capture.sh" --output "$FILE_WAV" --normalize 
 
 if [[ -f "$FILE_WAV" ]]; then
@@ -98,13 +91,24 @@ if [[ -f "$FILE_WAV" ]]; then
     rm "$TEMP_ENV"
 
     if [[ -f "$FILE_JSON" ]]; then
+        # --- Metadata & Language Extraction ---
+        LANG_DETECTED=$(jq -r '.language // "unknown"' "$FILE_JSON")
+        cat <<EOF > "$WORKSPACE/metadata.json"
+{
+  "timestamp": "$TIMESTAMP",
+  "profile": "$PROFILE",
+  "detected_language": "$LANG_DETECTED"
+}
+EOF
+        
         echo "[Router] Booting deterministic cleaner..."
-        MARK_CONFIDENCE=$(grep "^MARK_CONFIDENCE=" "$CONFIG_FULL" | cut -d'"' -f2 || echo "false")
-        COMPRESS_REPETITIONS=$(grep "^COMPRESS_REPETITIONS=" "$CONFIG_FULL" | cut -d'"' -f2 || echo "false")
-
-        PY_ARGS=()
-        [[ "$MARK_CONFIDENCE" == "true" ]] && PY_ARGS+=("--mark-confidence")
-        [[ "$COMPRESS_REPETITIONS" == "true" ]] && PY_ARGS+=("--compress-repetitions")
+        POST_STEPS=$(jq -r ".profiles[\"$PROFILE\"].post_processing[]?" "$CONFIG_JSON" 2>/dev/null)
+        
+        PY_ARGS=("--compress-repetitions")
+        # Force confidence markers if we are passing this to an LLM
+        if [[ -n "$POST_STEPS" ]]; then
+            PY_ARGS+=("--mark-confidence")
+        fi
 
         python3 "$REPO_ROOT/post_processing/deterministic_cleaner.py" "${PY_ARGS[@]}" "$FILE_JSON"
         
@@ -115,15 +119,14 @@ if [[ -f "$FILE_WAV" ]]; then
         FINAL_TEXT="$RAW_TEXT"
         CURRENT_INPUT="$RAW_TXT_PATH"
 
-        # --- Dynamic Post-Processing Execution ---
-        POST_STEPS=$(jq -r ".profiles[\"$PROFILE\"].post_processing[]?" "$CONFIG_JSON" 2>/dev/null)
         if [[ -n "$POST_STEPS" ]]; then
             STEP=1
             while IFS= read -r script_cmd; do
                 if [ -n "$script_cmd" ]; then
                     STEP_OUT="${FILE_JSON%.*}_step${STEP}.txt"
                     cmd="${script_cmd//\{repo_root\}/$REPO_ROOT}"
-                    cmd="$cmd --input \"$CURRENT_INPUT\" --output \"$STEP_OUT\""
+                    # Dynamically inject the language argument
+                    cmd="$cmd --input \"$CURRENT_INPUT\" --output \"$STEP_OUT\" --language \"$LANG_DETECTED\""
                     
                     echo "[Router] Running Post-Processing Step $STEP..."
                     eval "$cmd"
@@ -139,7 +142,6 @@ if [[ -f "$FILE_WAV" ]]; then
             done <<< "$POST_STEPS"
         fi
 
-        # Write .completed flag
         touch "$WORKSPACE/.completed"
 
         echo -e "\n=== RAW TEXT ==="
@@ -164,6 +166,6 @@ if [[ -f "$FILE_WAV" ]]; then
         exit 1
     fi
 else
-    echo "[Router] Error: $FILE_WAV was not created. Aborting transcription."
+    echo "[Router] Error: $FILE_WAV was not created."
     exit 1
 fi
