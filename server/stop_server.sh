@@ -1,7 +1,14 @@
 #!/bin/bash
 # server/stop_server.sh
 
-SERVER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+    DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SERVER_DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+
 PID_FILE="$SERVER_DIR/server.pid"
 
 if [ ! -f "$PID_FILE" ]; then
@@ -17,7 +24,6 @@ if kill -0 "$SERVER_PID" 2>/dev/null; then
     echo "🛑 Sending termination signal to Server (PID: $SERVER_PID)..."
     kill "$SERVER_PID"
     
-    # Wait to allow FastAPI to cleanly drop connections
     sleep 2 
     
     if kill -0 "$SERVER_PID" 2>/dev/null; then
