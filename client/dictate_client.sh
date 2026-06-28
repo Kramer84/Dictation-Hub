@@ -54,37 +54,45 @@ CURL_PID=$!
 
 SELECTED_BACKEND=""
 launch_capture() {
-    # Initialize the error log immediately so the file always exists
-    touch "$TEMP_ERR"
+    # Initialize and clear the log completely at start
+    > "$TEMP_ERR"
 
-    local has_any_backend=false
+    # 1. FFmpeg Profile
+    if command -v ffmpeg &> /dev/null; then
+        echo "=== Attempting FFmpeg Backend ===" >> "$TEMP_ERR"
+        # Added the trailing hyphen (-) right before the redirection operator
+        ffmpeg -nostdin -y -f pulse -i default -ac 1 -ar 44100 -f wav - > "$TEMP_FIFO" 2>> "$TEMP_ERR" 3>&- &
+        REC_PID=$!
+        sleep 0.3; kill -0 $REC_PID 2>/dev/null && { SELECTED_BACKEND="ffmpeg (pulse)"; return 0; }
+    fi
 
-    if command -v parecord &> /dev/null; then
-        has_any_backend=true
-        parecord --file-format=wav > "$TEMP_FIFO" 2> "$TEMP_ERR" 3>&- &
-        REC_PID=$!
-        sleep 0.2; kill -0 $REC_PID 2>/dev/null && { SELECTED_BACKEND="parecord"; return 0; }
-    fi
-    if command -v rec &> /dev/null; then
-        has_any_backend=true
-        rec -q -r 44100 -b 16 -c 1 -t wav - > "$TEMP_FIFO" 2> "$TEMP_ERR" 3>&- &
-        REC_PID=$!
-        sleep 0.2; kill -0 $REC_PID 2>/dev/null && { SELECTED_BACKEND="rec (SoX)"; return 0; }
-    fi
+    # 2. ALSA Profile
     if command -v arecord &> /dev/null; then
-        has_any_backend=true
-        arecord -D pulse -f cd -t wav > "$TEMP_FIFO" 2> "$TEMP_ERR" 3>&- &
+        echo "=== Attempting ALSA (pulse) Backend ===" >> "$TEMP_ERR"
+        arecord -D pulse -f cd -t wav > "$TEMP_FIFO" 2>> "$TEMP_ERR" 3>&- &
         REC_PID=$!
         sleep 0.2; kill -0 $REC_PID 2>/dev/null && { SELECTED_BACKEND="arecord (pulse)"; return 0; }
 
-        arecord -D default -f cd -t wav > "$TEMP_FIFO" 2> "$TEMP_ERR" 3>&- &
+        echo "=== Attempting ALSA (default) Backend ===" >> "$TEMP_ERR"
+        arecord -D default -f cd -t wav > "$TEMP_FIFO" 2>> "$TEMP_ERR" 3>&- &
         REC_PID=$!
         sleep 0.2; kill -0 $REC_PID 2>/dev/null && { SELECTED_BACKEND="arecord (default)"; return 0; }
     fi
 
-    # Explicitly catch the missing binary scenario
-    if [ "$has_any_backend" = false ]; then
-        echo "Dependency Error: 'parecord' (pulseaudio-utils), 'rec' (sox), or 'arecord' (alsa-utils) must be installed." > "$TEMP_ERR"
+    # 3. SoX Profile
+    if command -v rec &> /dev/null; then
+        echo "=== Attempting SoX Rec Backend ===" >> "$TEMP_ERR"
+        rec -q -r 44100 -b 16 -c 1 -t wav - > "$TEMP_FIFO" 2>> "$TEMP_ERR" 3>&- &
+        REC_PID=$!
+        sleep 0.2; kill -0 $REC_PID 2>/dev/null && { SELECTED_BACKEND="rec (SoX)"; return 0; }
+    fi
+
+    # 4. Native PulseAudio Profile
+    if command -v parecord &> /dev/null; then
+        echo "=== Attempting PulseAudio Native Backend ===" >> "$TEMP_ERR"
+        parecord --file-format=wav > "$TEMP_FIFO" 2>> "$TEMP_ERR" 3>&- &
+        REC_PID=$!
+        sleep 0.2; kill -0 $REC_PID 2>/dev/null && { SELECTED_BACKEND="parecord"; return 0; }
     fi
 
     return 1
@@ -156,4 +164,12 @@ elif command -v pbcopy &> /dev/null; then
     echo -e "\n✅ Copied to macOS clipboard."
 fi
 
-rm -f "$TEMP_FIFO" "$TEMP_RESP" "$TEMP_ERR"
+if [[ "$RESPONSE" == *"empty audio stream"* ]]; then
+     echo "❌ Server rejected stream."
+     if [ -s "$TEMP_ERR" ]; then
+         echo -e "\n=== FFmpeg Backend Log ==="
+         cat "$TEMP_ERR"
+     fi
+     rm -f "$TEMP_FIFO" "$TEMP_RESP" "$TEMP_ERR"
+     exit 1
+fi
