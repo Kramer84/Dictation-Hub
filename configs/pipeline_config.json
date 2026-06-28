@@ -10,10 +10,19 @@
       "env_overrides": {},
       "post_processing": []
     },
+    "technical": {
+      "env": "standard.env",
+      "env_overrides": {
+        "MARK_CONFIDENCE": "true",
+        "INITIAL_PROMPT": "Ollama, Python, Mistral, LLM, JSON, PyTorch, Probabilities, Epistemic, Engineering, Vikunja, N8N, SiYuan, Prompt, Pipeline, PhD, Research, Reliability, Sensitivity, Tolerancing."
+      },
+      "post_processing": []
+    },
     "mail": {
       "env": "standard.env",
       "env_overrides": {
-        "MARK_CONFIDENCE": "true"
+        "MARK_CONFIDENCE": "true",
+        "INITIAL_PROMPT": "Kristof Simady"
       },
       "post_processing": [
         "python3 {repo_root}/post_processing/llm_pipeline.py --mode mail --language '{language}'"
@@ -26,6 +35,16 @@
       },
       "post_processing": [
         "python3 {repo_root}/post_processing/llm_pipeline.py --mode notes --language '{language}'"
+      ]
+    },
+    "scheduling": {
+      "env": "standard.env",
+      "env_overrides": {
+        "MARK_CONFIDENCE": "true",
+        "INITIAL_PROMPT": "Google Calendar, Task, Meeting, Job Interview, PhD Defense, Anniversary, Monthly, Annual, Daily, Afternoon, Morning"
+      },
+      "post_processing": [
+        "python3 {repo_root}/post_processing/llm_pipeline.py --mode mail --language '{language}'"
       ]
     }
   }
