@@ -82,7 +82,7 @@ def main():
             f.write("")
         return
 
-    system_prompt = args.prompt.replace("{lang}", args.language)
+    system_prompt = args.prompt.replace("{language}", args.language)
     
     try:
         if args.provider.lower() == "mistral":

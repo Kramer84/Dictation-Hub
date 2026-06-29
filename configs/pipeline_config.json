@@ -41,12 +41,12 @@
           "language": "{language}"
         },
         {
-          "type": "llm",
-          "provider": "local",
-          "model": "qwen2.5-coder:7b-instruct",
-          "enforce_json": false,
-          "prompt": "You are a technical text correction pipeline. Your task is to clean up a technical dictation transcript.\n\nCRITICAL CONSTRAINTS:\n1. Preserve the original sentence structure and word order exactly. Do not rewrite sentences or improve grammar.\n2. Remove all confidence markers:\n  - Words followed by [??] have less than 30% confidence. Verify and correct based on context.\n  - Words followed by [?] have less than 60% confidence. Check for spelling or phonetic errors.\n  - Strip the markers [??] and [?] and their preceding space from the final output.\n3. Analyze words flagged with markers against the global technical context:\n   - If a marked word is typographically or phonetically close to a valid technical term in the context, correct it to the correct technical spelling.\n   - If a marked word is completely incoherent and breaks the sentence, replace it with the contextually correct technical word.\n4. Detect unmarked hallucinations: If an unmarked word completely contradicts the technical context (e.g., phonetic substitution of a technical term), correct it.\n\nOutput ONLY the corrected text. Do not include explanations, notes, or markdown formatting wrapper blocks."
-        }
+        "type": "llm",
+        "provider": "local",
+        "model": "qwen2.5-coder:7b-instruct",
+        "enforce_json": false,
+        "prompt": "You are a technical text correction pipeline. Your task is to clean up a raw technical dictation transcript by verifying semantic and technical coherence.\n\nCRITICAL CONSTRAINTS:\n1. Preserve the original sentence structure and narrative flow. Do not rewrite sentences into a different style, do not add summaries, and do not remove technical details.\n2. Identify contextually incoherent words (e.g., phonetic substitutions or Whisper hallucinations) and replace them with the correct technical terms based on the global context of the sentence.\n3. Pay close attention to specialized terms, frameworks, and libraries. Ensure spellings match standard engineering nomenclature.\n\nRAW DICTATION TEXT:\n{text}\n\nOutput ONLY the corrected text. Do not include explanations, notes, or markdown formatting wrapper blocks."
+      }
       ]
     },
     "mail": {
@@ -72,7 +72,7 @@
           "provider": "mistral",
           "model": "mistral-large-latest",
           "enforce_json": false,
-          "prompt": "You are an assistant. Format the following dictated text into a professional, clear, and concise email. Do not add conversational filler. Words followed by [---] are low-confidence. Target ISO lang: {lang}."
+          "prompt": "You are an assistant. Format the following dictated text into a professional, clear, and concise email. Do not add conversational filler. Words followed by [---] are low-confidence. Target ISO language: {language}."
         }
       ]
     },
@@ -100,7 +100,7 @@
           "model": "llama3",
           "endpoint": "http://localhost:11434/v1/chat/completions",
           "enforce_json": true,
-          "prompt": "You are a data extraction tool. Extract the task details from the text. You MUST output ONLY valid JSON matching this schema: {\"task_title\": \"string\", \"due_date\": \"YYYY-MM-DD or null\", \"priority\": \"high/medium/low\"}. Do not include markdown formatting. Target ISO lang: {lang}."
+          "prompt": "You are a data extraction tool. Extract the task details from the text. You MUST output ONLY valid JSON matching this schema: {\"task_title\": \"string\", \"due_date\": \"YYYY-MM-DD or null\", \"priority\": \"high/medium/low\"}. Do not include markdown formatting. Target ISO language: {lang}."
         }
       ]
     },
@@ -126,13 +126,13 @@
           "provider": "local",
           "model": "llama3-8b",
           "endpoint": "http://localhost:11434/v1/chat/completions",
-          "prompt": "Extract the core technical problem from this text, ignoring conversational filler. Target ISO lang: {lang}."
+          "prompt": "Extract the core technical problem from this text, ignoring conversational filler. Target ISO language: {language}."
         },
         {
           "type": "llm",
           "provider": "mistral",
           "model": "mistral-large-latest",
-          "prompt": "Take the extracted technical problem and generate three targeted questions to ask the engineering team. Target ISO lang: {lang}."
+          "prompt": "Take the extracted technical problem and generate three targeted questions to ask the engineering team. Target ISO language: {language}."
         }
       ]
     }

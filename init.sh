@@ -39,3 +39,14 @@ if ! grep -qF 'export PATH="$HOME/.local/bin:$PATH"' "$HOME/.bashrc"; then
 else
     echo "✅ ~/.local/bin configuration is already present in your ~/.bashrc."
 fi
+
+# --- Autocompletion Setup ---
+COMPLETION_SCRIPT="$REPO_ROOT/core/dictate_completion.sh"
+chmod +x "$COMPLETION_SCRIPT"
+
+if ! grep -qF "source \"$COMPLETION_SCRIPT\"" "$HOME/.bashrc"; then
+    echo "source \"$COMPLETION_SCRIPT\"" >> "$HOME/.bashrc"
+    echo "✅ Added dictate autocompletion to ~/.bashrc."
+else
+    echo "✅ Autocompletion is already configured in ~/.bashrc."
+fi

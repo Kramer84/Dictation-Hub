@@ -31,3 +31,14 @@ if [ ! -f "$CLIENT_DIR/client.env" ]; then
     cp "$CLIENT_DIR/client.env.template" "$CLIENT_DIR/client.env"
     echo "⚠️  Created client.env. Please edit it to add your main computer's Tailscale IP."
 fi
+
+# --- Autocompletion Setup ---
+COMPLETION_SCRIPT="$REPO_ROOT/core/dictate_completion.sh"
+chmod +x "$COMPLETION_SCRIPT"
+
+if ! grep -qF "source \"$COMPLETION_SCRIPT\"" "$HOME/.bashrc"; then
+    echo "source \"$COMPLETION_SCRIPT\"" >> "$HOME/.bashrc"
+    echo "✅ Added dictate autocompletion to ~/.bashrc."
+else
+    echo "✅ Autocompletion is already configured in ~/.bashrc."
+fi
