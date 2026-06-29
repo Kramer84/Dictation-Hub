@@ -1,7 +1,6 @@
 #!/bin/bash
 # server/start_server.sh
 
-# Bulletproof path resolution for Ubuntu via realpath
 SERVER_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" >/dev/null 2>&1 && pwd)"
 PID_FILE="$SERVER_DIR/server.pid"
 
@@ -15,8 +14,11 @@ if [ -f "$PID_FILE" ]; then
     fi
 fi
 
-echo "🚀 Booting FastAPI Transcription Server in the background..."
+echo "🚀 Booting LanguageTool Daemon..."
+# Run synchronously. It pushes itself to the background automatically.
+bash "$SERVER_DIR/start_languagetool.sh"
 
+echo "🚀 Booting FastAPI Transcription Server in the background..."
 nohup bash "$SERVER_DIR/launch_server.sh" > "$SERVER_DIR/server.log" 2>&1 &
 SERVER_PID=$!
 

@@ -29,10 +29,18 @@ def main():
     text = re.sub(r'\s*\[\?+\]|\s*\[[-+]+\]', '', text)
 
     lt_lang = LANG_MAP.get(args.language, "en-US")
-    tool = language_tool_python.LanguageToolPublicAPI(lt_lang)
     
-    corrected_text = tool.correct(text)
-    tool.close()
+    try:
+        # Point to the permanent local daemon on port 8081
+        tool = language_tool_python.LanguageTool(lt_lang, remote_server='http://localhost:8081')
+        corrected_text = tool.correct(text)
+    except Exception as e:
+        print(f"❌ [Grammar Checker] Failed to connect to local daemon: {e}")
+        print("-> Bypassing grammar check and returning raw text.")
+        corrected_text = text
+    finally:
+        if 'tool' in locals():
+            tool.close()
 
     with open(args.output, "w", encoding="utf-8") as f:
         f.write(corrected_text)
