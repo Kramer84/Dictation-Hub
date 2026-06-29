@@ -107,19 +107,25 @@ if [[ -f "$FILE_WAV" ]]; then
 EOF
 
         echo "[Router] Booting deterministic cleaner..."
-        
-        # Check if config forced confidence markers
-        MARK_CONF=$(grep "^MARK_CONFIDENCE=" "$TEMP_ENV" | cut -d'"' -f2 || echo "false")
+
+        # 1. Directly extract the profile's env overrides using jq
+        MARK_CONF=$(jq -r ".profiles[\"$PROFILE\"].env_overrides.MARK_CONFIDENCE // empty" "$CONFIG_JSON")
+        MARK_COMP=$(jq -r ".profiles[\"$PROFILE\"].env_overrides.COMPRESS_REPETITIONS // empty" "$CONFIG_JSON")
+
+        # 2. If it wasn't overridden in pipeline_config.json, fall back to parsing standard.env
         if [[ -z "$MARK_CONF" ]]; then
-            MARK_CONF=$(grep "^MARK_CONFIDENCE=" "$CONFIG_FULL" | cut -d'"' -f2 || echo "false")
+            MARK_CONF=$(grep "^MARK_CONFIDENCE=" "$CONFIG_FULL" | cut -d'=' -f2 | tr -d '"[:space:]')
         fi
 
-        # Check if config forced repetition compression marker
-        MARK_COMP=$(grep "^COMPRESS_REPETITIONS=" "$TEMP_ENV" | cut -d'"' -f2 || echo "false")
         if [[ -z "$MARK_COMP" ]]; then
-            MARK_COMP=$(grep "^COMPRESS_REPETITIONS=" "$CONFIG_FULL" | cut -d'"' -f2 || echo "false")
+            MARK_COMP=$(grep "^COMPRESS_REPETITIONS=" "$CONFIG_FULL" | cut -d'=' -f2 | tr -d '"[:space:]')
         fi
 
+        # 3. Clean up strings just in case
+        MARK_CONF=$(echo "$MARK_CONF" | tr -d '"[:space:]')
+        MARK_COMP=$(echo "$MARK_COMP" | tr -d '"[:space:]')
+
+        # Clean up the temp environment file as before
         rm "$TEMP_ENV"
 
         PY_ARGS=()

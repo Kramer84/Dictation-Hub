@@ -274,7 +274,16 @@ def main():
         print(f"Error: {args.input_json} not found.")
         sys.exit(1)
 
-    print(f"-> Running deterministic pre-processing on {args.input_json}...")
+    # Gather active flags for explicit visibility in the router logs
+    active_flags = []
+    if args.mark_confidence:
+        active_flags.append("--mark-confidence")
+    if args.compress_repetitions:
+        active_flags.append("--compress-repetitions")
+    
+    flags_str = f" with flags: {' '.join(active_flags)}" if active_flags else " with no extra flags"
+
+    print(f"-> Running deterministic pre-processing on {args.input_json}{flags_str}...")
     
     raw_segments = parse_whisper_json(args.input_json)
     
