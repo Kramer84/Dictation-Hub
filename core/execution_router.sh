@@ -114,11 +114,17 @@ EOF
             MARK_CONF=$(grep "^MARK_CONFIDENCE=" "$CONFIG_FULL" | cut -d'"' -f2 || echo "false")
         fi
 
+        # Check if config forced repetition compression marker
+        MARK_COMP=$(grep "^COMPRESS_REPETITIONS=" "$TEMP_ENV" | cut -d'"' -f2 || echo "false")
+        if [[ -z "$MARK_COMP" ]]; then
+            MARK_COMP=$(grep "^COMPRESS_REPETITIONS=" "$CONFIG_FULL" | cut -d'"' -f2 || echo "false")
+        fi
+
         rm "$TEMP_ENV"
 
         PY_ARGS=()
         [[ "$MARK_CONF" == "true" ]] && PY_ARGS+=("--mark-confidence")
-        PY_ARGS+=("--compress-repetitions")
+        [[ "$MARK_COMP" == "true" ]] && PY_ARGS+=("--compress-repetitions")
 
         python3 "$REPO_ROOT/post_processing/deterministic_cleaner.py" "${PY_ARGS[@]}" "$FILE_JSON"
         
@@ -129,29 +135,69 @@ EOF
         FINAL_TEXT="$RAW_TEXT"
         CURRENT_INPUT="$RAW_TXT_PATH"
 
-        POST_STEPS=$(jq -r ".profiles[\"$PROFILE\"].post_processing[]?" "$CONFIG_JSON" 2>/dev/null)
-        if [[ -n "$POST_STEPS" ]]; then
-            STEP=1
-            while IFS= read -r script_cmd; do
-                if [ -n "$script_cmd" ]; then
-                    STEP_OUT="${FILE_JSON%.*}_step${STEP}.txt"
-                    cmd="${script_cmd//\{repo_root\}/$REPO_ROOT}"
-                    cmd="${cmd//\{language\}/$LANG_CODE}"
-                    cmd="$cmd --input \"$CURRENT_INPUT\" --output \"$STEP_OUT\""
-                    
-                    echo "[Router] Running Post-Processing Step $STEP..."
-                    eval "$cmd"
-                    
-                    if [[ $? -ne 0 ]]; then
-                        echo "[Router] Error during post-processing step $STEP."
-                        exit 1
-                    fi
-                    CURRENT_INPUT="$STEP_OUT"
-                    FINAL_TEXT=$(cat "$CURRENT_INPUT")
-                    ((STEP++))
+        # --- Dynamic Post-Processing Execution ---
+        STEP=1
+        while IFS= read -r step_json; do
+            if [[ -z "$step_json" || "$step_json" == "null" ]]; then
+                continue
+            fi
+            
+            STEP_TYPE=$(echo "$step_json" | jq -r '.type // empty')
+            STEP_OUT="${FILE_JSON%.*}_step${STEP}.txt"
+            
+            if [[ "$STEP_TYPE" == "llm" ]]; then
+                PROVIDER=$(echo "$step_json" | jq -r '.provider // "local"')
+                MODEL=$(echo "$step_json" | jq -r '.model // "llama3"')
+                ENDPOINT=$(echo "$step_json" | jq -r '.endpoint // "http://localhost:11434/v1/chat/completions"')
+                PROMPT=$(echo "$step_json" | jq -r '.prompt // empty')
+                ENFORCE_JSON=$(echo "$step_json" | jq -r '.enforce_json // false')
+                
+                CMD="python3 \"$REPO_ROOT/post_processing/llm_step_runner.py\""
+                CMD="$CMD --input \"$CURRENT_INPUT\" --output \"$STEP_OUT\""
+                CMD="$CMD --provider \"$PROVIDER\" --model \"$MODEL\" --endpoint \"$ENDPOINT\""
+                CMD="$CMD --language \"$LANG_CODE\" --prompt \"$PROMPT\""
+                
+                if [[ "$ENFORCE_JSON" == "true" ]]; then
+                    CMD="$CMD --enforce-json"
                 fi
-            done <<< "$POST_STEPS"
-        fi
+                
+                echo "[Router] Running Post-Processing Step $STEP ($PROVIDER / $MODEL)..."
+                eval "$CMD"
+                
+            elif [[ "$STEP_TYPE" == "deterministic" ]]; then
+                SCRIPT_NAME=$(echo "$step_json" | jq -r '.script // empty')
+                DICT_PATH=$(echo "$step_json" | jq -r '.dictionary // empty')
+                LANG_ARG=$(echo "$step_json" | jq -r '.language // empty')
+                EXTRA_ARGS=$(echo "$step_json" | jq -r '.args // empty')
+                
+                CMD="python3 \"$REPO_ROOT/post_processing/$SCRIPT_NAME\" --input \"$CURRENT_INPUT\" --output \"$STEP_OUT\""
+                
+                if [[ -n "$DICT_PATH" && "$DICT_PATH" != "null" ]]; then
+                    CMD="$CMD --dict \"$REPO_ROOT/$DICT_PATH\""
+                fi
+                if [[ "$LANG_ARG" == "{language}" ]]; then
+                    CMD="$CMD --language \"$LANG_CODE\""
+                fi
+                if [[ -n "$EXTRA_ARGS" && "$EXTRA_ARGS" != "null" ]]; then
+                    CMD="$CMD $EXTRA_ARGS"
+                fi
+                
+                echo "[Router] Running Deterministic Step $STEP ($SCRIPT_NAME)..."
+                eval "$CMD"
+            else
+                continue
+            fi
+            
+            if [[ $? -ne 0 ]]; then
+                echo "[Router] Error during post-processing step $STEP."
+                exit 1
+            fi
+            
+            CURRENT_INPUT="$STEP_OUT"
+            FINAL_TEXT=$(cat "$CURRENT_INPUT")
+            ((STEP++))
+            
+        done < <(jq -c ".profiles[\"$PROFILE\"].post_processing[]?" "$CONFIG_JSON" 2>/dev/null)
 
         touch "$WORKSPACE/.completed"
 

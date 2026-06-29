@@ -32,20 +32,17 @@ def parse_whisper_json(filepath):
     return data.get('transcription', data.get('segments', []))
 
 def add_confidence_marker(text, p_value):
-    if p_value < 0.4:
-        return f"{text}[---]"
+    if p_value < 0.3:
+        return f"{text} [??]"
     elif p_value < 0.6:
-        return f"{text}[--]"
-    elif p_value < 0.8:
-        return f"{text}[-]"
-    elif p_value > 0.99:
-        return f"{text}[+]"
+        return f"{text} [?]"
     return text
 
 def compress_repetitions_marked(text, min_phrase_len=2, max_phrase_len=60):
     """
     Scans for repeating phrases and collapses them using a Maximum Coverage strategy.
     Prioritizes the smallest foundational n-gram over compound segments.
+    Does not allow repetition matches to cross sentence boundaries.
     """
     if not text:
         return ""
@@ -58,14 +55,23 @@ def compress_repetitions_marked(text, min_phrase_len=2, max_phrase_len=60):
         t_base = re.sub(r'\[_TT_\d+\]|\[_BEG_\]', '', t_base)
         return t_base.lower().strip(string.punctuation)
 
+    def ends_sentence(t):
+        # Checks if the raw token ends with terminal punctuation
+        t_base = re.sub(r'\[.*?\]', '', t) # strip markers
+        return any(t_base.endswith(p) for p in ['.', '!', '?'])
+
     cleaned_words = []
     valid_mapping = []
+    sentence_boundaries = set() # Track indices that close a sentence
 
     for idx, t in enumerate(tokens):
         c = clean_token(t)
         if c:  
             cleaned_words.append(c)
             valid_mapping.append(idx)
+            if ends_sentence(t):
+                # Mark that this cleaned token index closes a sentence
+                sentence_boundaries.add(len(cleaned_words) - 1)
 
     n = len(cleaned_words)
     output_tokens = []
@@ -86,18 +92,30 @@ def compress_repetitions_marked(text, min_phrase_len=2, max_phrase_len=60):
             pat = cleaned_words[i : i+L]
             nxt = cleaned_words[i+L : i+2*L]
 
+            # CRITICAL CHECK: Ensure the pattern block itself doesn't internalize a boundary,
+            # and the transition from pat to nxt doesn't cross a sentence boundary.
+            # Stutters/hallucination loops rarely skip over valid periods.
+            has_boundary = any(idx in sentence_boundaries for idx in range(i, i + L))
+            if has_boundary:
+                continue
+
             if pat == nxt:
                 count = 1
                 curr = i + L
+                loop_crossed_boundary = False
+                
                 while curr + L <= n:
-                    if cleaned_words[curr : curr+L] == pat:
+                    # Ensure subsequent loops don't step over boundaries
+                    if any(idx in sentence_boundaries for idx in range(curr, curr + L)):
+                        loop_crossed_boundary = True
+                    
+                    if cleaned_words[curr : curr+L] == pat and not loop_crossed_boundary:
                         count += 1
                         curr += L
                     else:
                         break
                 
                 coverage = L * count
-                # Keep the smallest L if coverage is identical (e.g., L22x4 beats L44x2)
                 if coverage > max_coverage:
                     max_coverage = coverage
                     best_len = L

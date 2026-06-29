@@ -16,7 +16,15 @@
         "MARK_CONFIDENCE": "true",
         "INITIAL_PROMPT": "Ollama, Python, Mistral, LLM, JSON, PyTorch, Probabilities, Epistemic, Engineering, Vikunja, N8N, SiYuan, Prompt, Pipeline, PhD, Research, Reliability, Sensitivity, Tolerancing."
       },
-      "post_processing": []
+      "post_processing": [
+        {
+          "type": "llm",
+          "provider": "local",
+          "model": "qwen2.5-coder:7b-instruct",
+          "enforce_json": false,
+          "prompt": "You are a technical text correction pipeline. Your task is to clean up a technical dictation transcript.\n\nCRITICAL CONSTRAINTS:\n1. Preserve the original sentence structure and word order exactly. Do not rewrite sentences or improve grammar.\n2. Remove all confidence markers:\n  - Words followed by [??] have less than 30% confidence. Verify and correct based on context.\n  - Words followed by [?] have less than 60% confidence. Check for spelling or phonetic errors.\n  - Strip the markers [??] and [?] and their preceding space from the final output.\n3. Analyze words flagged with markers against the global technical context:\n   - If a marked word is typographically or phonetically close to a valid technical term in the context, correct it to the correct technical spelling.\n   - If a marked word is completely incoherent and breaks the sentence, replace it with the contextually correct technical word.\n4. Detect unmarked hallucinations: If an unmarked word completely contradicts the technical context (e.g., phonetic substitution of a technical term), correct it.\n\nOutput ONLY the corrected text. Do not include explanations, notes, or markdown formatting wrapper blocks."
+        }
+      ]
     },
     "mail": {
       "env": "standard.env",
@@ -25,26 +33,56 @@
         "INITIAL_PROMPT": "Kristof Simady"
       },
       "post_processing": [
-        "python3 {repo_root}/post_processing/llm_pipeline.py --mode mail --language '{language}'"
-      ]
-    },
-    "notes": {
-      "env": "standard.env",
-      "env_overrides": {
-        "MARK_CONFIDENCE": "true"
-      },
-      "post_processing": [
-        "python3 {repo_root}/post_processing/llm_pipeline.py --mode notes --language '{language}'"
+        {
+          "type": "llm",
+          "provider": "mistral",
+          "model": "mistral-large-latest",
+          "enforce_json": false,
+          "prompt": "You are an assistant. Format the following dictated text into a professional, clear, and concise email. Do not add conversational filler. Words followed by [---] are low-confidence. Target ISO lang: {lang}."
+        }
       ]
     },
     "scheduling": {
       "env": "standard.env",
       "env_overrides": {
         "MARK_CONFIDENCE": "true",
-        "INITIAL_PROMPT": "Google Calendar, Task, Meeting, Job Interview, PhD Defense, Anniversary, Monthly, Annual, Daily, Afternoon, Morning"
+        "INITIAL_PROMPT": "Google Calendar, Task, Meeting, Job Interview, Vikunja"
       },
       "post_processing": [
-        "python3 {repo_root}/post_processing/llm_pipeline.py --mode mail --language '{language}'"
+        {
+          "type": "llm",
+          "provider": "local",
+          "model": "llama3",
+          "endpoint": "http://localhost:11434/v1/chat/completions",
+          "enforce_json": true,
+          "prompt": "You are a data extraction tool. Extract the task details from the text. You MUST output ONLY valid JSON matching this schema: {\"task_title\": \"string\", \"due_date\": \"YYYY-MM-DD or null\", \"priority\": \"high/medium/low\"}. Do not include markdown formatting. Target ISO lang: {lang}."
+        }
+      ]
+    },
+    "complex_workflow": {
+      "env": "standard.env",
+      "env_overrides": {
+        "MARK_CONFIDENCE": "true"
+      },
+      "post_processing": [
+        {
+          "type": "deterministic",
+          "script": "regex_replacer.py",
+          "dictionary": "configs/hallucinations_dict.json"
+        },
+        {
+          "type": "llm",
+          "provider": "local",
+          "model": "llama3-8b",
+          "endpoint": "http://localhost:11434/v1/chat/completions",
+          "prompt": "Extract the core technical problem from this text, ignoring conversational filler. Target ISO lang: {lang}."
+        },
+        {
+          "type": "llm",
+          "provider": "mistral",
+          "model": "mistral-large-latest",
+          "prompt": "Take the extracted technical problem and generate three targeted questions to ask the engineering team. Target ISO lang: {lang}."
+        }
       ]
     }
   }

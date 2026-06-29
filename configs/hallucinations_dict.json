@@ -1,0 +1,4 @@
+{
+    "[oO][- ]?lama": "Ollama",
+    "\\b[Pp]ai[ -]?torch\\b": "PyTorch"
+}

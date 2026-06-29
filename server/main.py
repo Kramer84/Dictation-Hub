@@ -87,9 +87,12 @@ async def transcribe(request: Request):
 
     # Check if confidence markers should be applied
     use_confidence = "true" if env_overrides.get("MARK_CONFIDENCE", "false").lower() == "true" else "false"
-    cleaner_args = ["python3", os.path.join(REPO_ROOT, "post_processing", "deterministic_cleaner.py"), "--compress-repetitions"]
+    compress_reps = "true" if env_overrides.get("COMPRESS_REPETITIONS", "false").lower() == "true" else "false"
+    cleaner_args = ["python3", os.path.join(REPO_ROOT, "post_processing", "deterministic_cleaner.py")]
     if use_confidence == "true":
         cleaner_args.append("--mark-confidence")
+    if compress_reps == "true":
+        cleaner_args.append("--compress-repetitions")
     cleaner_args.append(json_out)
     
     subprocess.run(cleaner_args, check=True)
@@ -104,22 +107,54 @@ async def transcribe(request: Request):
     with open(raw_txt_path, "w", encoding="utf-8") as f:
         f.write(raw_text)
 
-    # --- LLM Pipeline Execution ---
+    # --- Dynamic Post-Processing Execution ---
     final_text = raw_text
     current_input = raw_txt_path
     post_steps = profile_data.get("post_processing", [])
     
-    for i, script_cmd in enumerate(post_steps):
+    for i, step in enumerate(post_steps):
+        if not isinstance(step, dict):
+            continue  # Failsafe in case old string formats are still in the JSON
+            
+        step_type = step.get("type")
         step_out = json_out.replace(".json", f"_step{i+1}.txt")
-        cmd = script_cmd.replace("{repo_root}", REPO_ROOT).replace("{language}", detected_lang)
-        cmd = f"{cmd} --input '{current_input}' --output '{step_out}'"
         
-        subprocess.run(cmd, shell=True, check=True)
+        if step_type == "llm":
+            cmd = [
+                "python3", os.path.join(REPO_ROOT, "post_processing", "llm_step_runner.py"),
+                "--input", current_input,
+                "--output", step_out,
+                "--provider", step.get("provider", "local"),
+                "--model", step.get("model", "llama3"),
+                "--endpoint", step.get("endpoint", "http://localhost:11434/v1/chat/completions"),
+                "--language", detected_lang,
+                "--prompt", step.get("prompt", "")
+            ]
+            if step.get("enforce_json", False):
+                cmd.append("--enforce-json")
+                
+        elif step_type == "deterministic":
+            script_name = step.get("script")
+            script_path = os.path.join(REPO_ROOT, "post_processing", script_name)
+            cmd = ["python3", script_path, "--input", current_input, "--output", step_out]
+            
+            if "dictionary" in step:
+                cmd.extend(["--dict", os.path.join(REPO_ROOT, step["dictionary"])])
+            if step.get("language") == "{language}":
+                cmd.extend(["--language", detected_lang])
+            if "args" in step:
+                cmd.extend(step["args"].split())
+        else:
+            continue
+
+        # Execute the generated command block
+        subprocess.run(cmd, check=True)
         current_input = step_out
         
         with open(current_input, "r", encoding="utf-8") as f:
             final_text = f.read().strip()
 
+    # Touch completion flag for external watchers (like n8n)
     open(os.path.join(workspace, ".completed"), 'a').close()
 
     return {"raw_text": raw_text, "final_text": final_text}
