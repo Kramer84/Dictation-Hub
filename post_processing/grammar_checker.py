@@ -2,15 +2,13 @@
 import argparse
 import os
 import sys
+import re
 import language_tool_python
 
-# Map Whisper ISO codes to LanguageTool ISO standards
 LANG_MAP = {
     "en": "en-US",
     "fr": "fr-FR",
     "de": "de-DE",
-    "es": "es-ES",
-    "it": "it-IT"
 }
 
 def main():
@@ -27,11 +25,11 @@ def main():
     with open(args.input, "r", encoding="utf-8") as f:
         text = f.read()
 
-    # Default to US English if language is unknown/unsupported
+    # MANDATORY DEFENSE: Grammar checkers cannot parse confidence metadata.
+    text = re.sub(r'\s*\[\?+\]|\s*\[[-+]+\]', '', text)
+
     lt_lang = LANG_MAP.get(args.language, "en-US")
-    
-    # Initialize the tool (downloads the grammatical ruleset on first run)
-    tool = language_tool_python.LanguageTool(lt_lang)
+    tool = language_tool_python.LanguageToolPublicAPI(lt_lang)
     
     corrected_text = tool.correct(text)
     tool.close()

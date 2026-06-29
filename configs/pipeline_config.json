@@ -8,7 +8,19 @@
     "standard": {
       "env": "standard.env",
       "env_overrides": {},
-      "post_processing": []
+      "post_processing": [
+        {
+          "type": "deterministic",
+          "script": "regex_replacer.py",
+          "dictionary": "configs/hallucinations_dict.json",
+          "args": "--strip-markers"
+        },
+        {
+          "type": "deterministic",
+          "script": "grammar_checker.py",
+          "language": "{language}"
+        }
+      ]
     },
     "technical": {
       "env": "standard.env",
