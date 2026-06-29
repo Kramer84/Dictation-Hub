@@ -30,6 +30,17 @@
       },
       "post_processing": [
         {
+          "type": "deterministic",
+          "script": "regex_replacer.py",
+          "dictionary": "configs/hallucinations_dict.json",
+          "args": "--strip-markers"
+        },
+        {
+          "type": "deterministic",
+          "script": "grammar_checker.py",
+          "language": "{language}"
+        },
+        {
           "type": "llm",
           "provider": "local",
           "model": "qwen2.5-coder:7b-instruct",
@@ -46,6 +57,17 @@
       },
       "post_processing": [
         {
+          "type": "deterministic",
+          "script": "regex_replacer.py",
+          "dictionary": "configs/hallucinations_dict.json",
+          "args": "--strip-markers"
+        },
+        {
+          "type": "deterministic",
+          "script": "grammar_checker.py",
+          "language": "{language}"
+        },
+        {
           "type": "llm",
           "provider": "mistral",
           "model": "mistral-large-latest",
@@ -61,6 +83,17 @@
         "INITIAL_PROMPT": "Google Calendar, Task, Meeting, Job Interview, Vikunja"
       },
       "post_processing": [
+        {
+          "type": "deterministic",
+          "script": "regex_replacer.py",
+          "dictionary": "configs/hallucinations_dict.json",
+          "args": "--strip-markers"
+        },
+        {
+          "type": "deterministic",
+          "script": "grammar_checker.py",
+          "language": "{language}"
+        },
         {
           "type": "llm",
           "provider": "local",
@@ -80,7 +113,13 @@
         {
           "type": "deterministic",
           "script": "regex_replacer.py",
-          "dictionary": "configs/hallucinations_dict.json"
+          "dictionary": "configs/hallucinations_dict.json",
+          "args": "--strip-markers"
+        },
+        {
+          "type": "deterministic",
+          "script": "grammar_checker.py",
+          "language": "{language}"
         },
         {
           "type": "llm",
