@@ -157,18 +157,25 @@ EOF
                 ENDPOINT=$(echo "$step_json" | jq -r '.endpoint // "http://localhost:11434/v1/chat/completions"')
                 PROMPT=$(echo "$step_json" | jq -r '.prompt // empty')
                 SCHEMA=$(echo "$step_json" | jq -c '.response_schema // empty')
+                ENFORCE_JSON=$(echo "$step_json" | jq -r '.enforce_json // false')
                 
-                CMD="python3 \"$REPO_ROOT/post_processing/llm_step_runner.py\""
-                CMD="$CMD --input \"$CURRENT_INPUT\" --output \"$STEP_OUT\""
-                CMD="$CMD --provider \"$PROVIDER\" --model \"$MODEL\" --endpoint \"$ENDPOINT\""
-                CMD="$CMD --language \"$LANG_CODE\" --prompt \"$PROMPT\""
+                CMD_ARRAY=(python3 "$REPO_ROOT/post_processing/llm_step_runner.py")
+                CMD_ARRAY+=(--input "$CURRENT_INPUT" --output "$STEP_OUT")
+                CMD_ARRAY+=(--provider "$PROVIDER" --model "$MODEL" --endpoint "$ENDPOINT")
+                CMD_ARRAY+=(--language "$LANG_CODE" --prompt "$PROMPT")
                 
+                # If you have an explicit schema payload
                 if [[ -n "$SCHEMA" ]]; then
-                    CMD="$CMD --schema '$SCHEMA'"
+                    CMD_ARRAY+=(--schema "$SCHEMA")
+                fi
+                
+                # If you are just using the old boolean flag
+                if [[ "$ENFORCE_JSON" == "true" ]]; then
+                    CMD_ARRAY+=(--enforce-json)
                 fi
                 
                 echo "[Router] Running Post-Processing Step $STEP ($PROVIDER / $MODEL)..."
-                eval "$CMD"
+                "${CMD_ARRAY[@]}"
                 
             elif [[ "$STEP_TYPE" == "deterministic" ]]; then
                 SCRIPT_NAME=$(echo "$step_json" | jq -r '.script // empty')
@@ -176,20 +183,21 @@ EOF
                 LANG_ARG=$(echo "$step_json" | jq -r '.language // empty')
                 EXTRA_ARGS=$(echo "$step_json" | jq -r '.args // empty')
                 
-                CMD="python3 \"$REPO_ROOT/post_processing/$SCRIPT_NAME\" --input \"$CURRENT_INPUT\" --output \"$STEP_OUT\""
+                CMD_ARRAY=(python3 "$REPO_ROOT/post_processing/$SCRIPT_NAME" --input "$CURRENT_INPUT" --output "$STEP_OUT")
                 
                 if [[ -n "$DICT_PATH" && "$DICT_PATH" != "null" ]]; then
-                    CMD="$CMD --dict \"$REPO_ROOT/$DICT_PATH\""
+                    CMD_ARRAY+=(--dict "$REPO_ROOT/$DICT_PATH")
                 fi
                 if [[ "$LANG_ARG" == "{language}" ]]; then
-                    CMD="$CMD --language \"$LANG_CODE\""
+                    CMD_ARRAY+=(--language "$LANG_CODE")
                 fi
                 if [[ -n "$EXTRA_ARGS" && "$EXTRA_ARGS" != "null" ]]; then
-                    CMD="$CMD $EXTRA_ARGS"
+                    read -r -a EXTRA_ARRAY <<< "$EXTRA_ARGS"
+                    CMD_ARRAY+=("${EXTRA_ARRAY[@]}")
                 fi
                 
                 echo "[Router] Running Deterministic Step $STEP ($SCRIPT_NAME)..."
-                eval "$CMD"
+                "${CMD_ARRAY[@]}"
             else
                 continue
             fi
