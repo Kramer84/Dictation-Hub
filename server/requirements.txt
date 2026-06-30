@@ -3,3 +3,4 @@ uvicorn
 requests
 language_tool_python
 websockets
+pyyaml

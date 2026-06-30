@@ -49,7 +49,8 @@ mkfifo "$TEMP_FIFO"
 exec 3<> "$TEMP_FIFO"
 
 # Send chunked audio stream with dynamic query parameters appended to the URL
-curl -s -X POST -H "Transfer-Encoding: chunked" -H "Expect:" --data-binary @- "http://$SERVER_IP:$SERVER_PORT/transcribe?${QUERY_STRING}" < "$TEMP_FIFO" > "$TEMP_RESP" 3>&- &
+PROTOCOL=${SERVER_PROTOCOL:-http}
+curl -s -X POST -H "Transfer-Encoding: chunked" -H "Expect:" --data-binary @- "${PROTOCOL}://$SERVER_IP:$SERVER_PORT/transcribe?${QUERY_STRING}" < "$TEMP_FIFO" > "$TEMP_RESP" 3>&- &
 CURL_PID=$!
 
 SELECTED_BACKEND=""
