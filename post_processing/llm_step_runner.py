@@ -4,9 +4,12 @@ import os
 import sys
 import requests
 import json
+import re
+import datetime
+import time
 
 class LLMProvider:
-    def generate(self, system_prompt, user_text, enforce_json=False):
+    def generate(self, system_prompt, user_text, response_schema=None):
         raise NotImplementedError()
 
 class MistralProvider(LLMProvider):
@@ -15,7 +18,7 @@ class MistralProvider(LLMProvider):
         self.url = "https://api.mistral.ai/v1/chat/completions"
         self.model = model
 
-    def generate(self, system_prompt, user_text, enforce_json=False):
+    def generate(self, system_prompt, user_text, response_schema=None):
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -29,7 +32,8 @@ class MistralProvider(LLMProvider):
             ],
             "temperature": 0.1
         }
-        if enforce_json:
+        
+        if response_schema:
             data["response_format"] = {"type": "json_object"}
             
         response = requests.post(self.url, headers=headers, json=data)
@@ -41,7 +45,7 @@ class LocalProvider(LLMProvider):
         self.endpoint = endpoint
         self.model = model
 
-    def generate(self, system_prompt, user_text, enforce_json=False):
+    def generate(self, system_prompt, user_text, response_schema=None):
         headers = {"Content-Type": "application/json"}
         data = {
             "model": self.model,
@@ -51,8 +55,16 @@ class LocalProvider(LLMProvider):
             ],
             "temperature": 0.1
         }
-        if enforce_json:
-            data["response_format"] = {"type": "json_object"}
+        
+        if response_schema:
+            data["response_format"] = {
+                "type": "json_object",
+                "json_schema": {
+                    "name": "calendar_extraction",
+                    "strict": True,
+                    "schema": response_schema
+                }
+            }
 
         response = requests.post(self.endpoint, headers=headers, json=data)
         response.raise_for_status()
@@ -67,7 +79,7 @@ def main():
     parser.add_argument("--endpoint", default="http://localhost:11434/v1/chat/completions")
     parser.add_argument("--prompt", required=True)
     parser.add_argument("--language", default="en")
-    parser.add_argument("--enforce-json", action="store_true")
+    parser.add_argument("--schema", default=None)
     args = parser.parse_args()
 
     if not os.path.exists(args.input):
@@ -82,8 +94,38 @@ def main():
             f.write("")
         return
 
+    # 1. Build Base System Instructions
     system_prompt = args.prompt.replace("{language}", args.language)
     
+    # 2. Inject Dynamic Temporal Constraints
+    now = datetime.datetime.now()
+    local_tz = time.tzname[0] if not time.daylight else time.tzname[1]
+    temporal_context = (
+        f"\n\n=== CURRENT_CONTEXT ===\n"
+        f"Current Date: {now.strftime('%Y-%m-%d')}\n"
+        f"Current Time: {now.strftime('%H:%M:%S')}\n"
+        f"Day of Week: {now.strftime('%A')}\n"
+        f"User Timezone: {local_tz}\n"
+        f"=======================\n"
+    )
+    system_prompt += temporal_context
+
+    # 3. Parse and Explicitly Ground the Schema in the System Prompt Text
+    response_schema = None
+    if args.schema:
+        try:
+            response_schema = json.loads(args.schema)
+            schema_grounding = (
+                f"\n\n=== MANDATORY JSON OUTPUT SCHEMA ===\n"
+                f"You MUST output a JSON object that strictly adheres to this JSON schema structure:\n"
+                f"{json.dumps(response_schema, indent=2)}\n"
+                f"Do not include markdown wrappers, thoughts, or extra fields outside this schema layout.\n"
+                f"====================================\n"
+            )
+            system_prompt += schema_grounding
+        except Exception as json_err:
+            print(f"⚠️ [LLM Runner] Failed parsing schema argument block: {json_err}")
+
     try:
         if args.provider.lower() == "mistral":
             api_key = os.environ.get("MISTRAL_API_KEY")
@@ -93,13 +135,14 @@ def main():
         else:
             provider = LocalProvider(args.endpoint, args.model)
             
-        result_text = provider.generate(system_prompt, user_text, args.enforce_json)
+        result_text = provider.generate(system_prompt, user_text, response_schema)
         
-        # Cleanup artifacts
-        result_text = result_text.replace("[---]", "").replace("[--]", "").replace("[-]", "").replace("[+]", "")
+        if not response_schema:
+            result_text = re.sub(r'\s*\[\?+\]|\s*\[[-+]+\]', '', result_text)
+            
     except Exception as e:
         print(f"❌ [LLM Runner] Execution Failed: {e}")
-        result_text = user_text if not args.enforce_json else "{}"
+        result_text = user_text if not response_schema else "{}"
 
     with open(args.output, "w", encoding="utf-8") as f:
         f.write(result_text)

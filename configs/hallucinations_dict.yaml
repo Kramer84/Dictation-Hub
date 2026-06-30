@@ -1,0 +1,72 @@
+# ==========================================
+# Deterministic Hallucination Dictionary
+# ==========================================
+
+auto_generate:
+  # Entities & People
+  Phimeca:
+    - Phineka
+    - Fimica
+    - FIMECA
+    - Fim eca
+  Thierry Yalamas:
+    - Thierry Bahamas
+    - Thierry Yalamaz
+    - Thierry Alamas
+    - Thierry Gallanas
+    - Thierry Alanas
+  Nicolas Gayton:
+    - Nicolas Guéton
+  Pierre Beaurepaire:
+    - Pierre Beau Repaire
+  Kristof Simady:
+    - Christophe Simadi
+  Rodrigue Decatoire:
+    - Rodrigue Décatoir
+
+  # Isolated last name matches (for "Mr.", "Monsieur", or casual mentions)
+  Gayton:
+    - Guéton
+  Yalamas:
+    - Bahamas
+    - Yalamaz
+    - Alanas
+  Décatoire:
+    - Dédicatoire
+    - Décatoir
+    - Dégatoire
+  Simady:
+    - Simadi
+  
+  # Tech & Software
+  Cython:
+    - Scython
+  Nastran:
+    - Nastron
+  .bashrc:
+    - bash.rc
+    - basher
+    - bash rc
+  Ollama:
+    - O lama
+    - U yama
+    - Oyama
+    - Oullama
+    - Oulama
+    - Olama
+    - Ulama
+  LLM:
+    - LM
+  Ndarray:
+    - ND array
+  OpenTURNS:
+    - OpenTURN
+    - Open Turns
+  SiYuan:
+    - C1
+
+raw_regex:
+  # Put your explicit, complex regexes here. 
+  # These will be compiled exactly as written.
+  \b[Ll][Mm]s?\b: "LLM"
+  \b[Pp]ai[\s-]?[Tt]orch\b: "PyTorch"

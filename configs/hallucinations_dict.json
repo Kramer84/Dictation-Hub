@@ -1,6 +1,0 @@
-{
-    "\\b[Ll][Mm]\\b": "LLM",
-    "\\b[Ll][Mm]s\\b": "LLMs",
-    "\\b([Oo]u?|[Uu])[\\s-]*([Ll]+|[Yy]+)ama\\b": "Ollama",
-    "\\b[Pp]ai[\\s-]?[Tt]orch\\b": "PyTorch"
-}

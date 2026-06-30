@@ -33,6 +33,11 @@ def main():
     try:
         # Point to the permanent local daemon on port 8081
         tool = language_tool_python.LanguageTool(lt_lang, remote_server='http://localhost:8081')
+        
+        # Natively disable the spell-checker to prevent proper noun mangling
+        tool.disable_spellchecking()
+        
+        # Apply only grammar, casing, and punctuation corrections
         corrected_text = tool.correct(text)
     except Exception as e:
         print(f"❌ [Grammar Checker] Failed to connect to local daemon: {e}")

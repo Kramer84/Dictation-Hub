@@ -156,15 +156,15 @@ EOF
                 MODEL=$(echo "$step_json" | jq -r '.model // "llama3"')
                 ENDPOINT=$(echo "$step_json" | jq -r '.endpoint // "http://localhost:11434/v1/chat/completions"')
                 PROMPT=$(echo "$step_json" | jq -r '.prompt // empty')
-                ENFORCE_JSON=$(echo "$step_json" | jq -r '.enforce_json // false')
+                SCHEMA=$(echo "$step_json" | jq -c '.response_schema // empty')
                 
                 CMD="python3 \"$REPO_ROOT/post_processing/llm_step_runner.py\""
                 CMD="$CMD --input \"$CURRENT_INPUT\" --output \"$STEP_OUT\""
                 CMD="$CMD --provider \"$PROVIDER\" --model \"$MODEL\" --endpoint \"$ENDPOINT\""
                 CMD="$CMD --language \"$LANG_CODE\" --prompt \"$PROMPT\""
                 
-                if [[ "$ENFORCE_JSON" == "true" ]]; then
-                    CMD="$CMD --enforce-json"
+                if [[ -n "$SCHEMA" ]]; then
+                    CMD="$CMD --schema '$SCHEMA'"
                 fi
                 
                 echo "[Router] Running Post-Processing Step $STEP ($PROVIDER / $MODEL)..."

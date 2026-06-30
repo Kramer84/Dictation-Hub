@@ -130,8 +130,9 @@ async def transcribe(request: Request):
                 "--language", detected_lang,
                 "--prompt", step.get("prompt", "")
             ]
-            if step.get("enforce_json", False):
-                cmd.append("--enforce-json")
+            response_schema = step.get("response_schema")
+            if response_schema:
+                cmd.extend(["--schema", json.dumps(response_schema)])
                 
         elif step_type == "deterministic":
             script_name = step.get("script")
