@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dictation Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center p-4">
+
+    <div class="w-full max-w-md bg-gray-800 rounded-2xl shadow-xl p-6 mt-4">
+        <h1 class="text-2xl font-bold text-center mb-6">🎙️ Dictation Hub</h1>
+
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div>
+                <label class="block text-sm text-gray-400 mb-1">Profile</label>
+                <select id="profile" class="w-full bg-gray-700 rounded-lg p-2 text-white outline-none">
+                    <option value="standard">Standard</option>
+                    <option value="technical">Technical</option>
+                    <option value="mail_drafting">Mail Drafting</option>
+                    <option value="mail_formatting">Mail Formatting</option>
+                    <option value="scheduling">Scheduling</option>
+                    <option value="siyuan_memo">SiYuan Memo</option>
+                    <option value="cli_coder">CLI Coder</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm text-gray-400 mb-1">Language</label>
+                <select id="language" class="w-full bg-gray-700 rounded-lg p-2 text-white outline-none">
+                    <option value="auto">Auto-Detect</option>
+                    <option value="en">English (EN)</option>
+                    <option value="fr">French (FR)</option>
+                    <option value="de">German (DE)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="flex justify-center mb-6">
+            <button id="recordBtn" class="w-24 h-24 rounded-full bg-blue-600 hover:bg-blue-500 transition-all flex items-center justify-center shadow-lg shadow-blue-500/50">
+                <span id="btnIcon" class="text-3xl">🎤</span>
+            </button>
+        </div>
+
+        <p id="status" class="text-center text-sm text-gray-400 mb-4">Ready</p>
+
+        <div class="relative">
+            <textarea id="resultText" class="w-full h-48 bg-gray-700 rounded-lg p-3 text-white outline-none resize-none" placeholder="Transcription will appear here..." readonly></textarea>
+            <button id="copyBtn" class="absolute bottom-3 right-3 bg-gray-600 hover:bg-gray-500 p-2 rounded-lg text-sm transition-all hidden">
+                📋 Copy
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let socket;
+        let isRecording = false;
+
+        const recordBtn = document.getElementById('recordBtn');
+        const btnIcon = document.getElementById('btnIcon');
+        const status = document.getElementById('status');
+        const resultText = document.getElementById('resultText');
+        const copyBtn = document.getElementById('copyBtn');
+
+        recordBtn.addEventListener('click', async () => {
+            if (!isRecording) {
+                await startRecording();
+            } else {
+                stopRecording();
+            }
+        });
+
+        copyBtn.addEventListener('click', () => {
+            resultText.select();
+            document.execCommand('copy');
+            status.innerText = "✅ Copied to clipboard";
+        });
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // Determine WebSocket Protocol (ws vs wss)
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                socket = new WebSocket(`${wsProtocol}//${window.location.host}/ws/transcribe`);
+                
+                socket.onopen = () => {
+                    // 1. Send Configuration first
+                    const profile = document.getElementById('profile').value;
+                    const language = document.getElementById('language').value;
+                    socket.send(JSON.stringify({ profile, language }));
+
+                    // 2. Start streaming audio chunks
+                    mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.ondataavailable = (e) => {
+                        if (e.data.size > 0 && socket.readyState === WebSocket.OPEN) {
+                            socket.send(e.data);
+                        }
+                    };
+                    mediaRecorder.start(250); // Send a chunk every 250ms
+
+                    isRecording = true;
+                    recordBtn.classList.replace('bg-blue-600', 'bg-red-600');
+                    recordBtn.classList.replace('shadow-blue-500/50', 'shadow-red-500/50');
+                    btnIcon.innerText = "⏹️";
+                    status.innerText = "🎙️ Recording and streaming...";
+                    resultText.value = "";
+                    copyBtn.classList.add('hidden');
+                };
+
+                socket.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.error) {
+                        status.innerText = "❌ Error: " + data.error;
+                    } else {
+                        status.innerText = "✅ Processing complete";
+                        resultText.value = data.final_text || data.raw_text;
+                        copyBtn.classList.remove('hidden');
+                    }
+                };
+
+                socket.onerror = (error) => {
+                    status.innerText = "❌ Connection error";
+                    stopRecording();
+                };
+
+            } catch (err) {
+                status.innerText = "❌ Microphone access denied or HTTPS required.";
+                console.error(err);
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                // Send an EOF marker or just close to trigger backend processing
+                socket.send("EOF");
+            }
+            
+            isRecording = false;
+            recordBtn.classList.replace('bg-red-600', 'bg-blue-600');
+            recordBtn.classList.replace('shadow-red-500/50', 'shadow-blue-500/50');
+            btnIcon.innerText = "🎤";
+            status.innerText = "⏳ Processing on server...";
+        }
+    </script>
+</body>
+</html>

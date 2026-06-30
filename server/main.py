@@ -3,7 +3,8 @@ import subprocess
 import time
 import json
 import tempfile
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
 
 app = FastAPI()
 
@@ -11,10 +12,17 @@ SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(SERVER_DIR)
 CONFIG_JSON_PATH = os.path.join(REPO_ROOT, "configs", "pipeline_config.json")
 
-@app.post("/transcribe")
-async def transcribe(request: Request):
-    query_params = dict(request.query_params)
-    profile_name = query_params.get("profile", "standard")
+# --- 1. Serve the Mobile UI ---
+@app.get("/", response_class=HTMLResponse)
+async def serve_ui():
+    with open(os.path.join(SERVER_DIR, "index.html"), "r", encoding="utf-8") as f:
+        return f.read()
+
+# --- 2. The Shared Pipeline Execution Logic ---
+# Both the desktop script (POST) and the mobile web app (WebSockets) use this exact engine.
+def execute_pipeline(workspace, raw_audio, timestamp, profile_name, query_params):
+    norm_wav = os.path.join(workspace, f"{timestamp}_raw.wav")
+    json_out = os.path.join(workspace, f"{timestamp}_full.json")
     
     with open(CONFIG_JSON_PATH, "r", encoding="utf-8") as f:
         config = json.load(f)
@@ -24,22 +32,6 @@ async def transcribe(request: Request):
     env_overrides = profile_data.get("env_overrides", {})
     valid_args = config.get("valid_arguments", [])
 
-    # Apply folder suffix
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    workspace = os.path.expanduser(f"~/.whisper_transcriptions/{timestamp}_{profile_name}")
-    os.makedirs(workspace, exist_ok=True)
-    
-    raw_audio = os.path.join(workspace, f"{timestamp}_client.wav")
-    norm_wav = os.path.join(workspace, f"{timestamp}_raw.wav")
-    json_out = os.path.join(workspace, f"{timestamp}_full.json")
-    
-    with open(raw_audio, "wb") as f:
-        async for chunk in request.stream():
-            f.write(chunk)
-            
-    if os.path.getsize(raw_audio) < 100:
-        return {"raw_text": "Error: Received empty audio stream.", "final_text": ""}
-            
     subprocess.run([
         "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
         "-i", raw_audio, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le",
@@ -51,12 +43,10 @@ async def transcribe(request: Request):
         with open(os.path.join(REPO_ROOT, "configs", base_env), "r") as base:
             f.write(base.read())
         f.write("\n# --- DYNAMIC OVERRIDES ---\n")
-        # JSON-defined overrides first
         for key, val in env_overrides.items():
             f.write(f'{key.upper()}="{val}"\n')
-        # Client query overrides second (client wins)
         for key, val in query_params.items():
-            if key in valid_args:
+            if key in valid_args and val != "auto":
                 f.write(f'{key.upper()}="{val}"\n')
 
     transcribe_script = os.path.join(REPO_ROOT, "core", "whisper_transcribe.sh")
@@ -70,12 +60,10 @@ async def transcribe(request: Request):
     
     os.remove(temp_env_path)
 
-    # --- Language Extraction & Metadata ---
     detected_lang = "auto"
     if os.path.exists(json_out):
         with open(json_out, "r", encoding="utf-8") as f:
-            whisper_data = json.load(f)
-            detected_lang = whisper_data.get("language", "auto")
+            detected_lang = json.load(f).get("language", "auto")
             
     metadata = {
         "profile": profile_name,
@@ -85,9 +73,10 @@ async def transcribe(request: Request):
     with open(os.path.join(workspace, "metadata.json"), "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2)
 
-    # Check if confidence markers should be applied
+    # (Preserved your custom COMPRESS_REPETITIONS check)
     use_confidence = "true" if env_overrides.get("MARK_CONFIDENCE", "false").lower() == "true" else "false"
     compress_reps = "true" if env_overrides.get("COMPRESS_REPETITIONS", "false").lower() == "true" else "false"
+    
     cleaner_args = ["python3", os.path.join(REPO_ROOT, "post_processing", "deterministic_cleaner.py")]
     if use_confidence == "true":
         cleaner_args.append("--mark-confidence")
@@ -114,7 +103,7 @@ async def transcribe(request: Request):
     
     for i, step in enumerate(post_steps):
         if not isinstance(step, dict):
-            continue  # Failsafe in case old string formats are still in the JSON
+            continue
             
         step_type = step.get("type")
         step_out = json_out.replace(".json", f"_step{i+1}.txt")
@@ -133,6 +122,8 @@ async def transcribe(request: Request):
             response_schema = step.get("response_schema")
             if response_schema:
                 cmd.extend(["--schema", json.dumps(response_schema)])
+            elif step.get("enforce_json", False):
+                cmd.append("--enforce-json")
                 
         elif step_type == "deterministic":
             script_name = step.get("script")
@@ -148,14 +139,74 @@ async def transcribe(request: Request):
         else:
             continue
 
-        # Execute the generated command block
         subprocess.run(cmd, check=True)
         current_input = step_out
         
         with open(current_input, "r", encoding="utf-8") as f:
             final_text = f.read().strip()
 
-    # Touch completion flag for external watchers (like n8n)
     open(os.path.join(workspace, ".completed"), 'a').close()
-
     return {"raw_text": raw_text, "final_text": final_text}
+
+
+# --- 3. The Desktop Client Endpoint (HTTP POST) ---
+@app.post("/transcribe")
+async def transcribe(request: Request):
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    profile_name = dict(request.query_params).get("profile", "standard")
+    workspace = os.path.expanduser(f"~/.whisper_transcriptions/{timestamp}_{profile_name}")
+    os.makedirs(workspace, exist_ok=True)
+    raw_audio = os.path.join(workspace, f"{timestamp}_client.wav")
+    
+    with open(raw_audio, "wb") as f:
+        async for chunk in request.stream():
+            f.write(chunk)
+            
+    if os.path.getsize(raw_audio) < 100:
+        return {"raw_text": "Error: Received empty audio stream.", "final_text": ""}
+        
+    return execute_pipeline(workspace, raw_audio, timestamp, profile_name, dict(request.query_params))
+
+
+# --- 4. The Mobile Client Endpoint (WebSocket) ---
+@app.websocket("/ws/transcribe")
+async def websocket_transcribe(websocket: WebSocket):
+    await websocket.accept()
+    
+    try:
+        config = await websocket.receive_json()
+    except Exception:
+        await websocket.close()
+        return
+
+    profile_name = config.get("profile", "standard")
+    query_params = {"language": config.get("language", "auto")}
+    
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    workspace = os.path.expanduser(f"~/.whisper_transcriptions/{timestamp}_{profile_name}")
+    os.makedirs(workspace, exist_ok=True)
+    raw_audio = os.path.join(workspace, f"{timestamp}_client.webm")
+    
+    with open(raw_audio, "wb") as f:
+        try:
+            while True:
+                data = await websocket.receive()
+                if "text" in data and data["text"] == "EOF":
+                    break
+                if "bytes" in data:
+                    f.write(data["bytes"])
+        except WebSocketDisconnect:
+            pass
+
+    if os.path.getsize(raw_audio) < 100:
+        await websocket.send_json({"error": "Received empty audio stream."})
+        await websocket.close()
+        return
+
+    try:
+        result = execute_pipeline(workspace, raw_audio, timestamp, profile_name, query_params)
+        await websocket.send_json(result)
+    except Exception as e:
+        await websocket.send_json({"error": str(e)})
+    finally:
+        await websocket.close()
