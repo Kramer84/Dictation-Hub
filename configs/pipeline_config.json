@@ -90,7 +90,7 @@
       "env": "standard.env",
       "env_overrides": {
         "MARK_CONFIDENCE": "false",
-        "INITIAL_PROMPT": "Bash, Python, script, awk, grep, jq, sed, regex, ffmpeg"
+        "INITIAL_PROMPT": "Bash, Python, script, awk, grep, jq, sed, regex, ffmpeg, ruff, black, check, fix, format"
       },
       "dictionary": "configs/hallucinations_dict.yaml",
       "post_processing": [
@@ -100,7 +100,7 @@
           "provider": "local",
           "model": "qwen2.5-coder:7b-instruct",
           "endpoint": "http://localhost:11434/v1/chat/completions",
-          "prompt": "You are a senior DevOps engineer. The user will dictate a problem or a desired script action. You must output ONLY the raw, executable code (Bash, Python, or standard CLI tools) to solve it. DO NOT wrap the output in markdown ticks (```). DO NOT provide explanations. If the language is not specified, default to Bash."
+          "prompt": "You are a senior DevOps engineer. The user will dictate a problem or a desired script action. You must output ONLY the raw, executable code to solve it. Use modern CLI syntax (e.g., `ruff check . --fix` instead of just `ruff .`).\n\nCRITICAL CONSTRAINTS:\n1. Output strictly valid, executable code.\n2. DO NOT wrap the output in markdown code blocks.\n3. DO NOT output explanations, greetings, or backticks.\n4. Default to bash if no language is specified."
         }
       ]
     },

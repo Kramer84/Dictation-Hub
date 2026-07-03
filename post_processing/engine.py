@@ -25,14 +25,23 @@ PIPELINE_MAP = {
     "mail_formatting": MailFormattingPipeline,
     "scheduling": SchedulingPipeline,
     "cli_coder": CLICoderPipeline,
-    "siyuan_memo": SiyuanMemoPipeline
+    "siyuan_memo": SiyuanMemoPipeline,
 }
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Orchestration Engine for Post-Processing")
-    parser.add_argument("--profile", required=True, help="The pipeline profile to execute")
-    parser.add_argument("--input", required=True, help="Path to the Whisper _full.json file")
-    parser.add_argument("--workspace", required=True, help="Path to the current execution workspace")
+    parser = argparse.ArgumentParser(
+        description="Orchestration Engine for Post-Processing"
+    )
+    parser.add_argument(
+        "--profile", required=True, help="The pipeline profile to execute"
+    )
+    parser.add_argument(
+        "--input", required=True, help="Path to the Whisper _full.json file"
+    )
+    parser.add_argument(
+        "--workspace", required=True, help="Path to the current execution workspace"
+    )
     args = parser.parse_args()
 
     repo_root = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -50,14 +59,18 @@ def main():
     user_info = full_config.get("user_information", {})
     profile_data = full_config.get("profiles", {}).get(args.profile)
     if not profile_data:
-        print(f"⚠️ [Engine] Warning: Profile '{args.profile}' not found in pipeline_config.json. Defaulting to 'standard'.")
+        print(
+            f"⚠️ [Engine] Warning: Profile '{args.profile}' not found in pipeline_config.json. Defaulting to 'standard'."
+        )
         profile_data = full_config.get("profiles", {}).get("standard", {})
         args.profile = "standard"
 
     # 4. Validation: Does the profile map to a Python Pipeline Class?
     pipeline_class = PIPELINE_MAP.get(args.profile)
     if not pipeline_class:
-        print(f"⚠️ [Engine] Warning: No Python class found for profile '{args.profile}' in PIPELINE_MAP. Falling back to StandardPipeline.")
+        print(
+            f"⚠️ [Engine] Warning: No Python class found for profile '{args.profile}' in PIPELINE_MAP. Falling back to StandardPipeline."
+        )
         pipeline_class = StandardPipeline
 
     # 5. Initialization
@@ -66,7 +79,7 @@ def main():
         static_config=static_config,
         profile_data=profile_data,
         workspace_dir=Path(args.workspace),
-        user_information=user_info
+        user_information=user_info,
     )
 
     # 6. Execution
@@ -75,12 +88,15 @@ def main():
 
     # 7. Output resolution using static_config suffixes
     timestamp = pipeline.metadata.get("timestamp", "output")
-    final_path = Path(args.workspace) / f"{timestamp}{static_config.suffixes.final_text}"
+    final_path = (
+        Path(args.workspace) / f"{timestamp}{static_config.suffixes.final_text}"
+    )
 
     with open(final_path, "w", encoding="utf-8") as f:
         f.write(final_text)
 
     print(f"✅ [Engine] Post-processing complete. Output saved to {final_path}")
+
 
 if __name__ == "__main__":
     main()

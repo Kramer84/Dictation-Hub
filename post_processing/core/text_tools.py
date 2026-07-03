@@ -17,27 +17,46 @@ LANG_MAP = {
 
 # --- Constants ---
 BACKCHANNEL_WORDS = {
-    "yeah", "yeah.", "mm-hmm", "mm-hmm.", "mhm", "mhm.", "mm", "hmm",
-    "wow", "wow.", "nice", "nice.", "sure", "sure.", "right", "right.",
-    "-hmm", "-hmm.", "uh-huh", "uh-huh."
+    "yeah",
+    "yeah.",
+    "mm-hmm",
+    "mm-hmm.",
+    "mhm",
+    "mhm.",
+    "mm",
+    "hmm",
+    "wow",
+    "wow.",
+    "nice",
+    "nice.",
+    "sure",
+    "sure.",
+    "right",
+    "right.",
+    "-hmm",
+    "-hmm.",
+    "uh-huh",
+    "uh-huh.",
 }
 
 PURE_FILLER_RE = re.compile(
     r"^(Mm-hmm|Mhm|Mm|Hmm|-hmm|Yeah|Yep|Wow|Nice|Sure|Right|Okay|Cool|Oh|Uh-huh)[.\s,!?]*$",
-    re.IGNORECASE
+    re.IGNORECASE,
 )
 
 FILLER_PATTERN = re.compile(
     r"^[\s.,!?]*(mm[-\s]?hmm|mhm|mm|hmm|yeah|yep|wow|nice|sure|right|okay|oh|uh[-\s]?huh|ah|um|i|so)([.\s,!?]|\s)*$",
-    re.IGNORECASE
+    re.IGNORECASE,
 )
 
-MAX_WORD_DURATION_MS = 5000 
+MAX_WORD_DURATION_MS = 5000
+
 
 def parse_whisper_json(filepath):
-    with open(filepath, 'r', encoding='utf-8') as f:
+    with open(filepath, "r", encoding="utf-8") as f:
         data = json.load(f)
-    return data.get('transcription', data.get('segments', []))
+    return data.get("transcription", data.get("segments", []))
+
 
 def add_confidence_marker(text, p_value):
     if p_value < 0.3:
@@ -45,6 +64,7 @@ def add_confidence_marker(text, p_value):
     elif p_value < 0.6:
         return f"{text} [?]"
     return text
+
 
 def format_timestamp(ms):
     s = ms // 1000
@@ -54,9 +74,11 @@ def format_timestamp(ms):
         return f"[{h:02d}:{m:02d}:{s:02d}]"
     return f"[{m:02d}:{s:02d}]"
 
+
 def _is_pure_filler(text):
     stripped = PURE_FILLER_RE.sub("", text).strip()
     return not stripped
+
 
 def _is_fragment(text):
     text = text.strip()
@@ -64,27 +86,32 @@ def _is_fragment(text):
     if FILLER_PATTERN.match(text):
         return True
     # 2. Flag completely non-alphanumeric noise (e.g., lone punctuation or symbols)
-    if not re.search(r'[a-zA-Z0-9]', text):
+    if not re.search(r"[a-zA-Z0-9]", text):
         return True
     # If it contains actual letters and isn't filler, trust it as a valid dictation.
     return False
 
+
 def strip_markers_func(text):
-    """Removes Whisper confidence markers from the text.
-    """
-    return re.sub(r'\s*\[\?+\]|\s*\[[-+]+\]', '', text)
+    """Removes Whisper confidence markers from the text."""
+    return re.sub(r"\s*\[\?+\]|\s*\[[-+]+\]", "", text)
+
 
 ## Grammar Correction Function
 
-def grammar_checker(text, language="en", strip_markers=True, disable_spellchecking=True):
-    """Corrects grammar in the provided text using LanguageTool.
-    """
+
+def grammar_checker(
+    text, language="en", strip_markers=True, disable_spellchecking=True
+):
+    """Corrects grammar in the provided text using LanguageTool."""
     lt_lang = LANG_MAP.get(language, "en-US")
     if strip_markers:
         text = strip_markers_func(text)
     try:
         try:
-            tool = language_tool_python.LanguageTool(lt_lang, remote_server='http://localhost:8081')
+            tool = language_tool_python.LanguageTool(
+                lt_lang, remote_server="http://localhost:8081"
+            )
             print("🚀 Connected to remote server daemon.")
         except Exception as e:
             print(f"⚠️ [Grammar Checker] Failed to connect to local daemon: {e}")
@@ -98,43 +125,48 @@ def grammar_checker(text, language="en", strip_markers=True, disable_spellchecki
         print("-> Bypassing grammar check and returning raw text.")
         corrected_text = text
     finally:
-        if 'tool' in locals():
+        if "tool" in locals():
             tool.close()
-    print(f"✅ [Grammar Checker] Truecasing and punctuation restored (Lang: {lt_lang}).")
+    print(
+        f"✅ [Grammar Checker] Truecasing and punctuation restored (Lang: {lt_lang})."
+    )
     return corrected_text
+
 
 ## Regex Replacement Functions
 
+
 def build_auto_regex(variations):
     """
-    Takes a list of string variations and builds a safe, 
+    Takes a list of string variations and builds a safe,
     case-insensitive regex pattern.
     """
-    # Sort variations by length descending to prevent partial matches 
+    # Sort variations by length descending to prevent partial matches
     # (e.g., matching "Fim" before "Fim eca")
     variations_sorted = sorted(variations, key=len, reverse=True)
     # Escape special characters in the variations (like the dot in bash.rc)
     escaped_vars = [re.escape(v) for v in variations_sorted]
     # (?i) makes it case-insensitive
     # \b ensures we only match whole words
-    return r'(?i)\b(?:' + '|'.join(escaped_vars) + r')\b'
+    return r"(?i)\b(?:" + "|".join(escaped_vars) + r")\b"
+
 
 def load_and_compile(yaml_path):
-    with open(yaml_path, 'r', encoding='utf-8') as f:
+    with open(yaml_path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
     rules = {}
-    if 'auto_generate' in data:
-        for target, variations in data['auto_generate'].items():
+    if "auto_generate" in data:
+        for target, variations in data["auto_generate"].items():
             pattern = build_auto_regex(variations)
             rules[pattern] = target
-    if 'raw_regex' in data:
-        for pattern, target in data['raw_regex'].items():
+    if "raw_regex" in data:
+        for pattern, target in data["raw_regex"].items():
             rules[pattern] = target
     return rules
 
+
 def regex_replacer(text, rules_dict_path, strip_markers=False):
-    """Applies regex replacements to the provided text based on the rules_dict.
-    """
+    """Applies regex replacements to the provided text based on the rules_dict."""
 
     # Optional: Wipe markers if moving into a purely deterministic, non-LLM pipeline
     if strip_markers:
@@ -144,6 +176,7 @@ def regex_replacer(text, rules_dict_path, strip_markers=False):
         text = re.sub(pattern, replacement, text)
     print("✅ [Regex Replacer] Deterministic substitution complete.")
     return text
+
 
 ## Deterministic cleaning functions
 
@@ -158,25 +191,25 @@ def compress_repetitions_marked(text, min_phrase_len=2, max_phrase_len=60):
         return ""
 
     tokens = text.split()
-    
+
     def clean_token(t):
-        t_base = re.sub(r'\[[-+_.\d]+\]', '', t)
-        t_base = re.sub(r'\[_EOT_\]', '', t_base)
-        t_base = re.sub(r'\[_TT_\d+\]|\[_BEG_\]', '', t_base)
+        t_base = re.sub(r"\[[-+_.\d]+\]", "", t)
+        t_base = re.sub(r"\[_EOT_\]", "", t_base)
+        t_base = re.sub(r"\[_TT_\d+\]|\[_BEG_\]", "", t_base)
         return t_base.lower().strip(string.punctuation)
 
     def ends_sentence(t):
         # Checks if the raw token ends with terminal punctuation
-        t_base = re.sub(r'\[.*?\]', '', t) # strip markers
-        return any(t_base.endswith(p) for p in ['.', '!', '?'])
+        t_base = re.sub(r"\[.*?\]", "", t)  # strip markers
+        return any(t_base.endswith(p) for p in [".", "!", "?"])
 
     cleaned_words = []
     valid_mapping = []
-    sentence_boundaries = set() # Track indices that close a sentence
+    sentence_boundaries = set()  # Track indices that close a sentence
 
     for idx, t in enumerate(tokens):
         c = clean_token(t)
-        if c:  
+        if c:
             cleaned_words.append(c)
             valid_mapping.append(idx)
             if ends_sentence(t):
@@ -185,7 +218,7 @@ def compress_repetitions_marked(text, min_phrase_len=2, max_phrase_len=60):
 
     n = len(cleaned_words)
     output_tokens = []
-    
+
     i = 0
     last_orig_idx = -1
 
@@ -196,11 +229,11 @@ def compress_repetitions_marked(text, min_phrase_len=2, max_phrase_len=60):
 
         # Maximum Coverage Search
         for L in range(min_phrase_len, max_phrase_len + 1):
-            if i + 2*L > n: 
+            if i + 2 * L > n:
                 break
-                
-            pat = cleaned_words[i : i+L]
-            nxt = cleaned_words[i+L : i+2*L]
+
+            pat = cleaned_words[i : i + L]
+            nxt = cleaned_words[i + L : i + 2 * L]
 
             # CRITICAL CHECK: Ensure the pattern block itself doesn't internalize a boundary,
             # and the transition from pat to nxt doesn't cross a sentence boundary.
@@ -213,18 +246,21 @@ def compress_repetitions_marked(text, min_phrase_len=2, max_phrase_len=60):
                 count = 1
                 curr = i + L
                 loop_crossed_boundary = False
-                
+
                 while curr + L <= n:
                     # Ensure subsequent loops don't step over boundaries
                     if any(idx in sentence_boundaries for idx in range(curr, curr + L)):
                         loop_crossed_boundary = True
-                    
-                    if cleaned_words[curr : curr+L] == pat and not loop_crossed_boundary:
+
+                    if (
+                        cleaned_words[curr : curr + L] == pat
+                        and not loop_crossed_boundary
+                    ):
                         count += 1
                         curr += L
                     else:
                         break
-                
+
                 coverage = L * count
                 if coverage > max_coverage:
                     max_coverage = coverage
@@ -241,7 +277,7 @@ def compress_repetitions_marked(text, min_phrase_len=2, max_phrase_len=60):
 
             output_tokens.extend(tokens[start_idx : end_first_idx + 1])
             output_tokens.append(f"[R{best_count}]")
-            
+
             last_orig_idx = end_total_idx
             i += best_len * best_count
         else:
@@ -257,23 +293,28 @@ def compress_repetitions_marked(text, min_phrase_len=2, max_phrase_len=60):
 
     return " ".join(output_tokens)
 
+
 def dedup_and_filter_hallucinations(segments, mark_confidence=False):
     cleaned_segments = []
-    
+
     for seg in segments:
-        offsets = seg.get('offsets', {})
-        start_ms = offsets.get('from', seg.get('start', 0) * 1000 if 'start' in seg else 0)
-        end_ms = offsets.get('to', seg.get('end', 0) * 1000 if 'end' in seg else 0)
-        
-        if isinstance(start_ms, float): start_ms = int(start_ms)
-        if isinstance(end_ms, float): end_ms = int(end_ms)
-        
+        offsets = seg.get("offsets", {})
+        start_ms = offsets.get(
+            "from", seg.get("start", 0) * 1000 if "start" in seg else 0
+        )
+        end_ms = offsets.get("to", seg.get("end", 0) * 1000 if "end" in seg else 0)
+
+        if isinstance(start_ms, float):
+            start_ms = int(start_ms)
+        if isinstance(end_ms, float):
+            end_ms = int(end_ms)
+
         duration = end_ms - start_ms
-        tokens = seg.get('tokens', [])
-        
+        tokens = seg.get("tokens", [])
+
         if not tokens:
-            raw_words = seg.get('text', '').split()
-            tokens = [{'text': f" {w}", 'p': 1.0} for w in raw_words]
+            raw_words = seg.get("text", "").split()
+            tokens = [{"text": f" {w}", "p": 1.0} for w in raw_words]
 
         if duration > MAX_WORD_DURATION_MS and len(tokens) <= 3:
             continue
@@ -283,8 +324,8 @@ def dedup_and_filter_hallucinations(segments, mark_confidence=False):
 
         for i, token_obj in enumerate(tokens):
             if isinstance(token_obj, dict):
-                raw_text = token_obj.get('text', '')
-                p_val = token_obj.get('p', 1.0)
+                raw_text = token_obj.get("text", "")
+                p_val = token_obj.get("p", 1.0)
             else:
                 raw_text = str(token_obj)
                 p_val = 1.0
@@ -292,16 +333,20 @@ def dedup_and_filter_hallucinations(segments, mark_confidence=False):
             curr_text = raw_text.strip().lower()
 
             if i > 0:
-                prev_text_raw = tokens[i-1].get('text', '') if isinstance(tokens[i-1], dict) else str(tokens[i-1])
+                prev_text_raw = (
+                    tokens[i - 1].get("text", "")
+                    if isinstance(tokens[i - 1], dict)
+                    else str(tokens[i - 1])
+                )
                 prev_text = prev_text_raw.strip().lower()
                 if curr_text == prev_text and curr_text != "":
                     streak += 1
                     limit = 2 if curr_text in BACKCHANNEL_WORDS else 1
                     if streak > limit:
-                        continue 
+                        continue
                 else:
                     streak = 1
-            
+
             final_text = raw_text
             if mark_confidence:
                 final_text = add_confidence_marker(raw_text, p_val)
@@ -310,19 +355,18 @@ def dedup_and_filter_hallucinations(segments, mark_confidence=False):
 
         if cleaned_tokens:
             reconstructed_text = "".join(cleaned_tokens)
-            
+
             # Universal Control Token Scrub
-            reconstructed_text = re.sub(r'\[_EOT_\]', '', reconstructed_text)
-            reconstructed_text = re.sub(r'\[_TT_\d+\]', '', reconstructed_text)
-            reconstructed_text = re.sub(r'\[_BEG_\]', '', reconstructed_text)
-            
-            cleaned_segments.append({
-                "start_ms": start_ms,
-                "end_ms": end_ms,
-                "text": reconstructed_text
-            })
+            reconstructed_text = re.sub(r"\[_EOT_\]", "", reconstructed_text)
+            reconstructed_text = re.sub(r"\[_TT_\d+\]", "", reconstructed_text)
+            reconstructed_text = re.sub(r"\[_BEG_\]", "", reconstructed_text)
+
+            cleaned_segments.append(
+                {"start_ms": start_ms, "end_ms": end_ms, "text": reconstructed_text}
+            )
 
     return cleaned_segments
+
 
 def phrase_level_cleanup(entries, gap_threshold_ms=3000, apply_compression=False):
     no_fillers = [e for e in entries if not _is_pure_filler(e["text"].strip())]
@@ -342,7 +386,7 @@ def phrase_level_cleanup(entries, gap_threshold_ms=3000, apply_compression=False
                 cur["text"] = compress_repetitions_marked(cur["text"])
             final_out.append(cur)
             cur = dict(e)
-            
+
     if cur:
         if apply_compression:
             cur["text"] = compress_repetitions_marked(cur["text"])
@@ -351,9 +395,14 @@ def phrase_level_cleanup(entries, gap_threshold_ms=3000, apply_compression=False
     return final_out
 
 
-def whisper_json_output_pre_treatment(transcription_json_path, static_config, mark_confidence=False, compress_repetitions=False):
+def whisper_json_output_pre_treatment(
+    transcription_json_path,
+    static_config,
+    mark_confidence=False,
+    compress_repetitions=False,
+):
     """Pre-process Whisper JSON output.
-    
+
     Args:
         transcription_json_path (str): Path to the Whisper JSON file.
         static_config (StaticConfig): The static configuration object.
@@ -373,25 +422,33 @@ def whisper_json_output_pre_treatment(transcription_json_path, static_config, ma
         options_string += "repetition compression"
     if mark_confidence and compress_repetitions:
         options_string += "confidence marking and repetition compression"
-    print(f"-> Running deterministic pre-processing on {transcription_json_path} {options_string}...")
-    
+    print(
+        f"-> Running deterministic pre-processing on {transcription_json_path} {options_string}..."
+    )
+
     raw_segments = parse_whisper_json(transcription_json_path)
-    
-    deduped_entries = dedup_and_filter_hallucinations(raw_segments, mark_confidence=mark_confidence)
-    final_cleaned_entries = phrase_level_cleanup(deduped_entries, apply_compression=compress_repetitions)
+
+    deduped_entries = dedup_and_filter_hallucinations(
+        raw_segments, mark_confidence=mark_confidence
+    )
+    final_cleaned_entries = phrase_level_cleanup(
+        deduped_entries, apply_compression=compress_repetitions
+    )
 
     # Use static_config to dynamically generate file extensions
-    base_name = str(transcription_json_path).replace(static_config.suffixes.full_json, "")
+    base_name = str(transcription_json_path).replace(
+        static_config.suffixes.full_json, ""
+    )
     out_json = f"{base_name}{static_config.suffixes.cleaned_json}"
     out_md = f"{base_name}{static_config.suffixes.cleaned_md}"
 
-    with open(out_json, 'w', encoding='utf-8') as f:
+    with open(out_json, "w", encoding="utf-8") as f:
         json.dump({"segments": final_cleaned_entries}, f, indent=2)
 
-    with open(out_md, 'w', encoding='utf-8') as f:
+    with open(out_md, "w", encoding="utf-8") as f:
         f.write("# Cleaned Transcription\n\n")
         for e in final_cleaned_entries:
-            ts = format_timestamp(e['start_ms'])
+            ts = format_timestamp(e["start_ms"])
             f.write(f"**{ts}** {e['text'].strip()}\n\n")
 
     print(f"✅ Scrubbed output saved to {out_json} and {out_md}")
