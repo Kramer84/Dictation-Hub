@@ -131,7 +131,7 @@ class BasePipeline:
             
         print(f"[LLM] Prompting {model} via {provider_type}...")
         result = provider.generate(
-            messages=messages, config=LLMConfig(), response_schema=schema
+            messages=messages, config=LLMConfig(temperature=target_temperature), response_schema=schema
         )
         return result.raw_content
 

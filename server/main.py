@@ -107,6 +107,12 @@ def execute_pipeline(workspace, raw_audio, timestamp, profile_name, query_params
         with open(final_txt_path, "r", encoding="utf-8") as f:
             final_text = f.read().strip()
 
+    # --- N8N SYNCHRONOUS DISPATCH ---
+    dispatcher_script = os.path.join(REPO_ROOT, "server", "n8n_dispatcher.py")
+    subprocess.run([
+        "python3", dispatcher_script,
+        "--workspace", workspace
+    ], check=False) # check=False ensures pipeline doesn't crash if n8n is offline
     open(os.path.join(workspace, ".completed"), 'a').close()
     return {"raw_text": raw_text, "final_text": final_text}
 

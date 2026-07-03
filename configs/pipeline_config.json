@@ -70,6 +70,7 @@
     },
     "scheduling": {
       "env": "standard.env",
+      "webhook_url": "http://localhost:5678/webhook-test/whisper-scheduler",
       "env_overrides": {
         "MARK_CONFIDENCE": "false",
         "INITIAL_PROMPT": "Google Calendar, Task, Meeting, Job Interview, Vikunja"
@@ -106,6 +107,7 @@
     },
     "siyuan_memo": {
       "env": "standard.env",
+      "webhook_url": "http://localhost:5678/webhook/whisper-siyuan",
       "env_overrides": {
         "MARK_CONFIDENCE": "false",
         "INITIAL_PROMPT": "SiYuan, Markdown, Tag, Notebook, Reference, Block"

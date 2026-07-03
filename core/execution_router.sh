@@ -143,6 +143,9 @@ EOF
         [[ -f "$FINAL_TXT_PATH" ]] && FINAL_TEXT=$(cat "$FINAL_TXT_PATH")
         [[ -f "$RAW_TXT_PATH" ]] && RAW_TEXT=$(cat "$RAW_TXT_PATH")
 
+        # --- N8N SYNCHRONOUS DISPATCH ---
+        "$PYTHON_EXEC" "$REPO_ROOT/server/n8n_dispatcher.py" --workspace "$WORKSPACE"
+
         touch "$WORKSPACE/.completed"
 
         echo -e "\n=== RAW TEXT ==="

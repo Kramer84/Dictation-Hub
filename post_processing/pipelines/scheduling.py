@@ -23,34 +23,33 @@ class RecurrenceRule(BaseModel):
 
 # --- 2. Advanced Logistic Data Validation ---
 class ScheduleEvent(BaseModel):
+    # 1. Reasoning field placed FIRST to establish contextual math tokens
+    reasoning_trace: str = Field(
+        ..., 
+        description="Calculate the exact calendar date. State today's date and day of the week from the CURRENT_CONTEXT, then count forward step-by-step to the requested day to determine the final YYYY-MM-DD date."
+    )
+    # 2. Standard extraction fields follow
     intent_type: Literal["single_event", "date_range", "recurring_event"] = Field(
-        ...,
-        description="Strictly classifies the structural nature of the calendar entry.",
+        ..., description="Strictly classifies the structural nature of the calendar entry."
     )
     title: str = Field(..., description="A concise, professional title for the event.")
     start_datetime: str = Field(
-        ...,
-        description="ISO 8601 format (YYYY-MM-DDTHH:MM:SS). If exact time is given, use it. If a broad block is dictated (e.g., 'afternoon'), default to 13:00:00. For 'morning', default to 08:00:00.",
+        ..., description="ISO 8601 format (YYYY-MM-DDTHH:MM:SS). If a broad block is dictated (e.g., 'morning'), default to 08:00:00. For 'afternoon', default to 13:00:00."
     )
     end_datetime: Optional[str] = Field(
-        None,
-        description="ISO 8601 format. If a broad block like 'afternoon' is dictated, set to 18:00:00. Otherwise, leave null and the system will auto-calculate it based on duration.",
+        None, description="ISO 8601 format. If a broad block (e.g., 'morning') is dictated, set to 12:00:00. Otherwise, leave null."
     )
     duration_minutes: int = Field(
-        60,
-        description="Duration in minutes. Defaults to 60 for specific events. For broad blocks (e.g., afternoon), calculate total span (e.g., 300).",
+        60, description="Duration in minutes. Defaults to 60 for specific events. For broad blocks, calculate total span."
     )
     location: Optional[str] = Field(
-        None,
-        description="Physical address, city, building, room number, or virtual meeting link.",
+        None, description="Physical address, city, building, room number, or virtual meeting link."
     )
     description: Optional[str] = Field(
-        None,
-        description="Additional context, agenda items, notes, or general information regarding the event.",
+        None, description="Additional context, agenda items, notes, or general information regarding the event."
     )
     recurrence: Optional[RecurrenceRule] = Field(
-        None,
-        description="Recurrence mechanics. MUST be populated if intent_type is recurring_event.",
+        None, description="Recurrence mechanics. MUST be populated if intent_type is recurring_event."
     )
 
     @field_validator("start_datetime", "end_datetime")
