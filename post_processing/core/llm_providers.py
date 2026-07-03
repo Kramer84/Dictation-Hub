@@ -63,6 +63,10 @@ class LLMConfig(BaseModel):
     backoff_factor: float = Field(
         2.0, description="Multiplier for exponential backoff sequence calculations."
     )
+    keep_alive: Optional[Union[int, str]] = Field(
+        None, 
+        description="Duration to keep the model loaded in GPU memory (e.g., 0 to unload immediately, '5m' for 5 minutes). Primarily for local runtimes."
+    )
 
 
 class UsageMetrics(BaseModel):
@@ -315,6 +319,8 @@ class LocalProvider(LLMProvider):
             payload["max_tokens"] = config.max_tokens
         if config.seed is not None:
             payload["seed"] = config.seed
+        if config.keep_alive is not None:
+            payload["keep_alive"] = config.keep_alive
 
         if response_schema:
             # Modern structured output integration pattern using structural JSON validations
