@@ -23,6 +23,10 @@ auto_generate:
     - Christophe Simadi
   Rodrigue Decatoire:
     - Rodrigue Décatoir
+  Sigma Clermont:
+    - Sigma Klamon
+    - Sigma Klamo
+    - Sigma Klamour
 
   # Isolated last name matches (for "Mr.", "Monsieur", or casual mentions)
   Gayton:
@@ -66,6 +70,8 @@ auto_generate:
     - C1
   SiYuan notes:
     - C1 nodes
+  Markdown:
+    - Mac down
 
 raw_regex:
   # Put your explicit, complex regexes here. 

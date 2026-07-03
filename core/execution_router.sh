@@ -23,6 +23,15 @@ if [[ ! -f "$CONFIG_STATIC" || ! -f "$CONFIG_JSON" ]]; then
     exit 1
 fi
 
+# --- NEW: Virtual Environment Guard ---
+PYTHON_EXEC="$REPO_ROOT/server/venv/bin/python"
+if [[ ! -x "$PYTHON_EXEC" ]]; then
+    echo "[Router] Error: Python virtual environment not found or not executable."
+    echo "[Router] Expected at: $PYTHON_EXEC"
+    echo "[Router] Please run 'bash server/setup_server.sh' to initialize the environment."
+    exit 1
+fi
+
 PROFILE="standard"
 if [[ $# -gt 0 && ! "$1" == --* ]]; then
     PROFILE="$1"
@@ -105,113 +114,34 @@ if [[ -f "$FILE_WAV" ]]; then
   "timestamp": "$TIMESTAMP"
 }
 EOF
-
-        echo "[Router] Booting deterministic cleaner..."
-
-        # 1. Directly extract the profile's env overrides using jq
-        MARK_CONF=$(jq -r ".profiles[\"$PROFILE\"].env_overrides.MARK_CONFIDENCE // empty" "$CONFIG_JSON")
-        MARK_COMP=$(jq -r ".profiles[\"$PROFILE\"].env_overrides.COMPRESS_REPETITIONS // empty" "$CONFIG_JSON")
-
-        # 2. If it wasn't overridden in pipeline_config.json, fall back to parsing standard.env
-        if [[ -z "$MARK_CONF" ]]; then
-            MARK_CONF=$(grep "^MARK_CONFIDENCE=" "$CONFIG_FULL" | cut -d'=' -f2 | tr -d '"[:space:]')
-        fi
-
-        if [[ -z "$MARK_COMP" ]]; then
-            MARK_COMP=$(grep "^COMPRESS_REPETITIONS=" "$CONFIG_FULL" | cut -d'=' -f2 | tr -d '"[:space:]')
-        fi
-
-        # 3. Clean up strings just in case
-        MARK_CONF=$(echo "$MARK_CONF" | tr -d '"[:space:]')
-        MARK_COMP=$(echo "$MARK_COMP" | tr -d '"[:space:]')
-
         # Clean up the temp environment file as before
         rm "$TEMP_ENV"
 
-        PY_ARGS=()
-        [[ "$MARK_CONF" == "true" ]] && PY_ARGS+=("--mark-confidence")
-        [[ "$MARK_COMP" == "true" ]] && PY_ARGS+=("--compress-repetitions")
-
-        python3 "$REPO_ROOT/post_processing/deterministic_cleaner.py" "${PY_ARGS[@]}" "$FILE_JSON"
+        # --- NEW ENGINE HANDOFF ---
+        echo "[Router] Handing over to Python Engine..."
         
-        RAW_TEXT=$(jq -r '.segments[].text' "${FILE_JSON%.*}_cleaned.json" | tr -d '\n')
-        RAW_TXT_PATH="${FILE_JSON%.*}_raw.txt"
-        echo -n "$RAW_TEXT" > "$RAW_TXT_PATH"
+        "$PYTHON_EXEC" "$REPO_ROOT/post_processing/engine.py" \
+            --profile "$PROFILE" \
+            --input "$FILE_JSON" \
+            --workspace "$WORKSPACE"
 
-        FINAL_TEXT="$RAW_TEXT"
-        CURRENT_INPUT="$RAW_TXT_PATH"
+        if [[ $? -ne 0 ]]; then
+            echo "[Router] Error: Python Engine failed during post-processing."
+            exit 1
+        fi
 
-        # --- Dynamic Post-Processing Execution ---
-        STEP=1
-        while IFS= read -r step_json; do
-            if [[ -z "$step_json" || "$step_json" == "null" ]]; then
-                continue
-            fi
-            
-            STEP_TYPE=$(echo "$step_json" | jq -r '.type // empty')
-            STEP_OUT="${FILE_JSON%.*}_step${STEP}.txt"
-            
-            if [[ "$STEP_TYPE" == "llm" ]]; then
-                PROVIDER=$(echo "$step_json" | jq -r '.provider // "local"')
-                MODEL=$(echo "$step_json" | jq -r '.model // "llama3"')
-                ENDPOINT=$(echo "$step_json" | jq -r '.endpoint // "http://localhost:11434/v1/chat/completions"')
-                PROMPT=$(echo "$step_json" | jq -r '.prompt // empty')
-                SCHEMA=$(echo "$step_json" | jq -c '.response_schema // empty')
-                ENFORCE_JSON=$(echo "$step_json" | jq -r '.enforce_json // false')
-                
-                CMD_ARRAY=(python3 "$REPO_ROOT/post_processing/llm_step_runner.py")
-                CMD_ARRAY+=(--input "$CURRENT_INPUT" --output "$STEP_OUT")
-                CMD_ARRAY+=(--provider "$PROVIDER" --model "$MODEL" --endpoint "$ENDPOINT")
-                CMD_ARRAY+=(--language "$LANG_CODE" --prompt "$PROMPT")
-                
-                # If you have an explicit schema payload
-                if [[ -n "$SCHEMA" ]]; then
-                    CMD_ARRAY+=(--schema "$SCHEMA")
-                fi
-                
-                # If you are just using the old boolean flag
-                if [[ "$ENFORCE_JSON" == "true" ]]; then
-                    CMD_ARRAY+=(--enforce-json)
-                fi
-                
-                echo "[Router] Running Post-Processing Step $STEP ($PROVIDER / $MODEL)..."
-                "${CMD_ARRAY[@]}"
-                
-            elif [[ "$STEP_TYPE" == "deterministic" ]]; then
-                SCRIPT_NAME=$(echo "$step_json" | jq -r '.script // empty')
-                DICT_PATH=$(echo "$step_json" | jq -r '.dictionary // empty')
-                LANG_ARG=$(echo "$step_json" | jq -r '.language // empty')
-                EXTRA_ARGS=$(echo "$step_json" | jq -r '.args // empty')
-                
-                CMD_ARRAY=(python3 "$REPO_ROOT/post_processing/$SCRIPT_NAME" --input "$CURRENT_INPUT" --output "$STEP_OUT")
-                
-                if [[ -n "$DICT_PATH" && "$DICT_PATH" != "null" ]]; then
-                    CMD_ARRAY+=(--dict "$REPO_ROOT/$DICT_PATH")
-                fi
-                if [[ "$LANG_ARG" == "{language}" ]]; then
-                    CMD_ARRAY+=(--language "$LANG_CODE")
-                fi
-                if [[ -n "$EXTRA_ARGS" && "$EXTRA_ARGS" != "null" ]]; then
-                    read -r -a EXTRA_ARRAY <<< "$EXTRA_ARGS"
-                    CMD_ARRAY+=("${EXTRA_ARRAY[@]}")
-                fi
-                
-                echo "[Router] Running Deterministic Step $STEP ($SCRIPT_NAME)..."
-                "${CMD_ARRAY[@]}"
-            else
-                continue
-            fi
-            
-            if [[ $? -ne 0 ]]; then
-                echo "[Router] Error during post-processing step $STEP."
-                exit 1
-            fi
-            
-            CURRENT_INPUT="$STEP_OUT"
-            FINAL_TEXT=$(cat "$CURRENT_INPUT")
-            ((STEP++))
-            
-        done < <(jq -c ".profiles[\"$PROFILE\"].post_processing[]?" "$CONFIG_JSON" 2>/dev/null)
+        # Load dynamic suffixes for reading output
+        SUFFIX_FINAL=$(jq -r '.suffixes.final_text' "$CONFIG_STATIC")
+        SUFFIX_RAW=$(jq -r '.suffixes.raw_text' "$CONFIG_STATIC")
+
+        FINAL_TXT_PATH="$WORKSPACE/${TIMESTAMP}${SUFFIX_FINAL}"
+        RAW_TXT_PATH="$WORKSPACE/${TIMESTAMP}${SUFFIX_RAW}"
+        
+        # Safely read output (Python Engine handles generation)
+        FINAL_TEXT=""
+        RAW_TEXT=""
+        [[ -f "$FINAL_TXT_PATH" ]] && FINAL_TEXT=$(cat "$FINAL_TXT_PATH")
+        [[ -f "$RAW_TXT_PATH" ]] && RAW_TEXT=$(cat "$RAW_TXT_PATH")
 
         touch "$WORKSPACE/.completed"
 

@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
-
-import json
-import re
-import sys
 import argparse
 import os
+import sys
+import re
 import string
+import language_tool_python
+import yaml
+import json
+from core import static_config
+
+LANG_MAP = {
+    "en": "en-US",
+    "fr": "fr-FR",
+    "de": "de-DE",
+}
 
 # --- Constants ---
 BACKCHANNEL_WORDS = {
@@ -37,6 +45,108 @@ def add_confidence_marker(text, p_value):
     elif p_value < 0.6:
         return f"{text} [?]"
     return text
+
+def format_timestamp(ms):
+    s = ms // 1000
+    m, s = divmod(s, 60)
+    h, m = divmod(m, 60)
+    if h > 0:
+        return f"[{h:02d}:{m:02d}:{s:02d}]"
+    return f"[{m:02d}:{s:02d}]"
+
+def _is_pure_filler(text):
+    stripped = PURE_FILLER_RE.sub("", text).strip()
+    return not stripped
+
+def _is_fragment(text):
+    text = text.strip()
+    # 1. Catch explicit filler words defined in your regex
+    if FILLER_PATTERN.match(text):
+        return True
+    # 2. Flag completely non-alphanumeric noise (e.g., lone punctuation or symbols)
+    if not re.search(r'[a-zA-Z0-9]', text):
+        return True
+    # If it contains actual letters and isn't filler, trust it as a valid dictation.
+    return False
+
+def strip_markers_func(text):
+    """Removes Whisper confidence markers from the text.
+    """
+    return re.sub(r'\s*\[\?+\]|\s*\[[-+]+\]', '', text)
+
+## Grammar Correction Function
+
+def grammar_checker(text, language="en", strip_markers=True, disable_spellchecking=True):
+    """Corrects grammar in the provided text using LanguageTool.
+    """
+    lt_lang = LANG_MAP.get(language, "en-US")
+    if strip_markers:
+        text = strip_markers_func(text)
+    try:
+        try:
+            tool = language_tool_python.LanguageTool(lt_lang, remote_server='http://localhost:8081')
+            print("🚀 Connected to remote server daemon.")
+        except Exception as e:
+            print(f"⚠️ [Grammar Checker] Failed to connect to local daemon: {e}")
+            print("-> Falling back to a local, self-hosted LanguageTool instance...")
+            tool = language_tool_python.LanguageTool(lt_lang)
+        if disable_spellchecking:
+            tool.disable_spellchecking()
+        corrected_text = tool.correct(text)
+    except Exception as e:
+        print(f"❌ [Grammar Checker] Both remote daemon and local fallback failed: {e}")
+        print("-> Bypassing grammar check and returning raw text.")
+        corrected_text = text
+    finally:
+        if 'tool' in locals():
+            tool.close()
+    print(f"✅ [Grammar Checker] Truecasing and punctuation restored (Lang: {lt_lang}).")
+    return corrected_text
+
+## Regex Replacement Functions
+
+def build_auto_regex(variations):
+    """
+    Takes a list of string variations and builds a safe, 
+    case-insensitive regex pattern.
+    """
+    # Sort variations by length descending to prevent partial matches 
+    # (e.g., matching "Fim" before "Fim eca")
+    variations_sorted = sorted(variations, key=len, reverse=True)
+    # Escape special characters in the variations (like the dot in bash.rc)
+    escaped_vars = [re.escape(v) for v in variations_sorted]
+    # (?i) makes it case-insensitive
+    # \b ensures we only match whole words
+    return r'(?i)\b(?:' + '|'.join(escaped_vars) + r')\b'
+
+def load_and_compile(yaml_path):
+    with open(yaml_path, 'r', encoding='utf-8') as f:
+        data = yaml.safe_load(f)
+    rules = {}
+    if 'auto_generate' in data:
+        for target, variations in data['auto_generate'].items():
+            pattern = build_auto_regex(variations)
+            rules[pattern] = target
+    if 'raw_regex' in data:
+        for pattern, target in data['raw_regex'].items():
+            rules[pattern] = target
+    return rules
+
+def regex_replacer(text, rules_dict_path, strip_markers=False):
+    """Applies regex replacements to the provided text based on the rules_dict.
+    """
+
+    # Optional: Wipe markers if moving into a purely deterministic, non-LLM pipeline
+    if strip_markers:
+        text = strip_markers_func(text)
+    replacements = load_and_compile(rules_dict_path)
+    for pattern, replacement in replacements.items():
+        text = re.sub(pattern, replacement, text)
+    print("✅ [Regex Replacer] Deterministic substitution complete.")
+    return text
+
+## Deterministic cleaning functions
+
 
 def compress_repetitions_marked(text, min_phrase_len=2, max_phrase_len=60):
     """
@@ -171,8 +281,7 @@ def dedup_and_filter_hallucinations(segments, mark_confidence=False):
         cleaned_tokens = []
         streak = 1
 
-        for i in range(len(tokens)):
-            token_obj = tokens[i]
+        for i, token_obj in enumerate(tokens):
             if isinstance(token_obj, dict):
                 raw_text = token_obj.get('text', '')
                 p_val = token_obj.get('p', 1.0)
@@ -214,20 +323,6 @@ def dedup_and_filter_hallucinations(segments, mark_confidence=False):
             })
 
     return cleaned_segments
-def _is_pure_filler(text):
-    stripped = PURE_FILLER_RE.sub("", text).strip()
-    return not stripped
-
-def _is_fragment(text):
-    text = text.strip()
-    # 1. Catch explicit filler words defined in your regex
-    if FILLER_PATTERN.match(text):
-        return True
-    # 2. Flag completely non-alphanumeric noise (e.g., lone punctuation or symbols)
-    if not re.search(r'[a-zA-Z0-9]', text):
-        return True
-    # If it contains actual letters and isn't filler, trust it as a valid dictation.
-    return False
 
 def phrase_level_cleanup(entries, gap_threshold_ms=3000, apply_compression=False):
     no_fillers = [e for e in entries if not _is_pure_filler(e["text"].strip())]
@@ -255,44 +350,40 @@ def phrase_level_cleanup(entries, gap_threshold_ms=3000, apply_compression=False
 
     return final_out
 
-def format_timestamp(ms):
-    s = ms // 1000
-    m, s = divmod(s, 60)
-    h, m = divmod(m, 60)
-    if h > 0:
-        return f"[{h:02d}:{m:02d}:{s:02d}]"
-    return f"[{m:02d}:{s:02d}]"
 
-def main():
-    parser = argparse.ArgumentParser(description="Deterministic pre-processor for Whisper JSON.")
-    parser.add_argument("input_json", help="Path to the whisper _full.json file")
-    parser.add_argument("--mark-confidence", action="store_true", help="Append [---] markers based on p value")
-    parser.add_argument("--compress-repetitions", action="store_true", help="Collapse looped phrases into [Rx] markers")
-    args = parser.parse_args()
-
-    if not os.path.exists(args.input_json):
-        print(f"Error: {args.input_json} not found.")
+def whisper_json_output_pre_treatment(transcription_json_path, static_config, mark_confidence=False, compress_repetitions=False):
+    """Pre-process Whisper JSON output.
+    
+    Args:
+        transcription_json_path (str): Path to the Whisper JSON file.
+        static_config (StaticConfig): The static configuration object.
+        mark_confidence (bool): Whether to append confidence markers.
+        compress_repetitions (bool): Whether to collapse repeated phrases.
+    """
+    if not os.path.exists(transcription_json_path):
+        print(f"Error: {transcription_json_path} not found.")
         sys.exit(1)
 
-    # Gather active flags for explicit visibility in the router logs
-    active_flags = []
-    if args.mark_confidence:
-        active_flags.append("--mark-confidence")
-    if args.compress_repetitions:
-        active_flags.append("--compress-repetitions")
+    options_string = "with "
+    if not mark_confidence and not compress_repetitions:
+        options_string += "no flags"
+    if mark_confidence and not compress_repetitions:
+        options_string += "confidence marking"
+    if compress_repetitions and not mark_confidence:
+        options_string += "repetition compression"
+    if mark_confidence and compress_repetitions:
+        options_string += "confidence marking and repetition compression"
+    print(f"-> Running deterministic pre-processing on {transcription_json_path} {options_string}...")
     
-    flags_str = f" with flags: {' '.join(active_flags)}" if active_flags else " with no extra flags"
+    raw_segments = parse_whisper_json(transcription_json_path)
+    
+    deduped_entries = dedup_and_filter_hallucinations(raw_segments, mark_confidence=mark_confidence)
+    final_cleaned_entries = phrase_level_cleanup(deduped_entries, apply_compression=compress_repetitions)
 
-    print(f"-> Running deterministic pre-processing on {args.input_json}{flags_str}...")
-    
-    raw_segments = parse_whisper_json(args.input_json)
-    
-    deduped_entries = dedup_and_filter_hallucinations(raw_segments, mark_confidence=args.mark_confidence)
-    final_cleaned_entries = phrase_level_cleanup(deduped_entries, apply_compression=args.compress_repetitions)
-
-    base_name = os.path.splitext(args.input_json)[0]
-    out_json = f"{base_name}_cleaned.json"
-    out_md = f"{base_name}_cleaned.md"
+    # Use static_config to dynamically generate file extensions
+    base_name = str(transcription_json_path).replace(static_config.suffixes.full_json, "")
+    out_json = f"{base_name}{static_config.suffixes.cleaned_json}"
+    out_md = f"{base_name}{static_config.suffixes.cleaned_md}"
 
     with open(out_json, 'w', encoding='utf-8') as f:
         json.dump({"segments": final_cleaned_entries}, f, indent=2)
@@ -304,6 +395,3 @@ def main():
             f.write(f"**{ts}** {e['text'].strip()}\n\n")
 
     print(f"✅ Scrubbed output saved to {out_json} and {out_md}")
-
-if __name__ == "__main__":
-    main()

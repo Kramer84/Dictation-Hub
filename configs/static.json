@@ -5,10 +5,10 @@
   },
   "suffixes": {
     "audio": "_raw.wav",
-    "live_text": "_live.txt",
     "full_json": "_full.json",
-    "deduped_text": "_step1_deduped.json",
-    "semantic_text": "_step2_semantic.json",
+    "cleaned_json": "_cleaned.json",
+    "cleaned_md": "_cleaned.md",
+    "raw_text": "_raw.txt",
     "final_text": "_final.txt"
   }
 }

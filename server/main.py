@@ -11,6 +11,15 @@ app = FastAPI()
 SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(SERVER_DIR)
 CONFIG_JSON_PATH = os.path.join(REPO_ROOT, "configs", "pipeline_config.json")
+## The following will have to be changed, once we repackage the post_processing directory into a proper Python package with __init__.py
+STATIC_JSON_PATH = os.path.join(REPO_ROOT, "configs", "static.json")
+
+# --- Inject post_processing into path to access our shared configuration models ---
+sys.path.append(os.path.join(REPO_ROOT, "post_processing"))
+from core.static_config import WhisperPipelineConfig
+
+# Load static config once at server startup to reduce I/O overhead on requests
+static_config = WhisperPipelineConfig.load_from_file(STATIC_JSON_PATH)
 
 # --- 1. Serve the Mobile UI ---
 @app.get("/", response_class=HTMLResponse)
@@ -21,8 +30,9 @@ async def serve_ui():
 # --- 2. The Shared Pipeline Execution Logic ---
 # Both the desktop script (POST) and the mobile web app (WebSockets) use this exact engine.
 def execute_pipeline(workspace, raw_audio, timestamp, profile_name, query_params):
-    norm_wav = os.path.join(workspace, f"{timestamp}_raw.wav")
-    json_out = os.path.join(workspace, f"{timestamp}_full.json")
+    # Dynamically apply suffixes from static_config
+    norm_wav = os.path.join(workspace, f"{timestamp}{static_config.suffixes.audio}")
+    json_out = os.path.join(workspace, f"{timestamp}{static_config.suffixes.full_json}")
     
     with open(CONFIG_JSON_PATH, "r", encoding="utf-8") as f:
         config = json.load(f)
@@ -73,81 +83,32 @@ def execute_pipeline(workspace, raw_audio, timestamp, profile_name, query_params
     with open(os.path.join(workspace, "metadata.json"), "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2)
 
-    # (Preserved your custom COMPRESS_REPETITIONS check)
-    use_confidence = "true" if env_overrides.get("MARK_CONFIDENCE", "false").lower() == "true" else "false"
-    compress_reps = "true" if env_overrides.get("COMPRESS_REPETITIONS", "false").lower() == "true" else "false"
-    
-    cleaner_args = ["python3", os.path.join(REPO_ROOT, "post_processing", "deterministic_cleaner.py")]
-    if use_confidence == "true":
-        cleaner_args.append("--mark-confidence")
-    if compress_reps == "true":
-        cleaner_args.append("--compress-repetitions")
-    cleaner_args.append(json_out)
-    
-    subprocess.run(cleaner_args, check=True)
-    
-    cleaned_json = json_out.replace(".json", "_cleaned.json")
-    with open(cleaned_json, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    
-    raw_text = " ".join([seg["text"] for seg in data.get("segments", [])]).strip()
-    
-    raw_txt_path = json_out.replace(".json", "_raw.txt")
-    with open(raw_txt_path, "w", encoding="utf-8") as f:
-        f.write(raw_text)
+    engine_script = os.path.join(REPO_ROOT, "post_processing", "engine.py")
+    subprocess.run([
+        "python3", engine_script,
+        "--profile", profile_name,
+        "--input", json_out,
+        "--workspace", workspace
+    ], check=True)
 
-    # --- Dynamic Post-Processing Execution ---
-    final_text = raw_text
-    current_input = raw_txt_path
-    post_steps = profile_data.get("post_processing", [])
-    
-    for i, step in enumerate(post_steps):
-        if not isinstance(step, dict):
-            continue
-            
-        step_type = step.get("type")
-        step_out = json_out.replace(".json", f"_step{i+1}.txt")
-        
-        if step_type == "llm":
-            cmd = [
-                "python3", os.path.join(REPO_ROOT, "post_processing", "llm_step_runner.py"),
-                "--input", current_input,
-                "--output", step_out,
-                "--provider", step.get("provider", "local"),
-                "--model", step.get("model", "llama3"),
-                "--endpoint", step.get("endpoint", "http://localhost:11434/v1/chat/completions"),
-                "--language", detected_lang,
-                "--prompt", step.get("prompt", "")
-            ]
-            response_schema = step.get("response_schema")
-            if response_schema:
-                cmd.extend(["--schema", json.dumps(response_schema)])
-            elif step.get("enforce_json", False):
-                cmd.append("--enforce-json")
-                
-        elif step_type == "deterministic":
-            script_name = step.get("script")
-            script_path = os.path.join(REPO_ROOT, "post_processing", script_name)
-            cmd = ["python3", script_path, "--input", current_input, "--output", step_out]
-            
-            if "dictionary" in step:
-                cmd.extend(["--dict", os.path.join(REPO_ROOT, step["dictionary"])])
-            if step.get("language") == "{language}":
-                cmd.extend(["--language", detected_lang])
-            if "args" in step:
-                cmd.extend(step["args"].split())
-        else:
-            continue
+    # Output Resolution dynamically pulled from static_config
+    final_txt_path = os.path.join(workspace, f"{timestamp}{static_config.suffixes.final_text}")
+    raw_txt_path = os.path.join(workspace, f"{timestamp}{static_config.suffixes.raw_text}")
 
-        subprocess.run(cmd, check=True)
-        current_input = step_out
-        
-        with open(current_input, "r", encoding="utf-8") as f:
+    # Engine creates the raw text dump from the deterministic cleaner step internally,
+    # but if you need to fetch it for the web UI return:
+    raw_text = ""
+    if os.path.exists(raw_txt_path):
+        with open(raw_txt_path, "r", encoding="utf-8") as f:
+            raw_text = f.read().strip()
+
+    final_text = ""
+    if os.path.exists(final_txt_path):
+        with open(final_txt_path, "r", encoding="utf-8") as f:
             final_text = f.read().strip()
 
     open(os.path.join(workspace, ".completed"), 'a').close()
     return {"raw_text": raw_text, "final_text": final_text}
-
 
 # --- 3. The Desktop Client Endpoint (HTTP POST) ---
 @app.post("/transcribe")
@@ -156,6 +117,8 @@ async def transcribe(request: Request):
     profile_name = dict(request.query_params).get("profile", "standard")
     workspace = os.path.expanduser(f"~/.whisper_transcriptions/{timestamp}_{profile_name}")
     os.makedirs(workspace, exist_ok=True)
+
+    # Note: _client.wav acts as a temp incoming stream dump before ffmpeg normalizes it to static_config.suffixes.audio
     raw_audio = os.path.join(workspace, f"{timestamp}_client.wav")
     
     with open(raw_audio, "wb") as f:
@@ -185,6 +148,8 @@ async def websocket_transcribe(websocket: WebSocket):
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     workspace = os.path.expanduser(f"~/.whisper_transcriptions/{timestamp}_{profile_name}")
     os.makedirs(workspace, exist_ok=True)
+
+    # Note: _client.webm acts as a temp incoming stream dump before ffmpeg normalizes it to static_config.suffixes.audio
     raw_audio = os.path.join(workspace, f"{timestamp}_client.webm")
     
     with open(raw_audio, "wb") as f:

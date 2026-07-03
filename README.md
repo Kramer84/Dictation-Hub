@@ -1,44 +1,62 @@
 # SpeechToTextTranscriptionTool
 
-A frictionless, high-speed, GPU-accelerated speech-to-text pipeline. This project isolates audio capture, `whisper.cpp` execution, and Mistral LLM post-processing into a dedicated, modular repository.
+A modular, client-server speech-to-text pipeline designed to eliminate common transcription hallucinations, enforce domain-specific formatting, and act as a reliable input trigger for external automation tools. 
+
+This project isolates audio capture, `whisper.cpp` execution, multi-stage post-processing, and remote inference into a dedicated repository.
+
+## Motivation & Philosophy
+
+Standard speech-to-text tools often struggle with consistent formatting, phonetic hallucinations of specific technical terms or names, and poor adaptation to different contexts (e.g., dictating an email vs. a technical CLI command). 
+
+This tool was built to solve these issues by:
+1. **Using Intent-Based Profiles:** Before dictation, a specific profile is selected. This profile dictates the `INITIAL_PROMPT` sent to Whisper and determines the exact sequence of post-processing steps.
+2. **Multi-Stage Post Processing:** Outputs are passed through deterministic regex replacements, local grammatical truecasing (LanguageTool), and optional LLM agents to restructure the text or propose different approaches.
+3. **Intentional Manual Control:** Profile selection is strictly manual. Using an LLM first-pass to guess the user's intent would introduce latency and unpredictability; explicit selection guarantees the correct pipeline is executed immediately.
+4. **Whole-Audio Processing:** While streaming audio directly to the decoder might decrease turnaround time, whole-audio processing is currently used to guarantee maximum flexibility with Whisper's inference parameters. Streaming options require further testing regarding contextual accuracy and parameter constraints.
 
 ## Architecture
 
-* **`core/audio_capture.sh`**: Handles hardware audio capture and standardizes the output to 16kHz mono WAV files.
-* **`core/whisper_transcribe.sh`**: The main execution router for local inference. It accepts an audio file and an environment profile, dynamically passing the correct parameters to `whisper-cli`.
-* **`server/main.py`**: A FastAPI backend bound to Tailscale, exposing a `/transcribe` endpoint. It intercepts chunked transfer streams, processes the raw audio, and returns cleaned JSON payloads.
-* **`client/dictate_client.sh`**: A remote dictation tool using an Auto-Discovery hardware bridge (PulseAudio, SoX, ALSA). It streams chunked data over a named pipe (FIFO) directly to the server, resulting in zero transfer latency.
-* **`configs/`**: Contains `.env` files defining explicit behavioral variants (Standard, Creative, Fast, Code-Switching). 
-* **`post_processing/`**: Python scripts utilizing LLMs to reconstruct and clean transcriptions deterministically.
-* **`setup/`**: Dependency manager to pull specific Whisper models and the Silero VAD `.bin` files based on a manifest.
+The pipeline is split into a GPU-accelerated server and lightweight clients connected via a Tailscale network bridge.
+
+### 1. Server (Inference & Processing)
+The host machine handles all heavy lifting. It runs a FastAPI backend bound to the Tailscale interface.
+* **Audio Capture:** Hardware audio is captured, converted to 16kHz mono, and peak-normalized to -6dB to ensure the Voice Activity Detection (VAD) operates on consistent intensity levels.
+* **Whisper Router:** The core execution router reads the requested profile, dynamically builds the `whisper.cpp` parameters, and generates a raw JSON transcription.
+* **Post-Processing:** A configurable chain of Python scripts cleans the JSON.
+    * **Deterministic Cleaner:** Strips filler words and collapses repeating hallucination loops.
+    * **Regex Replacer:** Fixes known phonetic failures (e.g., specific names, software libraries).
+    * **Grammar Checker:** Restores proper casing and punctuation using a local `LanguageTool` daemon.
+    * **LLM Runner:** Optional integration with local models (Ollama) or external APIs (Mistral) for complex formatting or data extraction.
+
+### 2. Client Interfaces
+Allows low-power devices (laptops without GPUs, phones) to offload inference to the host.
+* **Terminal CLI (`client/dictate_client.sh`):** A remote dictation tool using an Auto-Discovery hardware bridge (PulseAudio, SoX, ALSA). It streams chunked audio data over a named pipe (FIFO) directly to the server via an HTTP POST request.
+* **Mobile Web UI:** The FastAPI server serves a responsive HTML/JS interface accessible via Tailscale, utilizing WebSockets to stream audio directly from a browser.
+
+### 3. Automation Integration
+All files and intermediate pipeline steps are saved to `~/.whisper_transcriptions/` (configurable). Once a pipeline finishes, an empty `.completed` file is touched. This serves as a trigger for external directory-watching agents (e.g., n8n, custom cron jobs) to pick up the final payload (like a calendar schedule extraction) and execute API calls.
+
+## Optimization & Tuning Suite
+
+The repository contains a standalone `optimization/` suite to find the mathematical best fit for your specific hardware and voice.
+* **VAD Optimization:** A live testing tool to find the exact threshold where Silero VAD cuts dead air without clipping the start of words.
+* **Hyper-Tuner:** An Optuna-based parameter search that runs Whisper against a custom dataset. The dataset contains multiple takes of ground-truth reference texts recorded under different conditions (clean, fan noise, filler words, pauses) to find the most resilient beam search and entropy thresholds.
 
 ## Usage
 
-### Local Dictation
-Run the core execution router directly on the host machine.
-*(Documentation pending parameter implementation)*
-
 ### Remote Dictation (Tailscale)
-1. On the host machine, start the background server:
+1. On the GPU host machine, start the background server:
    `bash server/launch_server.sh`
-2. On the client machine, invoke the global symlink:
-   `dictate`
-3. Press `Enter` or `Ctrl+C` to stop recording and fetch the transcribed text.
+2. **Via CLI:** On the client machine, invoke the global symlink (`dictate`), then press `Enter` or `Ctrl+C` to stop recording.
+3. **Via Web:** Navigate to the Tailscale IP of the host on port 8000, select your profile, and dictate.
 
 ## Roadmap
 
-### 1. Contextual Routing & Profiles
-- **CLI Sub-commands**: Introduce arguments to the main `dictate` wrapper (e.g., `dictate notes`, `dictate code`) to route behavior.
-- **Dynamic Prompt Injection**: Prepend profile-specific context (like expected tool names, acronyms, or formatting rules) into the `INITIAL_PROMPT` variable sent to Whisper.
-- **Backend Query Integration**: Update the FastAPI `/transcribe` endpoint to accept query parameters so remote clients can trigger specific `.env` profiles.
+### 1. Orchestration Rewrite
+* **Python Migration:** The core orchestration will be rewritten in Python to improve error handling and configuration parsing, moving away from brittle bash-based JSON processing.
 
-### 2. Audio Pre-Processing 
-- **EBU R128 Normalization**: Equalize volume differences if recording hardware changes or the speaker moves away from the microphone.
-- **Aggressive Silence Stripping**: Use `silenceremove` to cut dead air prior to inference.
+### 2. Dataset Expansion
+* Expand the optimization dataset with more varied environmental noise profiles and languages to further harden the Whisper hyperparameter defaults.
 
-### 3. Advanced Post-Processing
-- **LLM Routing**: Integrate argument-specific LLM post-processing steps (e.g., summarizing, extracting action items) that trigger automatically based on the requested profile.
-
-### 4. Testing and Benchmarking
-- **Word Error Rate (WER) Tool**: A script to evaluate raw Whisper outputs against ground-truth texts across multiple languages.
-- **Latent Space Evaluation (BERTScore)**: A semantic similarity evaluator for post-processed text.
+### 3. RAG Interfacing
+* **Pipeline Triggers:** Create specific profiles that output structured JSON queries designed to trigger external Retrieval-Augmented Generation (RAG) databases (e.g., searching scientific papers). The RAG logic will remain entirely external; this tool will solely act as the highly accurate, formatted input mechanism.
