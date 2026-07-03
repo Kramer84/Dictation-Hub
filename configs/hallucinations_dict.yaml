@@ -68,6 +68,8 @@ auto_generate:
     - Open Turns
   SiYuan:
     - C1
+    - c1
+    - cu1
   SiYuan notes:
     - C1 nodes
   Markdown:

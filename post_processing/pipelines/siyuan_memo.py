@@ -4,11 +4,20 @@ from core.text_tools import regex_replacer, grammar_checker
 from typing import Optional
 from pydantic import BaseModel, Field
 
+# --- 1. Generalized Semantic Schema ---
 class SiyuanNote(BaseModel):
-    title: str
-    target_notebook: str = Field(..., description="Guess broad category: 'Engineering', 'Personal', etc.")
-    tags: list[str]
-    markdown_content: str = Field(..., description="The cleaned, structured body in Markdown.")
+    title: str = Field(
+        ..., description="A concise, highly descriptive title for the note."
+    )
+    suggested_themes: List[str] = Field(
+        ..., description="2 to 3 broad conceptual categories representing the text (e.g., 'machine learning', 'logistics', 'personal ideas', 'shopping lists', 'projects'...). Do NOT attempt to guess specific application notebook names."
+    )
+    extracted_tags: List[str] = Field(
+        ..., description="Specific, highly relevant keywords extracted directly from the text to be used as search tags."
+    )
+    markdown_content: str = Field(
+        ..., description="The cleaned, logically structured body of the note formatted in standard Markdown (using headers, bullet points, and bold text where appropriate)."
+    )
 
 class SiyuanMemoPipeline(BasePipeline):
     def execute(self, input_json_path: Path) -> str:
