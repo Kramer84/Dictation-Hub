@@ -81,7 +81,7 @@
           "step_name": "calendar_extraction",
           "type": "llm",
           "provider": "local",
-          "model": "qwen2.5-coder:7b-instruct",
+          "model": "llama3.1:8B",
           "endpoint": "http://localhost:11434/v1/chat/completions",
           "prompt": "You are a specialized calendar data extraction tool. Extract schedule details from the raw text. Use the CURRENT_CONTEXT metadata provided to anchor relative dates like 'tomorrow', 'this afternoon', or named months.\n\nTarget ISO language: {language}."
         }
