@@ -70,7 +70,7 @@
     },
     "scheduling": {
       "env": "standard.env",
-      "webhook_url": "http://localhost:5678/webhook-test/whisper-scheduler",
+      "webhook_url": "http://localhost:5678/webhook/whisper-scheduler-354364527",
       "env_overrides": {
         "MARK_CONFIDENCE": "false",
         "INITIAL_PROMPT": "Google Calendar, Task, Meeting, Job Interview, Vikunja"
