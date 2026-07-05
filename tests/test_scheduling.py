@@ -40,8 +40,8 @@ def scheduling_pipeline():
         "dictionary": "configs/hallucinations_dict.yaml",
         "post_processing": [
             {
-                "provider": "mistral",
-                "model": "mistral-large-latest",
+                "provider": "local",
+                "model": "qwen2.5-coder:7b-instruct",
                 "endpoint": "http://localhost:11434/v1/chat/completions",
                 "prompt": (
                     "You are a specialized calendar data extraction tool. Extract schedule details from the raw text. Use the CURRENT_CONTEXT metadata provided to anchor relative dates like 'tomorrow', 'this afternoon', or named months.\n\nTarget ISO language: {language}."

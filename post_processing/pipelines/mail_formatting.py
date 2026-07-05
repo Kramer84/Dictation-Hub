@@ -1,6 +1,8 @@
 from pathlib import Path
+
+from core.text_tools import grammar_checker, regex_replacer
+
 from .base import BasePipeline
-from core.text_tools import regex_replacer, grammar_checker
 
 
 class MailFormattingPipeline(BasePipeline):

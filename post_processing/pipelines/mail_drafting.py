@@ -1,26 +1,22 @@
 from pathlib import Path
+
+from core.text_tools import grammar_checker, regex_replacer
+
 from .base import BasePipeline
-from core.text_tools import regex_replacer, grammar_checker
 
 
 class MailDraftingPipeline(BasePipeline):
     def execute(self, input_json_path: Path) -> str:
         print("[MailDraftingPipeline] Executing deterministic extraction...")
         current_text = self.apply_deterministic_cleaner(input_json_path)
-
-        # 1. Regex Replacer
         dict_path_str = self.profile_data.get(
             "dictionary", "configs/hallucinations_dict.yaml"
         )
         dict_path = str(self.repo_root / dict_path_str)
         current_text = regex_replacer(current_text, dict_path, strip_markers=True)
-
-        # 2. Grammar Checker
         current_text = grammar_checker(
             current_text, language=self.language, strip_markers=True
         )
-
-        # 3. LLM Injection
         llm_cfg = self.profile_data["post_processing"][0]
         current_text = self.call_llm(
             provider_type=llm_cfg["provider"],
