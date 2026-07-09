@@ -42,7 +42,7 @@ auto_generate:
     - Dégatoire
   Simady:
     - Simadi
-  
+
   # Tech & Software
   Cython:
     - Scython
@@ -76,9 +76,12 @@ auto_generate:
     - cu1 notes
   Markdown:
     - Mac down
+  PhD Thesis:
+    - Piagetesis
+    - PHE Teaser
 
 raw_regex:
-  # Put your explicit, complex regexes here. 
+  # Put your explicit, complex regexes here.
   # These will be compiled exactly as written.
   \b[Ll]+[Mm]\b: "LLM"
   \b[Ll]+[Mm][Ss]+\b: "LLMs"

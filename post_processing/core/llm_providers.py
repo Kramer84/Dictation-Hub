@@ -36,7 +36,7 @@ class LLMConfig(BaseModel):
         None,
         description="Deterministic sampling seed if supported by provider backend.",
     )
-    timeout: float = Field(30.0, description="HTTP request timeout ceiling in seconds.")
+    timeout: float = Field(300.0, description="HTTP request timeout ceiling in seconds.")
     max_retries: int = Field(
         3, ge=0, description="Transient error connection retry threshold."
     )
@@ -84,7 +84,7 @@ class LLMProvider(ABC):
         retries = 0
         backoff = 1.0
         logger.debug(f"Initializing HTTP execution with max_retries={config.max_retries}, backoff_factor={config.backoff_factor}")
-        
+
         while True:
             try:
                 logger.debug(f"HTTP Request Attempt {retries + 1}/{config.max_retries + 1}")
@@ -107,7 +107,7 @@ class LLMProvider(ABC):
                     )
                     raise e
                 logger.warning(f"Connection dropped: {str(e)}. Attempting retry state in {backoff}s.")
-            
+
             time.sleep(backoff)
             backoff *= config.backoff_factor
             retries += 1
@@ -124,11 +124,11 @@ class LLMProvider(ABC):
             elif clean_text.startswith("```"):
                 logger.debug("Detected generic markdown ``` code block. Stripping formatting.")
                 clean_text = clean_text.split("```", 1)[1].rsplit("```", 1)[0].strip()
-            
+
             parsed_obj = schema.model_validate_json(clean_text)
             logger.debug(f"JSON successfully validated against {schema.__name__}.")
             return parsed_obj
-            
+
         except (ValidationError, ValueError) as json_err:
             logger.error(
                 f"Structural validation against Schema broken: {str(json_err)}"
@@ -164,7 +164,7 @@ class MistralProvider(LLMProvider):
         if response_schema:
             payload["response_format"] = {"type": "json_object"}
             logger.debug("Enforcing 'json_object' response_format for schema extraction.")
-            
+
         logger.debug(f"Payload configuration: temperature={config.temperature}, max_tokens={config.max_tokens}, seed={config.seed}")
         return payload
 
@@ -178,13 +178,13 @@ class MistralProvider(LLMProvider):
         cfg = config or LLMConfig()
         payload = self._build_payload(messages, cfg, response_schema)
         payload["stream"] = False
-        
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
-        
+
         start_time = time.perf_counter()
         response = self._execute_with_retry(
             lambda: requests.post(
@@ -193,11 +193,11 @@ class MistralProvider(LLMProvider):
             cfg,
         )
         latency = (time.perf_counter() - start_time) * 1000.0
-        
+
         response_json = response.json()
         raw_content = response_json["choices"][0]["message"]["content"]
         usage_data = response_json.get("usage", {})
-        
+
         metrics = UsageMetrics(
             prompt_tokens=usage_data.get("prompt_tokens", 0),
             completion_tokens=usage_data.get("completion_tokens", 0),
@@ -209,7 +209,7 @@ class MistralProvider(LLMProvider):
         parsed_obj = None
         if response_schema and raw_content:
             parsed_obj = self._parse_and_validate_json(raw_content, response_schema)
-            
+
         return GenerationResult(
             raw_content=raw_content, parsed_object=parsed_obj, metrics=metrics
         )
@@ -221,18 +221,18 @@ class MistralProvider(LLMProvider):
         cfg = config or LLMConfig()
         payload = self._build_payload(messages, cfg)
         payload["stream"] = True
-        
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
-        
+
         logger.debug("Opening HTTP stream connection...")
         response = requests.post(
             self.url, headers=headers, json=payload, timeout=cfg.timeout, stream=True
         )
         response.raise_for_status()
-        
+
         chunk_count = 0
         for line in response.iter_lines():
             if line:
@@ -280,14 +280,14 @@ class LocalProvider(LLMProvider):
         if config.keep_alive is not None:
             payload["keep_alive"] = config.keep_alive
             logger.debug(f"Applying keep_alive policy: {config.keep_alive}")
-            
+
         if response_schema:
             payload["response_format"] = {
                 "type": "json_object",
                 "schema": response_schema.model_json_schema(),
             }
             logger.debug("Injected JSON schema definition into payload.")
-            
+
         return payload
 
     def generate(
@@ -301,7 +301,7 @@ class LocalProvider(LLMProvider):
         payload = self._build_payload(messages, cfg, response_schema)
         payload["stream"] = False
         headers = {"Content-Type": "application/json"}
-        
+
         start_time = time.perf_counter()
         response = self._execute_with_retry(
             lambda: requests.post(
@@ -310,11 +310,11 @@ class LocalProvider(LLMProvider):
             cfg,
         )
         latency = (time.perf_counter() - start_time) * 1000.0
-        
+
         response_json = response.json()
         raw_content = response_json["choices"][0]["message"]["content"]
         usage_data = response_json.get("usage", {})
-        
+
         metrics = UsageMetrics(
             prompt_tokens=usage_data.get("prompt_tokens", 0),
             completion_tokens=usage_data.get("completion_tokens", 0),
@@ -326,7 +326,7 @@ class LocalProvider(LLMProvider):
         parsed_obj = None
         if response_schema and raw_content:
             parsed_obj = self._parse_and_validate_json(raw_content, response_schema)
-            
+
         return GenerationResult(
             raw_content=raw_content, parsed_object=parsed_obj, metrics=metrics
         )
@@ -339,7 +339,7 @@ class LocalProvider(LLMProvider):
         payload = self._build_payload(messages, cfg)
         payload["stream"] = True
         headers = {"Content-Type": "application/json"}
-        
+
         logger.debug("Opening HTTP stream connection...")
         response = requests.post(
             self.endpoint,
@@ -349,7 +349,7 @@ class LocalProvider(LLMProvider):
             stream=True,
         )
         response.raise_for_status()
-        
+
         chunk_count = 0
         for line in response.iter_lines():
             if line:
@@ -401,7 +401,7 @@ if __name__ == "__main__":
         ),
     ]
     custom_config = LLMConfig(temperature=0.0, timeout=15.0)
-    
+
     logger.info("[Blueprint Ready] Wire your runtime credentials to activate processing:\n")
     print(
         '''
