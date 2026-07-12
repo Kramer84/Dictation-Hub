@@ -79,6 +79,8 @@ auto_generate:
   PhD Thesis:
     - Piagetesis
     - PHE Teaser
+  GitHub:
+    - Gitpod
 
 raw_regex:
   # Put your explicit, complex regexes here.
