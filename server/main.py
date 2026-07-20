@@ -1,22 +1,32 @@
+"""server/main.py"""
 import os
+import sys
 import subprocess
 import time
 import json
 import tempfile
+
+# --- 1. Fix system paths BEFORE importing custom repository modules ---
+SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(SERVER_DIR)
+
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
+# --- 2. Now custom imports from across the repository will resolve safely ---
+from post_processing.core.static_config import WhisperPipelineConfig
+
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
 app = FastAPI()
 
-SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.dirname(SERVER_DIR)
 CONFIG_JSON_PATH = os.path.join(REPO_ROOT, "configs", "pipeline_config.json")
 ## The following will have to be changed, once we repackage the post_processing directory into a proper Python package with __init__.py
 STATIC_JSON_PATH = os.path.join(REPO_ROOT, "configs", "static.json")
 
 # --- Inject post_processing into path to access our shared configuration models ---
 sys.path.append(os.path.join(REPO_ROOT, "post_processing"))
-from core.static_config import WhisperPipelineConfig
 
 # Load static config once at server startup to reduce I/O overhead on requests
 static_config = WhisperPipelineConfig.load_from_file(STATIC_JSON_PATH)
@@ -49,8 +59,8 @@ def execute_pipeline(workspace, raw_audio, timestamp, profile_name, query_params
     ], check=True)
     
     fd, temp_env_path = tempfile.mkstemp(suffix=".env")
-    with os.fdopen(fd, 'w') as f:
-        with open(os.path.join(REPO_ROOT, "configs", base_env), "r") as base:
+    with os.fdopen(fd, 'w', encoding='utf-8') as f:
+        with open(os.path.join(REPO_ROOT, "configs", base_env), "r", encoding='utf-8') as base:
             f.write(base.read())
         f.write("\n# --- DYNAMIC OVERRIDES ---\n")
         for key, val in env_overrides.items():
@@ -113,7 +123,7 @@ def execute_pipeline(workspace, raw_audio, timestamp, profile_name, query_params
         "python3", dispatcher_script,
         "--workspace", workspace
     ], check=False) # check=False ensures pipeline doesn't crash if n8n is offline
-    open(os.path.join(workspace, ".completed"), 'a').close()
+    open(os.path.join(workspace, ".completed"), 'a', encoding='utf-8').close()
     return {"raw_text": raw_text, "final_text": final_text}
 
 # --- 3. The Desktop Client Endpoint (HTTP POST) ---

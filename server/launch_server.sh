@@ -18,5 +18,7 @@ fi
 
 source venv/bin/activate
 
+export PYTHONPATH="$PYTHONPATH:$(dirname "$SERVER_DIR")"
+
 echo "🔒 Starting Server securely locked to Tailscale interface: $TS_IP"
 exec uvicorn main:app --host "$TS_IP" --port 8000
