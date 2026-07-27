@@ -14,7 +14,6 @@ from pipelines.scheduling import SchedulingPipeline
 from pipelines.siyuan_memo import SiyuanMemoPipeline
 from pipelines.standard import StandardPipeline
 from pipelines.technical import TechnicalPipeline
-from pipelines.prompter import PrompterPipeline
 
 # 1. Initialize module-level logger
 logger = logging.getLogger(__name__)
@@ -27,7 +26,6 @@ PIPELINE_MAP = {
     "scheduling": SchedulingPipeline,
     "cli_coder": CLICoderPipeline,
     "siyuan_memo": SiyuanMemoPipeline,
-    "prompter": PrompterPipeline
 }
 
 def setup_logging(workspace_dir: Path = None):

@@ -17,6 +17,7 @@ auto_generate:
     - Thierry Alanas
   Nicolas Gayton:
     - Nicolas Guéton
+    - Nicolas Guetton
   Pierre Beaurepaire:
     - Pierre Beau Repaire
     - Pierre Beaurepère
@@ -81,6 +82,9 @@ auto_generate:
     - PHE Teaser
   GitHub:
     - Gitpod
+  Beamer:
+    - Bema
+    - BEMA
 
 raw_regex:
   # Put your explicit, complex regexes here.

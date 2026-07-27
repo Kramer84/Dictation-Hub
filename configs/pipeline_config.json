@@ -123,6 +123,24 @@
           "prompt": "You are a specialized note-structuring tool. Extract the dictated note into a structured JSON payload for a Markdown-based knowledge system. Infer a concise title and relevant tags based on the content. Target ISO language: {language}."
         }
       ]
+    },
+    "prompter": {
+      "env": "standard.env",
+      "env_overrides": {
+        "MARK_CONFIDENCE": "false",
+        "INITIAL_PROMPT": "Prompt Engineering, System Prompt, Constraints, Persona, Variables, Instructions"
+      },
+      "dictionary": "configs/hallucinations_dict.yaml",
+      "post_processing": [
+        {
+          "step_name": "prompt_compiler",
+          "type": "llm",
+          "provider": "mistral",
+          "model": "mistral-small-latest",
+          "endpoint": "http://localhost:11434/v1/chat/completions",
+          "prompt": "You are a specialized System Prompt Compiler.\nYour sole task is to transform raw, informal dictated text into a production-ready system prompt that the user will copy-paste into an external web LLM (like Claude, ChatGPT, or Gemini).\n\nCRITICAL COMPILATION RULES:\n1. WEB UI CONTEXT: The target LLM will operate in a standard chat interface. Do NOT reference internal tags like <DICTATION> or === CURRENT_CONTEXT === in the compiled prompt, as those do not exist outside this local tool.\n2. DO NOT FULFILL THE TASK: You are a prompt compiler, NOT the end agent. \n3. ABSOLUTE DOMAIN NEUTRALITY: Build the system prompt ONLY around the specific domain mentioned in the dictation.\n4. OUTPUT FORMAT: Output ONLY the compiled system prompt text. Do NOT wrap output in markdown code blocks. Do NOT include preambles or postscripts.\n\nCANONICAL PROMPT STRUCTURE TO GENERATE:\n\nRole & Objective:\nDefine the specialized role and clear primary objective based strictly on the user's dictation.\n\nInteraction Dynamics:\nExplicitly state how the target LLM should interact with the user via chat (e.g., 'Wait for the user to provide X before doing Y', or 'Process the user's chat input sequentially').\n\nWorkflow & Execution Steps:\nBreak down the execution flow into step-by-step imperative actions.\n\nBehavioral Constraints & Negative Rules:\n- Ban conversational filler and greetings.\n- Convert informal warnings from dictation into strict negative behavioral rules.\n- Enforce precise output formats.\n\nLanguage Directive:\nTarget ISO Language: {language}"
+        }
+      ]
     }
   }
 }
