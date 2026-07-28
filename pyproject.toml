@@ -19,10 +19,14 @@ dependencies = [
     "pyyaml",
     "dateparser",
     "python-dotenv",
+    "websockets",
+    "pytest",
+    "freezegun",
+    "python-dotenv"
 ]
 
 [project.scripts]
-dictation-hub = "cli:app"
+dictation-hub = "dictation_hub.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/dictation_hub"]

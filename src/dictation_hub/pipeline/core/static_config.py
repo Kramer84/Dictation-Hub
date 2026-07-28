@@ -5,8 +5,6 @@ from typing import Union
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-# 1. Initialize module-level logger
-# This will automatically inherit the handlers and level from the root logger configured in engine.py
 logger = logging.getLogger(__name__)
 
 
@@ -21,7 +19,9 @@ class StorageConfig(BaseModel):
     @field_validator("base_dir", mode="before")
     @classmethod
     def expand_home_directory(cls, value: Union[str, Path]) -> Path:
-        logger.debug("Expanding home directory for base_dir. Original value: '%s'", value)
+        logger.debug(
+            "Expanding home directory for base_dir. Original value: '%s'", value
+        )
         expanded_path = Path(value).expanduser()
         logger.debug("Expanded base_dir to: '%s'", expanded_path)
         return expanded_path
@@ -51,7 +51,9 @@ class WhisperPipelineConfig(BaseModel):
     @classmethod
     def load_from_file(cls, file_path: Union[str, Path]) -> "WhisperPipelineConfig":
         path = Path(file_path)
-        logger.info("Attempting to load WhisperPipelineConfig from: '%s'", path.absolute())
+        logger.info(
+            "Attempting to load WhisperPipelineConfig from: '%s'", path.absolute()
+        )
 
         if not path.is_file():
             error_msg = f"Configuration file could not be found at: {path.absolute()}"
@@ -64,18 +66,24 @@ class WhisperPipelineConfig(BaseModel):
                 config_dict = json.load(file)
             logger.debug("Successfully read and decoded JSON from: '%s'", path)
 
-            logger.debug("Validating configuration dictionary against Pydantic schema...")
+            logger.debug(
+                "Validating configuration dictionary against Pydantic schema..."
+            )
             validated_model = cls.model_validate(config_dict)
             logger.info("Successfully loaded and validated WhisperPipelineConfig.")
             return validated_model
 
         except json.JSONDecodeError as e:
-            error_msg = f"Failed to parse JSON file at {path}. Invalid JSON structure: {str(e)}"
-            # logger.exception automatically logs at ERROR level and appends the traceback
+            error_msg = (
+                f"Failed to parse JSON file at {path}. Invalid JSON structure: {str(e)}"
+            )
+
             logger.exception("JSON decode error encountered while reading: '%s'", path)
             raise ValueError(error_msg) from e
-            
+
         except ValidationError as e:
             error_msg = f"Configuration validation failed. The JSON schema does not match the expected structure:\n{e}"
-            logger.exception("Pydantic validation error for configuration payload from: '%s'", path)
+            logger.exception(
+                "Pydantic validation error for configuration payload from: '%s'", path
+            )
             raise ValueError(error_msg) from e

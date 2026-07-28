@@ -7,7 +7,6 @@ from typing import Any, Dict, Generator, List, Optional, Type, TypeVar, Union
 import requests
 from pydantic import BaseModel, Field, ValidationError
 
-# Initialize as part of the module hierarchy to defer to orchestrator config
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
@@ -36,7 +35,9 @@ class LLMConfig(BaseModel):
         None,
         description="Deterministic sampling seed if supported by provider backend.",
     )
-    timeout: float = Field(300.0, description="HTTP request timeout ceiling in seconds.")
+    timeout: float = Field(
+        300.0, description="HTTP request timeout ceiling in seconds."
+    )
     max_retries: int = Field(
         3, ge=0, description="Transient error connection retry threshold."
     )
@@ -83,22 +84,30 @@ class LLMProvider(ABC):
     ) -> requests.Response:
         retries = 0
         backoff = 1.0
-        logger.debug(f"Initializing HTTP execution with max_retries={config.max_retries}, backoff_factor={config.backoff_factor}")
+        logger.debug(
+            f"Initializing HTTP execution with max_retries={config.max_retries}, backoff_factor={config.backoff_factor}"
+        )
 
         while True:
             try:
-                logger.debug(f"HTTP Request Attempt {retries + 1}/{config.max_retries + 1}")
+                logger.debug(
+                    f"HTTP Request Attempt {retries + 1}/{config.max_retries + 1}"
+                )
                 response = request_fn()
                 if response.status_code in [429, 500, 502, 503, 504]:
                     if retries >= config.max_retries:
-                        logger.error(f"HTTP {response.status_code} received. Max retries exhausted.")
+                        logger.error(
+                            f"HTTP {response.status_code} received. Max retries exhausted."
+                        )
                         response.raise_for_status()
                     logger.warning(
                         f"Transient HTTP Status {response.status_code} observed. Retrying in {backoff}s..."
                     )
                 else:
                     response.raise_for_status()
-                    logger.debug(f"HTTP request successful (Status {response.status_code}).")
+                    logger.debug(
+                        f"HTTP request successful (Status {response.status_code})."
+                    )
                     return response
             except requests.exceptions.RequestException as e:
                 if retries >= config.max_retries:
@@ -106,23 +115,31 @@ class LLMProvider(ABC):
                         f"Execution boundary broken. Total retries ({config.max_retries}) exhausted. Final Error: {str(e)}"
                     )
                     raise e
-                logger.warning(f"Connection dropped: {str(e)}. Attempting retry state in {backoff}s.")
+                logger.warning(
+                    f"Connection dropped: {str(e)}. Attempting retry state in {backoff}s."
+                )
 
             time.sleep(backoff)
             backoff *= config.backoff_factor
             retries += 1
 
     def _parse_and_validate_json(self, raw_text: str, schema: Type[T]) -> Optional[T]:
-        logger.debug(f"Attempting JSON extraction and validation against schema: {schema.__name__}")
+        logger.debug(
+            f"Attempting JSON extraction and validation against schema: {schema.__name__}"
+        )
         try:
             clean_text = raw_text.strip()
             if clean_text.startswith("```json"):
-                logger.debug("Detected markdown ```json code block. Stripping formatting.")
+                logger.debug(
+                    "Detected markdown ```json code block. Stripping formatting."
+                )
                 clean_text = (
                     clean_text.split("```json", 1)[1].rsplit("```", 1)[0].strip()
                 )
             elif clean_text.startswith("```"):
-                logger.debug("Detected generic markdown ``` code block. Stripping formatting.")
+                logger.debug(
+                    "Detected generic markdown ``` code block. Stripping formatting."
+                )
                 clean_text = clean_text.split("```", 1)[1].rsplit("```", 1)[0].strip()
 
             parsed_obj = schema.model_validate_json(clean_text)
@@ -142,7 +159,9 @@ class MistralProvider(LLMProvider):
         self.api_key = api_key
         self.url = "https://api.mistral.ai/v1/chat/completions"
         self.model = model
-        logger.info(f"Initialized MistralProvider with model '{self.model}' targeting {self.url}")
+        logger.info(
+            f"Initialized MistralProvider with model '{self.model}' targeting {self.url}"
+        )
 
     def _build_payload(
         self,
@@ -163,9 +182,13 @@ class MistralProvider(LLMProvider):
             payload["random_seed"] = config.seed
         if response_schema:
             payload["response_format"] = {"type": "json_object"}
-            logger.debug("Enforcing 'json_object' response_format for schema extraction.")
+            logger.debug(
+                "Enforcing 'json_object' response_format for schema extraction."
+            )
 
-        logger.debug(f"Payload configuration: temperature={config.temperature}, max_tokens={config.max_tokens}, seed={config.seed}")
+        logger.debug(
+            f"Payload configuration: temperature={config.temperature}, max_tokens={config.max_tokens}, seed={config.seed}"
+        )
         return payload
 
     def generate(
@@ -174,7 +197,9 @@ class MistralProvider(LLMProvider):
         config: Optional[LLMConfig] = None,
         response_schema: Optional[Type[T]] = None,
     ) -> GenerationResult:
-        logger.info(f"Starting generation request with MistralProvider (Messages: {len(messages)})")
+        logger.info(
+            f"Starting generation request with MistralProvider (Messages: {len(messages)})"
+        )
         cfg = config or LLMConfig()
         payload = self._build_payload(messages, cfg, response_schema)
         payload["stream"] = False
@@ -204,7 +229,9 @@ class MistralProvider(LLMProvider):
             total_tokens=usage_data.get("total_tokens", 0),
             latency_ms=latency,
         )
-        logger.info(f"Generation completed in {latency:.2f}ms. Tokens generated: {metrics.completion_tokens}")
+        logger.info(
+            f"Generation completed in {latency:.2f}ms. Tokens generated: {metrics.completion_tokens}"
+        )
 
         parsed_obj = None
         if response_schema and raw_content:
@@ -217,7 +244,9 @@ class MistralProvider(LLMProvider):
     def generate_stream(
         self, messages: List[ChatMessage], config: Optional[LLMConfig] = None
     ) -> Generator[str, None, None]:
-        logger.info(f"Starting streaming generation request with MistralProvider (Messages: {len(messages)})")
+        logger.info(
+            f"Starting streaming generation request with MistralProvider (Messages: {len(messages)})"
+        )
         cfg = config or LLMConfig()
         payload = self._build_payload(messages, cfg)
         payload["stream"] = True
@@ -249,7 +278,9 @@ class MistralProvider(LLMProvider):
                             chunk_count += 1
                             yield delta
                     except json.JSONDecodeError:
-                        logger.warning(f"Failed to decode stream JSON chunk: {data_str}")
+                        logger.warning(
+                            f"Failed to decode stream JSON chunk: {data_str}"
+                        )
                         continue
         logger.info(f"Streaming completed. Yielded {chunk_count} valid text chunks.")
 
@@ -258,7 +289,9 @@ class LocalProvider(LLMProvider):
     def __init__(self, endpoint: str, model: str):
         self.endpoint = endpoint
         self.model = model
-        logger.info(f"Initialized LocalProvider with model '{self.model}' targeting {self.endpoint}")
+        logger.info(
+            f"Initialized LocalProvider with model '{self.model}' targeting {self.endpoint}"
+        )
 
     def _build_payload(
         self,
@@ -296,7 +329,9 @@ class LocalProvider(LLMProvider):
         config: Optional[LLMConfig] = None,
         response_schema: Optional[Type[T]] = None,
     ) -> GenerationResult:
-        logger.info(f"Starting generation request with LocalProvider (Messages: {len(messages)})")
+        logger.info(
+            f"Starting generation request with LocalProvider (Messages: {len(messages)})"
+        )
         cfg = config or LLMConfig()
         payload = self._build_payload(messages, cfg, response_schema)
         payload["stream"] = False
@@ -321,7 +356,9 @@ class LocalProvider(LLMProvider):
             total_tokens=usage_data.get("total_tokens", 0),
             latency_ms=latency,
         )
-        logger.info(f"Generation completed in {latency:.2f}ms. Tokens generated: {metrics.completion_tokens}")
+        logger.info(
+            f"Generation completed in {latency:.2f}ms. Tokens generated: {metrics.completion_tokens}"
+        )
 
         parsed_obj = None
         if response_schema and raw_content:
@@ -334,7 +371,9 @@ class LocalProvider(LLMProvider):
     def generate_stream(
         self, messages: List[ChatMessage], config: Optional[LLMConfig] = None
     ) -> Generator[str, None, None]:
-        logger.info(f"Starting streaming generation request with LocalProvider (Messages: {len(messages)})")
+        logger.info(
+            f"Starting streaming generation request with LocalProvider (Messages: {len(messages)})"
+        )
         cfg = config or LLMConfig()
         payload = self._build_payload(messages, cfg)
         payload["stream"] = True
@@ -366,13 +405,15 @@ class LocalProvider(LLMProvider):
                             chunk_count += 1
                             yield delta
                     except json.JSONDecodeError:
-                        logger.warning(f"Failed to decode stream JSON chunk: {data_str}")
+                        logger.warning(
+                            f"Failed to decode stream JSON chunk: {data_str}"
+                        )
                         continue
         logger.info(f"Streaming completed. Yielded {chunk_count} valid text chunks.")
 
 
+
 if __name__ == "__main__":
-    # Local fallback logger initialization for standalone blueprint execution
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
     )
@@ -402,14 +443,16 @@ if __name__ == "__main__":
     ]
     custom_config = LLMConfig(temperature=0.0, timeout=15.0)
 
-    logger.info("[Blueprint Ready] Wire your runtime credentials to activate processing:\n")
+    logger.info(
+        "[Blueprint Ready] Wire your runtime credentials to activate processing:\n"
+    )
     print(
-        '''
+        """
         # Verification Pipeline Scaffold:
         # -----------------------------
         # provider = MistralProvider(api_key=os.environ.get("MISTRAL_API_KEY"))
         # response = provider.generate(messages=pipeline_context, config=custom_config, response_schema=EntityExtraction)
         # if response.parsed_object:
         #     logger.info(f"Validated entity: {response.parsed_object.company_name} | Valuation: {response.parsed_object.valuation_billion}B")
-        '''
+        """
     )
