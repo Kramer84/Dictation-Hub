@@ -1,4 +1,7 @@
+# src/dictation_hub/core/cli.py
+
 import os
+import sys
 import signal
 import subprocess
 from pathlib import Path
@@ -17,7 +20,11 @@ class DictationRouter(typer.core.TyperGroup):
     """Custom Router that falls back to a hidden dictation command if no subcommand matches."""
 
     def parse_args(self, ctx, args):
-        # Typer's built-in flags that must bypass the custom router
+        # 1. Bypass the injection hack if Typer is running autocompletion
+        if ctx.resilient_parsing:
+            return super().parse_args(ctx, args)
+
+        # 2. Standard execution routing
         special_flags = {"-h", "--help", "--install-completion", "--show-completion"}
 
         if not args:
@@ -83,6 +90,70 @@ def main_run(
 # SERVER CLI COMMANDS
 # ==============================================================================
 
+def get_pid_file(process_name: str) -> Path:
+    """Returns the Path to the PID file for a given process."""
+    return get_config_dir() / f"{process_name}.pid"
+
+def stop_process(process_name: str):
+    """Gracefully terminates a background process using its PID file."""
+    pid_file = get_pid_file(process_name)
+    if pid_file.exists():
+        try:
+            pid = int(pid_file.read_text())
+            os.kill(pid, signal.SIGTERM)
+            typer.secho(f"✅ Stopped {process_name} (PID: {pid})", fg=typer.colors.GREEN)
+        except ProcessLookupError:
+            typer.secho(f"⚠️ {process_name} was not running.", fg=typer.colors.YELLOW)
+        except ValueError:
+            typer.secho(f"⚠️ Invalid PID in {pid_file}", fg=typer.colors.RED)
+        finally:
+            pid_file.unlink(missing_ok=True)
+    else:
+        typer.secho(f"ℹ️ No PID file found for {process_name}.", fg=typer.colors.BLUE)
+
+def start_languagetool():
+    """Locates the cached LanguageTool JAR and boots it as a background daemon."""
+    pid_file = get_pid_file("languagetool")
+
+    # 1. Check if it's already running
+    if pid_file.exists():
+        try:
+            os.kill(int(pid_file.read_text()), 0)
+            typer.secho("✅ LanguageTool is already running.", fg=typer.colors.GREEN)
+            return
+        except OSError:
+            pid_file.unlink(missing_ok=True) # Stale PID cleanup
+
+    # 2. Locate the cached JAR file (matches legacy bash logic)
+    lt_cache_dir = Path.home() / ".cache" / "language_tool_python"
+    try:
+        lt_jars = list(lt_cache_dir.rglob("languagetool-server.jar"))
+        if not lt_jars:
+            typer.secho("⚠️ LanguageTool offline server not found. It will be downloaded dynamically on your first grammar check.", fg=typer.colors.YELLOW)
+            return
+
+        lt_jar = lt_jars[0]
+        typer.secho("🚀 Booting Local LanguageTool Server on port 8081...", fg=typer.colors.CYAN)
+        log_file = get_config_dir() / "languagetool.log"
+
+        # 3. Boot in the background (os.setsid detaches it from the current terminal)
+        with open(log_file, "w") as f:
+            proc = subprocess.Popen(
+                [
+                    "java", "-cp", str(lt_jar),
+                    "org.languagetool.server.HTTPServer",
+                    "--port", "8081", "--allow-origin", "*"
+                ],
+                stdout=f, stderr=subprocess.STDOUT, preexec_fn=os.setsid
+            )
+
+        # 4. Save PID for teardown
+        pid_file.write_text(str(proc.pid))
+        typer.secho(f"✅ LanguageTool daemonized (PID: {proc.pid})", fg=typer.colors.GREEN)
+
+    except Exception as e:
+        typer.secho(f"❌ Failed to start LanguageTool: {e}", fg=typer.colors.RED)
+
 @server_app.command("start")
 def server_start(
     host: str = typer.Option("0.0.0.0", help="Host IP to bind to (use 'tailscale' for TS IP)"),
@@ -117,7 +188,12 @@ def server_start(
 
     with open(log_file, "w") as f:
         proc = subprocess.Popen(
-            ["uvicorn", "dictation_hub.server.main:app", "--host", host, "--port", str(port)],
+            [
+                sys.executable, "-m", "uvicorn",
+                "dictation_hub.server.main:app",
+                "--host", host,
+                "--port", str(port)
+            ],
             stdout=f, stderr=subprocess.STDOUT, preexec_fn=os.setsid
         )
 

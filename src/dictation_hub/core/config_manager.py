@@ -1,3 +1,5 @@
+# src/dictation_hub/core/config_manager.py
+
 import json
 import os
 import shutil
