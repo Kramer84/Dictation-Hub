@@ -14,7 +14,7 @@ if REPO_ROOT not in sys.path:
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
-from .pipeline.core.static_config import WhisperPipelineConfig
+from ..pipeline.core.static_config import WhisperPipelineConfig
 
 app = FastAPI()
 
