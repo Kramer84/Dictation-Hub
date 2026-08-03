@@ -1,19 +1,17 @@
 import argparse
 import json
 import logging
-import os
 import sys
 from pathlib import Path
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from core.static_config import WhisperPipelineConfig
-from pipelines.cli_coder import CLICoderPipeline
-from pipelines.mail_drafting import MailDraftingPipeline
-from pipelines.mail_formatting import MailFormattingPipeline
-from pipelines.scheduling import SchedulingPipeline
-from pipelines.siyuan_memo import SiyuanMemoPipeline
-from pipelines.standard import StandardPipeline
-from pipelines.technical import TechnicalPipeline
+from dictation_hub.pipeline.core.static_config import WhisperPipelineConfig
+from dictation_hub.pipeline.pipelines.cli_coder import CLICoderPipeline
+from dictation_hub.pipeline.pipelines.mail_drafting import MailDraftingPipeline
+from dictation_hub.pipeline.pipelines.mail_formatting import MailFormattingPipeline
+from dictation_hub.pipeline.pipelines.scheduling import SchedulingPipeline
+from dictation_hub.pipeline.pipelines.siyuan_memo import SiyuanMemoPipeline
+from dictation_hub.pipeline.pipelines.standard import StandardPipeline
+from dictation_hub.pipeline.pipelines.technical import TechnicalPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +76,7 @@ def main():
         args.workspace,
     )
 
-    repo_root = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+    repo_root = Path(__file__).resolve().parents[3]
     logger.debug("Resolved repo_root path: %s", repo_root)
 
     static_config_path = repo_root / "configs" / "static.json"

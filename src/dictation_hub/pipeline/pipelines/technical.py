@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from core.text_tools import grammar_checker, regex_replacer
+from dictation_hub.pipeline.core.text_tools import grammar_checker, regex_replacer
+from dictation_hub.pipeline.pipelines.base import BasePipeline
 
-from .base import BasePipeline
 
 
 class TechnicalPipeline(BasePipeline):

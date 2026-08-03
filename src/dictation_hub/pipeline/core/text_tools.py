@@ -8,10 +8,11 @@ import sys
 
 import language_tool_python
 import yaml
-from core import static_config
+
+from dictation_hub.pipeline.core import static_config
+
 
 logger = logging.getLogger(__name__)
-
 LANG_MAP = {"en": "en-US", "fr": "fr-FR", "de": "de-DE"}
 BACKCHANNEL_WORDS = {
     "yeah",
@@ -50,7 +51,6 @@ def parse_whisper_json(filepath):
     logger.debug("Parsing Whisper JSON from: %s", filepath)
     with open(filepath, "r", encoding="utf-8") as f:
         data = json.load(f)
-
     segments = data.get("transcription", data.get("segments", []))
     logger.debug("Successfully parsed %d segments from JSON.", len(segments))
     return segments
@@ -100,7 +100,6 @@ def grammar_checker(
         lt_lang,
         strip_markers,
     )
-
     if strip_markers:
         text = strip_markers_func(text)
     try:
@@ -117,11 +116,9 @@ def grammar_checker(
                 "-> Falling back to a local, self-hosted LanguageTool instance..."
             )
             tool = language_tool_python.LanguageTool(lt_lang)
-
         if disable_spellchecking:
             tool.disable_spellchecking()
             logger.debug("Spellchecking disabled for grammar checker.")
-
         corrected_text = tool.correct(text)
     except Exception as e:
         logger.error(
@@ -133,7 +130,6 @@ def grammar_checker(
         if "tool" in locals():
             tool.close()
             logger.debug("LanguageTool instance closed.")
-
     logger.info(
         "✅ [Grammar Checker] Truecasing and punctuation restored (Lang: %s).", lt_lang
     )
@@ -150,19 +146,16 @@ def load_and_compile(yaml_path):
     logger.debug("Loading and compiling regex rules from: %s", yaml_path)
     with open(yaml_path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
-
     rules = {}
     if "auto_generate" in data:
         logger.debug("Compiling 'auto_generate' rules...")
         for target, variations in data["auto_generate"].items():
             pattern = build_auto_regex(variations)
             rules[pattern] = target
-
     if "raw_regex" in data:
         logger.debug("Loading 'raw_regex' rules...")
         for pattern, target in data["raw_regex"].items():
             rules[pattern] = target
-
     logger.debug("Compiled a total of %d regex rules.", len(rules))
     return rules
 
@@ -171,11 +164,9 @@ def regex_replacer(text, rules_dict_path, strip_markers=False):
     logger.debug("Starting regex replacement (strip_markers=%s).", strip_markers)
     if strip_markers:
         text = strip_markers_func(text)
-
     replacements = load_and_compile(rules_dict_path)
     for pattern, replacement in replacements.items():
         text = re.sub(pattern, replacement, text)
-
     logger.debug("✅ [Regex Replacer] Deterministic substitution complete.")
     return text
 
@@ -183,7 +174,6 @@ def regex_replacer(text, rules_dict_path, strip_markers=False):
 def compress_repetitions_marked(text, min_phrase_len=2, max_phrase_len=60):
     if not text:
         return ""
-
     logger.debug("Starting repetition compression on text of length %d.", len(text))
     tokens = text.split()
 
@@ -200,7 +190,6 @@ def compress_repetitions_marked(text, min_phrase_len=2, max_phrase_len=60):
     cleaned_words = []
     valid_mapping = []
     sentence_boundaries = set()
-
     for idx, t in enumerate(tokens):
         c = clean_token(t)
         if c:
@@ -208,12 +197,10 @@ def compress_repetitions_marked(text, min_phrase_len=2, max_phrase_len=60):
             valid_mapping.append(idx)
             if ends_sentence(t):
                 sentence_boundaries.add(len(cleaned_words) - 1)
-
     n = len(cleaned_words)
     output_tokens = []
     i = 0
     last_orig_idx = -1
-
     while i < n:
         best_len = 0
         best_count = 0
@@ -247,7 +234,6 @@ def compress_repetitions_marked(text, min_phrase_len=2, max_phrase_len=60):
                     max_coverage = coverage
                     best_len = L
                     best_count = count
-
         if best_len > 0:
             start_idx = valid_mapping[i]
             end_first_idx = valid_mapping[i + best_len - 1]
@@ -265,10 +251,8 @@ def compress_repetitions_marked(text, min_phrase_len=2, max_phrase_len=60):
             output_tokens.append(tokens[orig_idx])
             last_orig_idx = orig_idx
             i += 1
-
     if last_orig_idx + 1 < len(tokens):
         output_tokens.extend(tokens[last_orig_idx + 1 :])
-
     compressed_text = " ".join(output_tokens)
     logger.debug(
         "Repetition compression complete. Final token count: %d.", len(output_tokens)
@@ -283,26 +267,21 @@ def dedup_and_filter_hallucinations(segments, mark_confidence=False):
         mark_confidence,
     )
     cleaned_segments = []
-
     for seg in segments:
         offsets = seg.get("offsets", {})
         start_ms = offsets.get(
             "from", seg.get("start", 0) * 1000 if "start" in seg else 0
         )
         end_ms = offsets.get("to", seg.get("end", 0) * 1000 if "end" in seg else 0)
-
         if isinstance(start_ms, float):
             start_ms = int(start_ms)
         if isinstance(end_ms, float):
             end_ms = int(end_ms)
-
         duration = end_ms - start_ms
         tokens = seg.get("tokens", [])
-
         if not tokens:
             raw_words = seg.get("text", "").split()
             tokens = [{"text": f" {w}", "p": 1.0} for w in raw_words]
-
         if duration > MAX_WORD_DURATION_MS and len(tokens) <= 3:
             logger.debug(
                 "Filtering suspected hallucination: duration=%dms, tokens=%d",
@@ -310,7 +289,6 @@ def dedup_and_filter_hallucinations(segments, mark_confidence=False):
                 len(tokens),
             )
             continue
-
         cleaned_tokens = []
         streak = 1
         for i, token_obj in enumerate(tokens):
@@ -320,7 +298,6 @@ def dedup_and_filter_hallucinations(segments, mark_confidence=False):
             else:
                 raw_text = str(token_obj)
                 p_val = 1.0
-
             curr_text = raw_text.strip().lower()
             if i > 0:
                 prev_text_raw = (
@@ -336,12 +313,10 @@ def dedup_and_filter_hallucinations(segments, mark_confidence=False):
                         continue
                 else:
                     streak = 1
-
             final_text = raw_text
             if mark_confidence:
                 final_text = add_confidence_marker(raw_text, p_val)
             cleaned_tokens.append(final_text)
-
         if cleaned_tokens:
             reconstructed_text = "".join(cleaned_tokens)
             reconstructed_text = re.sub("\\[_EOT_\\]", "", reconstructed_text)
@@ -350,7 +325,6 @@ def dedup_and_filter_hallucinations(segments, mark_confidence=False):
             cleaned_segments.append(
                 {"start_ms": start_ms, "end_ms": end_ms, "text": reconstructed_text}
             )
-
     logger.debug(
         "Deduplication complete. Retained %d cleaned segments.", len(cleaned_segments)
     )
@@ -364,13 +338,10 @@ def phrase_level_cleanup(entries, gap_threshold_ms=3000, apply_compression=False
         gap_threshold_ms,
         apply_compression,
     )
-
     no_fillers = [e for e in entries if not _is_pure_filler(e["text"].strip())]
     logger.debug("Filtered out pure fillers. Remaining segments: %d", len(no_fillers))
-
     no_fragments = [e for e in no_fillers if not _is_fragment(e["text"])]
     logger.debug("Filtered out fragments. Remaining segments: %d", len(no_fragments))
-
     final_out = []
     cur = None
     for e in no_fragments:
@@ -385,12 +356,10 @@ def phrase_level_cleanup(entries, gap_threshold_ms=3000, apply_compression=False
                 cur["text"] = compress_repetitions_marked(cur["text"])
             final_out.append(cur)
             cur = dict(e)
-
     if cur:
         if apply_compression:
             cur["text"] = compress_repetitions_marked(cur["text"])
         final_out.append(cur)
-
     logger.debug(
         "Finished phrase-level cleanup. Final aggregated phrases: %d", len(final_out)
     )
@@ -406,11 +375,9 @@ def whisper_json_output_pre_treatment(
     logger.debug(
         "Initiating Whisper JSON output pre-treatment for: %s", transcription_json_path
     )
-
     if not os.path.exists(transcription_json_path):
         logger.critical("Error: %s not found.", transcription_json_path)
         sys.exit(1)
-
     options_string = "with "
     if not mark_confidence and (not compress_repetitions):
         options_string += "no flags"
@@ -420,13 +387,11 @@ def whisper_json_output_pre_treatment(
         options_string += "repetition compression"
     if mark_confidence and compress_repetitions:
         options_string += "confidence marking and repetition compression"
-
     logger.info(
         "-> Running deterministic pre-processing on %s %s...",
         transcription_json_path,
         options_string,
     )
-
     raw_segments = parse_whisper_json(transcription_json_path)
     deduped_entries = dedup_and_filter_hallucinations(
         raw_segments, mark_confidence=mark_confidence
@@ -434,22 +399,17 @@ def whisper_json_output_pre_treatment(
     final_cleaned_entries = phrase_level_cleanup(
         deduped_entries, apply_compression=compress_repetitions
     )
-
     base_name = str(transcription_json_path).replace(
         static_config.suffixes.full_json, ""
     )
     out_json = f"{base_name}{static_config.suffixes.cleaned_json}"
     out_md = f"{base_name}{static_config.suffixes.cleaned_md}"
-
     logger.debug("Writing cleaned data to %s and %s", out_json, out_md)
-
     with open(out_json, "w", encoding="utf-8") as f:
         json.dump({"segments": final_cleaned_entries}, f, indent=2)
-
     with open(out_md, "w", encoding="utf-8") as f:
         f.write("# Cleaned Transcription\n\n")
         for e in final_cleaned_entries:
             ts = format_timestamp(e["start_ms"])
             f.write(f"**{ts}** {e['text'].strip()}\n\n")
-
     logger.info("✅ Scrubbed output successfully saved to %s and %s", out_json, out_md)

@@ -22,7 +22,8 @@ dependencies = [
     "websockets",
     "pytest",
     "freezegun",
-    "python-dotenv"
+    "python-dotenv",
+    "ipython>=8.18.1",
 ]
 
 [project.scripts]

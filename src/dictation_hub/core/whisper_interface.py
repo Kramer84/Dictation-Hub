@@ -10,26 +10,19 @@ from dotenv import dotenv_values
 def load_env_config(config_path: Path) -> dict[str, str]:
     if not config_path.is_file():
         return {}
-
-    # dotenv natively strips inline comments, quotes, and whitespace safely
     parsed_env = dotenv_values(config_path)
-
-    # Ensure all values are returned as strings (dotenv can sometimes return None)
     return {k: str(v) for k, v in parsed_env.items() if v is not None}
 
 
 def apply_config_overrides(
     config_path: Path, current_args: dict[str, Any]
 ) -> dict[str, Any]:
-
     env_vars = load_env_config(config_path)
     updated_args = current_args.copy()
-
     for key, val in env_vars.items():
         lower_key = key.lower()
         if lower_key in updated_args:
             original_value = updated_args[lower_key]
-
             if isinstance(original_value, bool):
                 updated_args[lower_key] = val.lower() in ("true", "1", "yes")
             elif isinstance(original_value, int):
@@ -40,36 +33,29 @@ def apply_config_overrides(
                 updated_args[lower_key] = Path(os.path.expandvars(val)).expanduser()
             else:
                 updated_args[lower_key] = val
-
     return updated_args
 
 
 def resolve_paths(
     input_wav: Path, whisper_dir: Path, model: str, output_base: Optional[Path]
 ) -> tuple[Path, Path, Path]:
-
     if not input_wav.is_file():
         raise FileNotFoundError(f"A valid input audio file must be passed: {input_wav}")
-
     cli_exec = whisper_dir / "build" / "bin" / "whisper-cli"
     if not cli_exec.is_file() and not os.access(cli_exec, os.X_OK):
         raise FileNotFoundError(
             f"whisper-cli executable not found or not executable at {cli_exec}"
         )
-
     model_path = whisper_dir / "models" / f"ggml-{model}.bin"
-
     if output_base:
         resolved_output_base = output_base.with_suffix("")
         resolved_output_base.parent.mkdir(parents=True, exist_ok=True)
     else:
         resolved_output_base = input_wav.with_suffix("")
-
     return cli_exec, model_path, resolved_output_base
 
 
 def build_whisper_command(args: dict[str, Any]) -> list[str]:
-
     cmd = [
         str(args["cli_exec"]),
         "-f",
@@ -115,7 +101,6 @@ def build_whisper_command(args: dict[str, Any]) -> list[str]:
         "--grammar-penalty",
         str(args["grammar_penalty"]),
     ]
-
     flags_map = {
         "split_on_word": "-sow",
         "debug_mode": "-debug",
@@ -142,11 +127,9 @@ def build_whisper_command(args: dict[str, Any]) -> list[str]:
         "output_json": "-oj",
         "output_json_full": "-ojf",
     }
-
     for key, flag in flags_map.items():
         if args.get(key):
             cmd.append(flag)
-
     if args.get("font_path"):
         cmd.extend(["-fp", str(args["font_path"])])
     if args.get("initial_prompt"):
@@ -159,7 +142,6 @@ def build_whisper_command(args: dict[str, Any]) -> list[str]:
         cmd.extend(["--grammar", str(args["grammar"])])
     if args.get("grammar_rule"):
         cmd.extend(["--grammar-rule", str(args["grammar_rule"])])
-
     if args.get("use_vad"):
         vad_model_path = (
             args["whisper_dir"] / "models" / f"ggml-{args['vad_model']}.bin"
@@ -184,9 +166,7 @@ def build_whisper_command(args: dict[str, Any]) -> list[str]:
                     str(args["vad_overlap"]),
                 ]
             )
-
     cmd.extend(["-of", str(args["resolved_output_base"])])
-
     return cmd
 
 
@@ -311,12 +291,9 @@ def whisper_transcribe(
     vad_pad: Annotated[int, typer.Option(help="VAD speech pad ms")] = 50,
     vad_overlap: Annotated[float, typer.Option(help="VAD samples overlap")] = 0.10,
 ):
-
     current_args = locals().copy()
-
     if config:
         current_args = apply_config_overrides(config, current_args)
-
     try:
         cli_exec, model_path, resolved_output_base = resolve_paths(
             input_wav=current_args["input_wav"],
@@ -324,7 +301,6 @@ def whisper_transcribe(
             model=current_args["model"],
             output_base=current_args["output_base"],
         )
-
         current_args.update(
             {
                 "cli_exec": cli_exec,
@@ -332,17 +308,12 @@ def whisper_transcribe(
                 "resolved_output_base": resolved_output_base,
             }
         )
-
     except FileNotFoundError as e:
         typer.secho(f"Error: {e}", fg=typer.colors.RED)
         raise typer.Exit(code=1)
-
     cmd = build_whisper_command(current_args)
-
     typer.secho("-> Executing Whisper Inference...", fg=typer.colors.CYAN)
-
     result = subprocess.run(cmd)
-
     if result.returncode == 0:
         typer.secho(
             f"✅ Transcription process complete using target: {resolved_output_base}",

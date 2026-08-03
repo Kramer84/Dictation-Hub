@@ -5,8 +5,8 @@ import os
 import time
 from pathlib import Path
 
-from core.llm_providers import ChatMessage, LLMConfig, LocalProvider, MistralProvider
-from core.text_tools import whisper_json_output_pre_treatment
+from dictation_hub.pipeline.core.llm_providers import ChatMessage, LLMConfig, LocalProvider, MistralProvider
+from dictation_hub.pipeline.core.text_tools import whisper_json_output_pre_treatment
 
 logger = logging.getLogger(__name__)
 

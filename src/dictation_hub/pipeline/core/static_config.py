@@ -54,33 +54,27 @@ class WhisperPipelineConfig(BaseModel):
         logger.info(
             "Attempting to load WhisperPipelineConfig from: '%s'", path.absolute()
         )
-
         if not path.is_file():
             error_msg = f"Configuration file could not be found at: {path.absolute()}"
             logger.error("File not found: '%s'", path.absolute())
             raise FileNotFoundError(error_msg)
-
         try:
             logger.debug("Opening configuration file: '%s'", path)
             with path.open("r", encoding="utf-8") as file:
                 config_dict = json.load(file)
             logger.debug("Successfully read and decoded JSON from: '%s'", path)
-
             logger.debug(
                 "Validating configuration dictionary against Pydantic schema..."
             )
             validated_model = cls.model_validate(config_dict)
             logger.info("Successfully loaded and validated WhisperPipelineConfig.")
             return validated_model
-
         except json.JSONDecodeError as e:
             error_msg = (
                 f"Failed to parse JSON file at {path}. Invalid JSON structure: {str(e)}"
             )
-
             logger.exception("JSON decode error encountered while reading: '%s'", path)
             raise ValueError(error_msg) from e
-
         except ValidationError as e:
             error_msg = f"Configuration validation failed. The JSON schema does not match the expected structure:\n{e}"
             logger.exception(

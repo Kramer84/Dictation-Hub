@@ -1,10 +1,11 @@
 from pathlib import Path
 from typing import List, Optional
 
-from core.text_tools import grammar_checker, regex_replacer
+from dictation_hub.pipeline.core.text_tools import grammar_checker, regex_replacer
 from pydantic import BaseModel, Field
 
-from .base import BasePipeline
+from dictation_hub.pipeline.pipelines.base import BasePipeline
+
 
 
 class SiyuanNote(BaseModel):
