@@ -1,18 +1,8 @@
-# SpeechToTextTranscriptionTool
+# SpeechToTextTranscriptionTool & Dictation Hub
 
-A modular, client-server speech-to-text pipeline designed to eliminate common transcription hallucinations, enforce domain-specific formatting, and act as a reliable input trigger for external automation tools. 
+A modular, client-server speech-to-text pipeline designed to eliminate common transcription hallucinations, enforce domain-specific formatting, and act as a reliable input trigger for external automation tools.
 
-This project isolates audio capture, `whisper.cpp` execution, multi-stage post-processing, and remote inference into a dedicated repository.
-
-## Motivation & Philosophy
-
-Standard speech-to-text tools often struggle with consistent formatting, phonetic hallucinations of specific technical terms or names, and poor adaptation to different contexts (e.g., dictating an email vs. a technical CLI command). 
-
-This tool was built to solve these issues by:
-1. **Using Intent-Based Profiles:** Before dictation, a specific profile is selected. This profile dictates the `INITIAL_PROMPT` sent to Whisper and determines the exact sequence of post-processing steps.
-2. **Multi-Stage Post Processing:** Outputs are passed through deterministic regex replacements, local grammatical truecasing (LanguageTool), and optional LLM agents to restructure the text or propose different approaches.
-3. **Intentional Manual Control:** Profile selection is strictly manual. Using an LLM first-pass to guess the user's intent would introduce latency and unpredictability; explicit selection guarantees the correct pipeline is executed immediately.
-4. **Whole-Audio Processing:** While streaming audio directly to the decoder might decrease turnaround time, whole-audio processing is currently used to guarantee maximum flexibility with Whisper's inference parameters. Streaming options require further testing regarding contextual accuracy and parameter constraints.
+This project was built with a **local-first philosophy**: the heavy lifting (inference, grammatical correction, regex replacements) is executed on your own hardware using `whisper.cpp` and local LLMs (via Ollama). External APIs like Mistral can be used for complex restructuring, but the tool is primarily designed to keep data local, fast, and private.
 
 ## Architecture
 
@@ -29,34 +19,76 @@ The host machine handles all heavy lifting. It runs a FastAPI backend bound to t
     * **LLM Runner:** Optional integration with local models (Ollama) or external APIs (Mistral) for complex formatting or data extraction.
 
 ### 2. Client Interfaces
-Allows low-power devices (laptops without GPUs, phones) to offload inference to the host.
-* **Terminal CLI (`client/dictate_client.sh`):** A remote dictation tool using an Auto-Discovery hardware bridge (PulseAudio, SoX, ALSA). It streams chunked audio data over a named pipe (FIFO) directly to the server via an HTTP POST request.
-* **Mobile Web UI:** The FastAPI server serves a responsive HTML/JS interface accessible via Tailscale, utilizing WebSockets to stream audio directly from a browser.
+Allows low-power devices (laptops without GPUs, phones) to offload inference to the host. 
+Audio is sent in chunks to the server to maximize speed and reduce latency.
+* **Terminal CLI:** A remote dictation tool using an Auto-Discovery hardware bridge. It streams chunked audio data directly to the server via an HTTP POST request.
+* **Mobile Web UI (HTML App):** The FastAPI server serves a responsive HTML/JS interface accessible via Tailscale from your phone. It utilizes WebSockets to stream chunked audio directly from your mobile browser.
 
-### 3. Automation Integration
-All files and intermediate pipeline steps are saved to `~/.whisper_transcriptions/` (configurable). Once a pipeline finishes, an empty `.completed` file is touched. This serves as a trigger for external directory-watching agents (e.g., n8n, custom cron jobs) to pick up the final payload (like a calendar schedule extraction) and execute API calls.
+## Intent-Based Profiles
 
-## Optimization & Tuning Suite
+Before dictation, a specific profile is selected. This profile dictates the `INITIAL_PROMPT` sent to Whisper and determines the exact sequence of post-processing steps. 
 
-The repository contains a standalone `optimization/` suite to find the mathematical best fit for your specific hardware and voice.
-* **VAD Optimization:** A live testing tool to find the exact threshold where Silero VAD cuts dead air without clipping the start of words.
-* **Hyper-Tuner:** An Optuna-based parameter search that runs Whisper against a custom dataset. The dataset contains multiple takes of ground-truth reference texts recorded under different conditions (clean, fan noise, filler words, pauses) to find the most resilient beam search and entropy thresholds.
+By default, the tool ships with several profiles (Standard, Technical, Mail Drafting, CLI Coder, Scheduling, etc.). **You are highly encouraged to prune and customize these profiles.** You can remove the ones you don't need or rewrite the prompts in the `pipeline_config.json` file to suit your exact workflow.
+
+## Installation
+
+### Prerequisites
+1. **Tailscale:** Recommended for secure, seamless connection between your clients and your host server.
+2. **whisper.cpp:** The core inference engine.
+
+### Setup Steps
+1. **Clone and install whisper.cpp:**
+   ```bash
+   bash setup/install_whisper.sh
+   bash setup/fetch_models.sh
+
+```
+
+2. **Install the Dictation Hub package:**
+Ensure you have Python 3.9+ installed. Run the following in the repository root:
+```bash
+pip install -e .
+
+```
+
+
+3. **Initialize Configuration:**
+Running any command will auto-generate your configuration folder at `~/.config/dictation_hub/`. You can edit `config.env` to set your machine's role (Host or Client) and Tailscale IP.
 
 ## Usage
 
-### Remote Dictation (Tailscale)
-1. On the GPU host machine, start the background server:
-   `bash server/launch_server.sh`
-2. **Via CLI:** On the client machine, invoke the global symlink (`dictate`), then press `Enter` or `Ctrl+C` to stop recording.
-3. **Via Web:** Navigate to the Tailscale IP of the host on port 8000, select your profile, and dictate.
+### 1. Launching the Server (Host Machine)
 
-## Roadmap
+On your GPU host machine, start the FastAPI server. You can bind it directly to your Tailscale interface:
 
-### 1. Orchestration Rewrite
-* **Python Migration:** The core orchestration will be rewritten in Python to improve error handling and configuration parsing, moving away from brittle bash-based JSON processing.
+```bash
+dictation-hub server start --host tailscale --port 8000
 
-### 2. Dataset Expansion
-* Expand the optimization dataset with more varied environmental noise profiles and languages to further harden the Whisper hyperparameter defaults.
+```
 
-### 3. RAG Interfacing
-* **Pipeline Triggers:** Create specific profiles that output structured JSON queries designed to trigger external Retrieval-Augmented Generation (RAG) databases (e.g., searching scientific papers). The RAG logic will remain entirely external; this tool will solely act as the highly accurate, formatted input mechanism.
+### 2. Dictating from a Client (Laptop/Desktop)
+
+On a client machine connected via Tailscale, use the CLI to start streaming audio for a specific profile:
+
+```bash
+dictation-hub run technical
+
+```
+
+Press `Enter` or `Ctrl+C` to stop recording and receive the processed text in your clipboard.
+
+### 3. Dictating from a Phone (Web UI)
+
+Navigate to `http://<YOUR_TAILSCALE_IP>:8000` on your mobile browser. Select your profile from the dropdown, tap the microphone button to stream audio, and copy the formatted result directly to your phone's clipboard.
+
+## Optimization & Tuning Suite
+
+Because different microphones, rooms, and voices yield different results, this repository contains a standalone `optimization/` suite to find the mathematical best fit for your specific hardware.
+
+* **VAD Optimization:** A live testing tool to find the exact threshold where Silero VAD cuts dead air without clipping the start of words.
+
+
+* **Hyper-Tuner:** An Optuna-based parameter search that runs Whisper against a custom dataset to find the most resilient beam search and entropy thresholds.
+
+
+See `optimization/README.md` for specific tuning instructions.

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import os
 import random
-import subprocess
 import json
+
+from pathlib import Path
+from dictation_hub.core.record_audio import record_audio_app
 
 DATASET_DIR = "optimization/dataset"
 TAKES = 3
@@ -21,25 +23,25 @@ def save_metadata(folder_path, metadata):
 
 def main():
     tasks = []
-    
+
     for folder in os.listdir(DATASET_DIR):
         folder_path = os.path.join(DATASET_DIR, folder)
-        if not os.path.isdir(folder_path): 
+        if not os.path.isdir(folder_path):
             continue
-        
+
         ref_path = os.path.join(folder_path, "reference.txt")
-        if not os.path.exists(ref_path): 
+        if not os.path.exists(ref_path):
             continue
-        
+
         with open(ref_path, "r", encoding="utf-8") as f:
             text = f.read().strip()
-            
+
         metadata = get_or_create_metadata(folder_path)
-            
+
         for i in range(1, TAKES + 1):
             take_key = f"take_{i:02d}"
             out_wav = os.path.join(folder_path, f"{take_key}.wav")
-            
+
             if not os.path.exists(out_wav):
                 tasks.append((folder, folder_path, out_wav, text, take_key, metadata))
 
@@ -55,24 +57,31 @@ def main():
         print(f"========================================================")
         print(f"\n{text}\n")
         print(f"--------------------------------------------------------")
-        
+
         # New language identifier requirement
         lang_iso = input("What is the language ISO code? (e.g., en, fr, de, hu): ").strip().lower()
-        
+
         bg_noise = input("Is there background noise? (yes/no): ").strip().lower()
         noise_type = "none"
         if bg_noise in ['yes', 'y']:
             noise_type = input("Noise type? (fan/music/other): ").strip().lower()
-            
+
         fillers = input("Will there be filler words? (yes/no): ").strip().lower()
         pauses = input("Will there be long pauses? (yes/no): ").strip().lower()
-        
-        subprocess.run([
-            "bash", "core/audio_capture.sh", 
-            "--output", out_wav, 
-            "--normalize"
-        ])
-        
+
+        record_audio_app(
+            output=Path(out_wav),
+            normalize=True,
+            remove_silence=False,
+            highpass=False,
+            record_format="cd",
+            record_type="wav",
+            sample_rate=16000,
+            channels=1,
+            codec="pcm_s16le",
+            target_peak=-6.0
+        )
+
         metadata[take_key] = {
             "language": lang_iso,
             "background_noise": bg_noise,

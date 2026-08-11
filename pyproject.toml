@@ -26,6 +26,16 @@ dependencies = [
     "ipython>=8.18.1",
 ]
 
+[project.optional-dependencies]
+optimization = [
+    "optuna",
+    "jiwer",
+    "torch",
+    "sounddevice",
+    "numpy",
+    "torchaudio"
+]
+
 [project.scripts]
 dictation-hub = "dictation_hub.cli:app"
 
