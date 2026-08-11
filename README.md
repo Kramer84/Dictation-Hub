@@ -68,10 +68,10 @@ dictation-hub server start --host tailscale --port 8000
 
 ### 2. Dictating from a Client (Laptop/Desktop)
 
-On a client machine connected via Tailscale, use the CLI to start streaming audio for a specific profile:
+On a client machine connected via Tailscale, use the CLI to start streaming audio for a specific profile: The tool works in the same manner on the host as-well. 
 
 ```bash
-dictation-hub run technical
+dictation-hub technical
 
 ```
 
