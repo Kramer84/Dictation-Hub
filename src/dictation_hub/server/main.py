@@ -35,7 +35,7 @@ app = FastAPI()
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_ui():
-    index_path = SERVER_DIR / "index.html"
+    index_path = SERVER_DIR / "template" / "index.html"
     return index_path.read_text(encoding="utf-8")
 
 def execute_pipeline(workspace: Path, raw_audio: Path, timestamp: str, profile_name: str, query_params: dict):
