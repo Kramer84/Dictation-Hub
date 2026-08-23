@@ -9,9 +9,28 @@ from pydantic import BaseModel, Field, ValidationError
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
+r"""
+    Defines a generic type variable bound to BaseModel.
+    
+    Used to enforce type constraints in generic functions or classes that
+    require a Pydantic model.
+    """
 
 
 class ChatMessage(BaseModel):
+    r"""
+    Represents a message in a chat conversation.
+    
+    Parameters
+    ----------
+    role : {'system', 'user', 'assistant', 'tool'}
+        The role of the message author.
+    content : str
+        The string payload of the message context.
+    name : Optional[str], optional
+        Optional identifier for the participant, useful for multi-turn
+        routing.
+    """
     role: str = Field(
         ...,
         description="The role of the message author: 'system', 'user', 'assistant', or 'tool'.",
@@ -24,6 +43,30 @@ class ChatMessage(BaseModel):
 
 
 class LLMConfig(BaseModel):
+    r"""
+    Configures the local LLM runtime parameters.
+    
+    Parameters
+    ----------
+    temperature : float
+        Sampling temperature. Default is 0.1.
+    max_tokens : Optional[int], optional
+        Upper bound on tokens to generate.
+    top_p : float
+        Nucleus sampling probability mass threshold. Default is 1.0.
+    seed : Optional[int], optional
+        Deterministic sampling seed if supported by provider backend.
+    timeout : float
+        HTTP request timeout ceiling in seconds. Default is 300.0.
+    max_retries : int
+        Transient error connection retry threshold. Default is 3.
+    backoff_factor : float
+        Multiplier for exponential backoff sequence calculations. Default
+        is 2.0.
+    keep_alive : Optional[Union[int, str]], optional
+        Duration to keep the model loaded in GPU memory (e.g., 0 to unload
+        immediately, '5m' for 5 minutes). Primarily for local runtimes.
+    """
     temperature: float = Field(0.1, ge=0.0, le=2.0, description="Sampling temperature.")
     max_tokens: Optional[int] = Field(
         None, description="Upper bound bound on tokens to generate."
@@ -51,6 +94,20 @@ class LLMConfig(BaseModel):
 
 
 class UsageMetrics(BaseModel):
+    r"""
+    Monitor token usage and processing latency.
+    
+    Parameters
+    ----------
+    prompt_tokens : int, optional
+        Number of tokens in the input prompt. Default is 0.
+    completion_tokens : int, optional
+        Number of tokens in the generated completion. Default is 0.
+    total_tokens : int, optional
+        Sum of prompt and completion tokens. Default is 0.
+    latency_ms : float, optional
+        Processing time in milliseconds. Default is 0.0.
+    """
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0

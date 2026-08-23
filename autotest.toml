@@ -1,0 +1,31 @@
+# autotest.toml - Modular Pytest Gen Configuration
+
+source_root = "src"
+import_prefix = "speech_to_text_transcription_tool"
+global_context = []
+custom_instructions = ""
+
+[layout]
+strategy = "external" 
+structure = "nested"  
+test_root = "tests"
+granularity = "function"
+
+[discovery]
+respect_dunder_all = true
+include_classes = true
+max_class_lines = 300
+exclude_patterns = [
+    "*__init__.py",
+    "build",
+    "tests",
+    "*test_*.py"
+]
+exclude_nodes = []
+
+[llm]
+provider = "mistral"
+model = "codestral-latest"
+host = "https://api.mistral.ai"
+structured = false
+    

@@ -14,6 +14,11 @@ from dictation_hub.pipeline.core import static_config
 
 logger = logging.getLogger(__name__)
 LANG_MAP = {"en": "en-US", "fr": "fr-FR", "de": "de-DE"}
+r"""
+    Maps language codes to locale identifiers.
+    
+    Used to standardize language codes across the transcription pipeline.
+    """
 BACKCHANNEL_WORDS = {
     "yeah",
     "yeah.",
@@ -36,15 +41,41 @@ BACKCHANNEL_WORDS = {
     "uh-huh",
     "uh-huh.",
 }
+r"""
+    Set of common backchannel words used in speech-to-text transcription.
+    
+    This set is used to identify and filter out backchannel words during
+    the post-processing stage of the transcription pipeline.
+    """
 PURE_FILLER_RE = re.compile(
     "^(Mm-hmm|Mhm|Mm|Hmm|-hmm|Yeah|Yep|Wow|Nice|Sure|Right|Okay|Cool|Oh|Uh-huh)[.\\s,!?]*$",
     re.IGNORECASE,
 )
+r"""
+    Compiled regex pattern for identifying pure filler words.
+    
+    This pattern matches common filler words like 'Mm-hmm', 'Yeah', or
+    'Wow' with optional trailing punctuation. Used in the deterministic
+    cleaner to strip non-content speech artifacts.
+    """
 FILLER_PATTERN = re.compile(
     "^[\\s.,!?]*(mm[-\\s]?hmm|mhm|mm|hmm|yeah|yep|wow|nice|sure|right|okay|oh|uh[-\\s]?huh|ah|um|i|so)([.\\s,!?]|\\s)*$",
     re.IGNORECASE,
 )
+r"""
+    Generate a regular expression pattern for filler word identification.
+    
+    The pattern matches common filler words and phrases, including
+    variations of 'mm-hmm', 'yeah', and 'uh-huh', with optional leading or
+    trailing punctuation or whitespace.
+    """
 MAX_WORD_DURATION_MS = 5000
+r"""
+    Maximum duration of a word in milliseconds.
+    
+    This constant defines the threshold for word duration in milliseconds,
+    used to filter out excessively long words during transcription.
+    """
 
 
 def parse_whisper_json(filepath):
@@ -57,6 +88,24 @@ def parse_whisper_json(filepath):
 
 
 def add_confidence_marker(text, p_value):
+    r"""
+    Appends a confidence marker to text based on a probability value.
+    
+    Parameters
+    ----------
+    text : str
+        The input text to be annotated with a confidence marker.
+    p_value : float
+        The confidence score between 0 and 1.
+    
+    Returns
+    -------
+    str
+        The input text with a confidence marker appended.
+    
+        The marker is one of `[??]`, `[?]`, or an empty string depending on
+        the `p_value`.
+    """
     if p_value < 0.3:
         return f"{text} [??]"
     elif p_value < 0.6:
@@ -65,6 +114,15 @@ def add_confidence_marker(text, p_value):
 
 
 def format_timestamp(ms):
+    r"""
+    Converts milliseconds to a formatted timestamp string.
+    
+    Returns
+    -------
+    str
+        The formatted timestamp string in the format `[HH:MM:SS]` or
+        `[MM:SS]` depending on the duration.
+    """
     s = ms // 1000
     m, s = divmod(s, 60)
     h, m = divmod(m, 60)
@@ -88,6 +146,19 @@ def _is_fragment(text):
 
 
 def strip_markers_func(text):
+    r"""
+    Removes markers from the input text.
+    
+    Parameters
+    ----------
+    text : str
+        The input string containing markers to be stripped.
+    
+    Returns
+    -------
+    str
+        The input string with all markers removed.
+    """
     return re.sub("\\s*\\[\\?+\\]|\\s*\\[[-+]+\\]", "", text)
 
 
@@ -137,6 +208,20 @@ def grammar_checker(
 
 
 def build_auto_regex(variations):
+    r"""
+    Constructs a regex pattern from a list of variations.
+    
+    Parameters
+    ----------
+    variations : List[str]
+        List of strings to be converted into a regex pattern.
+    
+    Returns
+    -------
+    str
+        The compiled regex pattern that matches any of the input
+        variations, case-insensitive, and word-boundary-aware.
+    """
     variations_sorted = sorted(variations, key=len, reverse=True)
     escaped_vars = [re.escape(v) for v in variations_sorted]
     return "(?i)\\b(?:" + "|".join(escaped_vars) + ")\\b"

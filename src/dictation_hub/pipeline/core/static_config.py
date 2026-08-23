@@ -28,6 +28,24 @@ class StorageConfig(BaseModel):
 
 
 class SuffixesConfig(BaseModel):
+    r"""
+    Configure file suffixes for transcription pipeline stages.
+    
+    Parameters
+    ----------
+    audio : str
+        Suffix for raw audio files.
+    full_json : str
+        Suffix for the complete Whisper JSON payload.
+    cleaned_json : str
+        Suffix for the deterministic cleaned JSON output.
+    cleaned_md : str
+        Suffix for the markdown representation of cleaned segments.
+    raw_text : str
+        Suffix for the flattened string footprint of the dictation.
+    final_text : str
+        Suffix for the final, polished text.
+    """
     audio: str = Field(..., description="Suffix for raw audio files.")
     full_json: str = Field(
         ..., description="Suffix for the complete Whisper JSON payload."

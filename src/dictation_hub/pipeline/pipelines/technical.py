@@ -6,6 +6,15 @@ from dictation_hub.pipeline.pipelines.base import BasePipeline
 
 
 class TechnicalPipeline(BasePipeline):
+    r"""
+    Execute the technical pipeline for deterministic text extraction.
+    
+    Parameters
+    ----------
+    input_json_path : Path
+        The path to the input JSON file containing the raw transcription
+        data.
+    """
     def execute(self, input_json_path: Path) -> str:
         print("[TechnicalPipeline] Executing deterministic extraction...")
         current_text = self.apply_deterministic_cleaner(input_json_path)

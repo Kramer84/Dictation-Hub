@@ -18,6 +18,24 @@ class DictationRouter(typer.core.TyperGroup):
     """Custom Router that falls back to a hidden dictation command if no subcommand matches."""
 
     def parse_args(self, ctx, args):
+        r"""
+        Parse command-line arguments for the CLI application.
+        
+        This method extends the default argument parsing behavior to handle
+        special cases like empty argument lists and non-command arguments.
+        
+        Parameters
+        ----------
+        ctx : click.Context
+            The Click context object for the current command.
+        args : list[str]
+            The list of command-line arguments to parse.
+        
+        Returns
+        -------
+        click.Context
+            The parsed Click context object.
+        """
         if ctx.resilient_parsing:
             return super().parse_args(ctx, args)
         special_flags = {"-h", "--help", "--install-completion", "--show-completion"}
@@ -28,6 +46,22 @@ class DictationRouter(typer.core.TyperGroup):
         return super().parse_args(ctx, args)
 
     def shell_complete(self, ctx, incomplete):
+        r"""
+        Generate completion suggestions for the given incomplete input.
+        
+        Parameters
+        ----------
+        ctx : click.Context
+            The Click context object for the current command.
+        incomplete : str
+            The incomplete input string to be completed.
+        
+        Returns
+        -------
+        List[CompletionItem]
+            A list of completion items matching the incomplete input
+            string.
+        """
         completions = super().shell_complete(ctx, incomplete)
         try:
             config = load_json_config("pipeline_config.json")
@@ -46,6 +80,19 @@ app.add_typer(server_app, name="server")
 
 
 def load_machine_role() -> str:
+    r"""
+    Retrieve the machine role from the deployment environment.
+    
+    Returns
+    -------
+    str
+        The machine role as defined in the deployment environment.
+    
+    See Also
+    --------
+    load_deployment_env :
+        Loads the deployment environment configuration.
+    """
     config = load_deployment_env()
     return config.get("DICTATION_ROLE", "host")
 

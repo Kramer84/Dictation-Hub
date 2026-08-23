@@ -24,6 +24,12 @@ PIPELINE_MAP = {
     "cli_coder": CLICoderPipeline,
     "siyuan_memo": SiyuanMemoPipeline,
 }
+r"""
+    Maps pipeline names to their respective classes.
+    
+    Used to dynamically instantiate pipelines based on the requested
+    profile.
+    """
 
 
 def setup_logging(workspace_dir: Path = None):

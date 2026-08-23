@@ -35,7 +35,7 @@ app = FastAPI()
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_ui():
-    index_path = SERVER_DIR / "index.html"
+    index_path = SERVER_DIR / "templates" / "index.html"
     return index_path.read_text(encoding="utf-8")
 
 def execute_pipeline(workspace: Path, raw_audio: Path, timestamp: str, profile_name: str, query_params: dict):
@@ -56,7 +56,7 @@ def execute_pipeline(workspace: Path, raw_audio: Path, timestamp: str, profile_n
     max_vol = get_max_volume(raw_audio)
     target_peak = -6.0
     gain = (target_peak - max_vol) if max_vol is not None else None
-    filters = build_ffmpeg_filters(normalize=True, remove_silence=False, highpass=False, gain=gain)
+    filters = build_ffmpeg_filters(normalize=True, remove_silence=False, highpass_filter=False, gain=gain)
 
     process_audio(
         input_path=raw_audio,
