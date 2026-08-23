@@ -112,7 +112,11 @@ def main_run(
         typer.secho(
             f"[Client] Streaming '{profile}' audio to server...", fg=typer.colors.BLUE
         )
-        run_remote_stream(ctx, profile)
+        # Force the router to respect the environment variables
+        protocol = os.environ.get("SERVER_PROTOCOL", "http")
+        ip = os.environ.get("SERVER_IP", "127.0.0.1")
+        port = os.environ.get("SERVER_PORT", "8000")
+        run_remote_stream(ctx, profile, protocol, ip, port)
     else:
         typer.secho("Error: Unknown machine role.", fg=typer.colors.RED)
         raise typer.Exit(code=1)
