@@ -39,6 +39,7 @@ def build_url(protocol: str, ip: str, port: str, profile: str, extra_args: list)
 
 
 def launch_audio_backend(err_log: IO[str]) -> Tuple[Optional[subprocess.Popen], str]:
+    forced_backend = os.environ.get("AUDIO_BACKEND")
     backends = [
         (
             "ffmpeg (pulse)",
@@ -68,6 +69,8 @@ def launch_audio_backend(err_log: IO[str]) -> Tuple[Optional[subprocess.Popen], 
         ("parecord", ["parecord", "--file-format=wav"]),
     ]
     for name, cmd in backends:
+        if forced_backend and cmd[0] != forced_backend:
+            continue
         if shutil.which(cmd[0]):
             err_log.write(f"=== Attempting {name} Backend ===\n")
             err_log.flush()
@@ -83,7 +86,7 @@ def stream_audio_to_server(
 ) -> subprocess.Popen:
     cmd = [
         "curl",
-        "-s",
+        "-sS",
         "-X",
         "POST",
         "-H",
@@ -96,7 +99,7 @@ def stream_audio_to_server(
     ]
     resp_file = open(resp_path, "wb")
     return subprocess.Popen(
-        cmd, stdin=audio_stream, stdout=resp_file, stderr=subprocess.DEVNULL
+        cmd, stdin=audio_stream, stdout=resp_file, stderr=sys.stderr
     )
 
 

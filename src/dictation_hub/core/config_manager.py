@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 import typer
 import yaml
-from dotenv import dotenv_values
+from dotenv import dotenv_values, load_dotenv
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TEMPLATE_DIR = REPO_ROOT / "configs"
@@ -55,6 +55,7 @@ def load_deployment_env() -> Dict[str, str]:
     env_path = get_config_dir() / "config.env"
     if not env_path.exists():
         raise FileNotFoundError(f"Missing required config file: {env_path}")
+    load_dotenv(env_path)
     return dotenv_values(env_path)
 
 
