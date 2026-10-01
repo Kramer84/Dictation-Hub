@@ -8,10 +8,9 @@ from freezegun import freeze_time
 
 # Configure runpaths dynamically without packaging constraints
 repo_root = Path(__file__).resolve().parent.parent
-sys.path.append(str(repo_root))
-sys.path.append(str(repo_root / "post_processing"))
 
-from post_processing.pipelines.scheduling import SchedulingPipeline
+
+from dictation_hub.pipeline.pipelines.scheduling import SchedulingPipeline
 
 # --- FIXTURES ---
 
@@ -34,7 +33,7 @@ def scheduling_pipeline():
     static_config = MagicMock()
     static_config.suffixes.full_json = "_full.json"
     static_config.suffixes.cleaned_json = "_cleaned.json"
-    
+
     # Target the active local model from your profile configurations
     profile_data = {
         "dictionary": "configs/hallucinations_dict.yaml",
@@ -49,13 +48,13 @@ def scheduling_pipeline():
             }
         ]
     }
-    
+
     workspace_dir = repo_root / "tests"
     user_info = {
         "location": "Clermont-Ferrand, Auvergne-Rhône-Alpes, France",
         "profession": "PhD Student in Engineering"
     }
-    
+
     pipeline = SchedulingPipeline(
         repo_root=repo_root,
         static_config=static_config,
@@ -63,14 +62,14 @@ def scheduling_pipeline():
         workspace_dir=workspace_dir,
         user_information=user_info
     )
-    
+
     # Override metadata clock property to align base calculations
     pipeline.metadata = {
         "language": "en",
         "timestamp": "20260703_161000"
     }
     pipeline.language = "en"
-    
+
     return pipeline
 
 
@@ -177,6 +176,23 @@ test_cases = [
         "expected_intent": "single_event",
         "expected_title_keyword": "repairman",
         "expected_recurrence": None
+    },
+    {
+        "name": "EN Monthly Payment Iteration",
+        "dictated_text": "I need to make a payment of two hundred twenty euros for the next five months on the eighteenth of each month for the French URSSAF",
+        "language": "en",
+        "expected_start": "2026-07-18T08:00:00",
+        "expected_end": "2026-07-18T09:00:00",
+        "expected_duration": 60,
+        "expected_intent": "recurring_event",
+        "expected_title_keyword": "payment",
+        "expected_recurrence": {
+            "frequency": "MONTHLY",
+            "interval": 1,
+            "by_day": [],
+            "count": 5,
+            "until": None
+        }
     }
 ]
 
@@ -186,34 +202,34 @@ def test_live_llm_extraction_and_reconstruction(case, scheduling_pipeline, mock_
     Executes live queries against the local Ollama daemon for individual cases.
     """
     print(f"\n🚀 [LIVE LLM TEST RUN]: {case['name']} ({case['language']})")
-    
+
     # Dynamically set the language for this specific run
     scheduling_pipeline.language = case['language']
     scheduling_pipeline.metadata["language"] = case['language']
-    
+
     with patch.object(SchedulingPipeline, 'apply_deterministic_cleaner', return_value=case['dictated_text']):
         mock_dummy_json = tmp_path / "live_test_run_full.json"
         mock_dummy_json.touch()
-        
+
         output_payload_str = scheduling_pipeline.execute(mock_dummy_json)
         print(f"└── Raw Output Received:\n{output_payload_str}")
-        
+
         result = json.loads(output_payload_str)
-        
+
         # 1. Structural Assertions
         assert result.get("intent_type") == case['expected_intent']
         assert result.get("start_datetime") == case['expected_start']
         assert result.get("end_datetime") == case['expected_end']
         assert result.get("duration_minutes") == case['expected_duration']
-        
+
         # 2. Title Validation
         search_text = f"{result.get('title') or ''} {result.get('description') or ''} {result.get('location') or ''}".lower()
         assert case['expected_title_keyword'] in search_text
-        
+
         # 3. Recurrence Payload Validation
         result_rec = result.get("recurrence")
         expected_rec = case['expected_recurrence']
-        
+
         if expected_rec is None:
             assert result_rec is None, f"Expected no recurrence, but got {result_rec}"
         else:
@@ -222,7 +238,7 @@ def test_live_llm_extraction_and_reconstruction(case, scheduling_pipeline, mock_
             assert result_rec.get("interval") == expected_rec.get("interval")
             assert set(result_rec.get("by_day", [])) == set(expected_rec.get("by_day", []))
             assert result_rec.get("count") == expected_rec.get("count")
-            
+
             # Optionally assert 'until' if strictly defined, though LLM variance here will be high
             if expected_rec.get("until"):
                 assert result_rec.get("until") is not None

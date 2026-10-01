@@ -29,6 +29,10 @@ auto_generate:
     - Sigma Klamon
     - Sigma Klamo
     - Sigma Klamour
+  Clermont-Ferrand:
+    - Clermont Ferrand
+    - Clonferron
+    - Clément-Ferrand
 
   # Isolated last name matches (for "Mr.", "Monsieur", or casual mentions)
   Gayton:
