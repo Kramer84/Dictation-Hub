@@ -1,0 +1,1257 @@
+{
+ "01_mesa_boogie_manual_extract/take_01": {
+  "chunk20": {
+   "wer": 0.05405405405405406,
+   "end_f1": 0.8888888888888888,
+   "comma_f1": 0.7368421052631579,
+   "spurious": 0.0,
+   "wait_s": 1.9623879609989672,
+   "total_s": 7.979027450999638,
+   "chunks": 4,
+   "cuts": [
+    25.9,
+    45.0,
+    65.3
+   ],
+   "text": "With apologies to friends and relatives from the Emerald Isle, who will make their appearance soon enough, the humour which follows is dedicated to the memories of Speck Macoliffe and Faye Raphael McNally, two of the true greats. As their numerical references suggest, the terms diode, triode and pentode indicate the number of elements within the vacuum cube, i.e. 2, 3 or 5. All tubes also require a filament or heater which is not included in the count. Its purpose is to excite electrons from the cathode coating by raising the temperature such that they are able to boil out of the electron rich coating material and form a cloud of free electrons in the vacuum space surrounding the cathode. Although the term filament and heater are often used interchangeably, there are specific differences. A filament is a directly heated cathode where cathode coating is applied directly to the heating element. Examples are 5U4 twin diode rectifier and 300B triode amplifier tubes, A heater, on the other hand, is a heating element which is separate from the cathode and is usually inserted within the tubular cathode sleeve. Examples are 12AX7 twin triode amplifier and 6V6 or EL84 beam power pentode tubes. In all cases, this fundamental aspect of each tube's construction is clearly visible, especially when the heating element is glowing red hot."
+  },
+  "chunk20L": {
+   "wer": 0.05405405405405406,
+   "end_f1": 0.8888888888888888,
+   "comma_f1": 0.7368421052631579,
+   "spurious": 0.0,
+   "wait_s": 1.9367292419992737,
+   "total_s": 7.931247846998303,
+   "chunks": 4,
+   "cuts": [
+    25.9,
+    45.0,
+    65.3
+   ],
+   "text": "With apologies to friends and relatives from the Emerald Isle, who will make their appearance soon enough, the humour which follows is dedicated to the memories of Speck Macoliffe and Faye Raphael McNally, two of the true greats. As their numerical references suggest, the terms diode, triode and pentode indicate the number of elements within the vacuum cube, i.e. 2, 3 or 5. All tubes also require a filament or heater which is not included in the count. Its purpose is to excite electrons from the cathode coating by raising the temperature such that they are able to boil out of the electron rich coating material and form a cloud of free electrons in the vacuum space surrounding the cathode. Although the term filament and heater are often used interchangeably, there are specific differences. A filament is a directly heated cathode where cathode coating is applied directly to the heating element. Examples are 5U4 twin diode rectifier and 300B triode amplifier tubes, A heater, on the other hand, is a heating element which is separate from the cathode and is usually inserted within the tubular cathode sleeve. Examples are 12AX7 twin triode amplifier and 6V6 or EL84 beam power pentode tubes. In all cases, this fundamental aspect of each tube's construction is clearly visible, especially when the heating element is glowing red hot."
+  },
+  "chunk20L+styleonly": {
+   "wer": 0.05405405405405406,
+   "end_f1": 0.8888888888888888,
+   "comma_f1": 0.625,
+   "spurious": 0.0,
+   "wait_s": 1.9484848140000395,
+   "total_s": 7.887453418001314,
+   "chunks": 4,
+   "cuts": [
+    25.9,
+    45.0,
+    65.3
+   ],
+   "text": "With apologies to friends and relatives from the Emerald Isle, who will make their appearance soon enough, the humor which follows is dedicated to the memories of Speck Macoliffe and Faye Raphael McNally, two of the true greats. As their numerical references suggest, the terms diode, triode and pentode indicate the number of elements within the vacuum cube, i.e. 2, 3 or 5. All tubes also require a filament or heater which is not included in the count. Its purpose is to excite electrons from the cathode coating by raising the temperature such that they are able to boil out of the electron rich coating material and form a cloud of free electrons in the vacuum space surrounding the cathode. Although the term filament and heater are often used interchangeably, there are specific differences. A filament is a directly heated cathode where cathode coating is applied directly to the heating element. Examples are 5U4 twin diode rectifier and 300B triode amplifier tubes, A heater on the other hand is a heating element which is separate from the cathode and is usually inserted within the tubular cathode sleeve. Examples are 12AX7 twin triode amplifier and 6V6 or EL84 beam power panto tubes. In all cases this fundamental aspect of each tube's construction is clearly visible, especially when the heating element is glowing red hot."
+  },
+  "chunk15L": {
+   "wer": 0.04054054054054054,
+   "end_f1": 0.8888888888888888,
+   "comma_f1": 0.7000000000000001,
+   "spurious": 0.0,
+   "wait_s": 1.4584425360008026,
+   "total_s": 9.043703478999305,
+   "chunks": 5,
+   "cuts": [
+    15.5,
+    45.0,
+    65.3,
+    83.4
+   ],
+   "text": "With apologies to friends and relatives from the Emerald Isle, who will make their appearance soon enough, the humor which follows is dedicated to the memories of Speck Macoliffe and Fay, Raphael, McNally, two of the true greats. As their numerical references suggest, the terms diode, triode and pentode indicate the number of elements within the vacuum tube, i.e. 2, 3 or 5. All tubes also require a filament or heater which is not included in the count. Its purpose is to excite electrons from the cathode coating by raising the temperature such that they are able to boil out of the electron-rich coating material and form a cloud of free electrons in the vacuum space surrounding the cathode. Although the term filament and heater are often used interchangeably, there are specific differences. A filament is a directly heated cathode where cathode coating is applied directly to the heating element. Examples are 5U4 twin diode rectifier and 300B triode amplifier tubes, A heater, on the other hand, is a heating element which is separate from the cathode and is usually inserted within the tubular cathode sleeve. Examples are 12AX7 twin triode amplifier and 6V6 or EL84 beam power panto tubes. In all cases, this fundamental aspect of each tube's construction is clearly visible, especially when the heating element is glowing red hot."
+  },
+  "chunk15L+styleonly": {
+   "wer": 0.04054054054054054,
+   "end_f1": 0.8888888888888888,
+   "comma_f1": 0.7000000000000001,
+   "spurious": 0.0,
+   "wait_s": 1.4823420900011115,
+   "total_s": 9.069393549001688,
+   "chunks": 5,
+   "cuts": [
+    15.5,
+    45.0,
+    65.3,
+    83.4
+   ],
+   "text": "With apologies to friends and relatives from the Emerald Isle, who will make their appearance soon enough, the humor which follows is dedicated to the memories of Speck Macoliffe and Faye Raphael McNally, two of the true greats. As their numerical references suggest, the terms diode, triode and pentode indicate the number of elements within the vacuum tube, i.e. 2, 3 or 5. All tubes also require a filament or heater which is not included in the count. Its purpose is to excite electrons from the cathode coating by raising the temperature such that they are able to boil out of the electron-rich coating material and form a cloud of free electrons in the vacuum space surrounding the cathode. Although the term filament and heater are often used interchangeably, there are specific differences. A filament is a directly heated cathode where cathode coating is applied directly to the heating element. Examples are 5U4 twin diode rectifier and 300B triode amplifier tubes, A heater, on the other hand, is a heating element which is separate from the cathode and is usually inserted within the tubular cathode sleeve. Examples are 12AX7 twin triode amplifier and 6B6 or EL84 beam power panto tubes. In all cases, this fundamental aspect of each tubes construction is clearly visible, especially when the heating element is glowing red hot."
+  }
+ },
+ "01_mesa_boogie_manual_extract/take_02": {
+  "chunk20": {
+   "wer": 0.03153153153153153,
+   "end_f1": 0.9523809523809523,
+   "comma_f1": 0.761904761904762,
+   "spurious": 0.0,
+   "wait_s": 1.4536644550007622,
+   "total_s": 9.201198396000109,
+   "chunks": 5,
+   "cuts": [
+    27.2,
+    50.2,
+    71.6,
+    92.4
+   ],
+   "text": "With apologies to friends and relatives from the Emerald Isle, who will make their appearance soon enough, the humor which follows is dedicated to the memories of Speck, McAuliffe, and Fay, Raphael, McNally, two of the two greats. As their numerical references suggest, the terms diode, triode, and pentode indicate the number of elements within the vacuum cube, i.e. two, three or five. All tubes also require a phylum filament or heater which is not included in the count. Its purpose is to excite electrons from the cathode coating by raising the temperature such that they are able to boil out of the electron-rich coating material and form a cloud of free electrons in the vacuum space surrounding the cathode. Although the term filament and heater are often used interchangeably, there are specific differences. A filament is a directly heated cathode where cathode coating is applied directly to the heating element. Examples are 5U4 twin diode rectifier and 300B triode amplifier tubes. A heater, on the other hand, is a heating element which is separate from the cathode and is usually inserted within the tubular cathode sleeve. Examples are 12AX7 twin triode amplifier and 6V6 or EL84 beam power pentode tubes. In all cases, this fundamental aspect of each tubes construction is clearly visible, especially when the heating element is glowing red hot."
+  },
+  "chunk20L": {
+   "wer": 0.03153153153153153,
+   "end_f1": 0.9523809523809523,
+   "comma_f1": 0.761904761904762,
+   "spurious": 0.0,
+   "wait_s": 1.4897821100003057,
+   "total_s": 9.139094595000643,
+   "chunks": 5,
+   "cuts": [
+    27.2,
+    50.2,
+    71.6,
+    92.4
+   ],
+   "text": "With apologies to friends and relatives from the Emerald Isle, who will make their appearance soon enough, the humor which follows is dedicated to the memories of Speck, McAuliffe, and Fay, Raphael, McNally, two of the two greats. As their numerical references suggest, the terms diode, triode, and pentode indicate the number of elements within the vacuum cube, i.e. two, three or five. All tubes also require a phylum filament or heater which is not included in the count. Its purpose is to excite electrons from the cathode coating by raising the temperature such that they are able to boil out of the electron-rich coating material and form a cloud of free electrons in the vacuum space surrounding the cathode. Although the term filament and heater are often used interchangeably, there are specific differences. A filament is a directly heated cathode where cathode coating is applied directly to the heating element. Examples are 5U4 twin diode rectifier and 300B triode amplifier tubes. A heater, on the other hand, is a heating element which is separate from the cathode and is usually inserted within the tubular cathode sleeve. Examples are 12AX7 twin triode amplifier and 6V6 or EL84 beam power pentode tubes. In all cases, this fundamental aspect of each tubes construction is clearly visible, especially when the heating element is glowing red hot."
+  },
+  "chunk20L+styleonly": {
+   "wer": 0.04054054054054054,
+   "end_f1": 0.9473684210526316,
+   "comma_f1": 0.7368421052631579,
+   "spurious": 0.0,
+   "wait_s": 1.4511670829997456,
+   "total_s": 9.126678914999502,
+   "chunks": 5,
+   "cuts": [
+    27.2,
+    50.2,
+    71.6,
+    92.4
+   ],
+   "text": "With apologies to friends and relatives from the Emerald Isle, who will make their appearance soon enough, the humor which follows is dedicated to the memories of Speck, McAuliffe, and Fay, Raphael, McNally, two of the two greats. As their numerical references suggest, the terms diode, triode, and pentode indicate the number of elements within the vacuum cube, I.e. 2, 3 or 5. All tubes also require a filament or heater which is not included in the count. Its purpose is to excite electrons from the cathode coating by raising the temperature such that they are able to boil out of the electron-rich coating material and form a cloud of free electrons in the vacuum space surrounding the cathode. Although the term filament and heater are often used interchangeably, there are specific differences. A filament is a directly heated cathode where cathode coating is applied directly to the heating element. Examples are 5U4 twin diode rectifier and 300B triode amplifier tubes. A heater, on the other hand, is a heating element which is separate from the cathode and is usually inserted within the tubular cathode sleeve. Examples are 12AX7 twin triode amplifier and 6V6 or EL84 beam power pentode tubes. In all cases, this fundamental aspect of each tubes construction is clearly visible, especially when the heating element is glowing red hot."
+  },
+  "chunk15L": {
+   "wer": 0.06756756756756757,
+   "end_f1": 0.9473684210526316,
+   "comma_f1": 0.5882352941176471,
+   "spurious": 0.25,
+   "wait_s": 1.679621381999823,
+   "total_s": 9.067375671002083,
+   "chunks": 5,
+   "cuts": [
+    18.1,
+    36.1,
+    56.7,
+    81.8
+   ],
+   "text": "With apologies to friends and relatives from the Emerald Isle, who will make their appearance soon enough, the humor which follows is dedicated to the memories of Speck, McAuliffe, and Fay, Raphael, McNally, two of the two greats. As their numerical references suggest, the terms diode, triode and pentode indicate the number of elements within the vacuum tube, i.e. 2, 3 or 5. All tubes also require a filament or heater which is not included in the count. Its purpose is to excite electrons from the cathode coating by raising the temperature such that they are able to boil out of the electron rich coating material and form a cloud of free electrons in the vacuum space surrounding the cathode. Although the term filament and heater are often used interchangeably, there are specific differences. A filament is a directly heated cathode where cathode coating is applied directly to the heating element. Examples are 5U4 twin diode rectifier and 300B triode amplifier tubes. A heater on the other hand is a heating element which is separate from the cathode and is usually inserted within the tubular cathode sleeve. Examples are 12 AX7 twin triode amplifier and 6 V6 or EL84 beam power pentode tubes. In all cases, this fundamental aspect of each tube's construction is clearly visible, especially when the heating element is glowing red hot."
+  },
+  "chunk15L+styleonly": {
+   "wer": 0.05405405405405406,
+   "end_f1": 0.9473684210526316,
+   "comma_f1": 0.7368421052631579,
+   "spurious": 0.25,
+   "wait_s": 1.6932441179997113,
+   "total_s": 9.19709689499905,
+   "chunks": 5,
+   "cuts": [
+    18.1,
+    36.1,
+    56.7,
+    81.8
+   ],
+   "text": "With apologies to friends and relatives from the Emerald Isle, who will make their appearance soon enough, the humor which follows is dedicated to the memories of Speck, McAuliffe, and Fay, Raphael, McNally, two of the true greats. As their numerical references suggest, the terms diode, triode and pentode indicate the number of elements within the vacuum tube, i.e. 2, 3 or 5. All tubes also require a filament or heater which is not included in the count. Its purpose is to excite electrons from the cathode coating by raising the temperature such that they are able to boil out of the electron-rich coating material and form a cloud of free electrons in the vacuum space surrounding the cathode. Although the term filament and heater are often used interchangeably, there are specific differences. A filament is a directly heated cathode where cathode coating is applied directly to the heating element. Examples are 5U4 twin diode rectifier and 300B triode amplifier tubes. A heater, on the other hand, is a heating element which is separate from the cathode and is usually inserted within the tubular cathode sleeve. Examples are 12 AX7 twin triode amplifier and 6 V6 or EL84 beam power pentode tubes. In all cases, this fundamental aspect of each tube's construction is clearly visible, especially when the heating element is glowing red hot."
+  }
+ },
+ "01_mesa_boogie_manual_extract/take_03": {
+  "chunk20": {
+   "wer": 0.0990990990990991,
+   "end_f1": 1.0,
+   "comma_f1": 0.6666666666666666,
+   "spurious": 0.0,
+   "wait_s": 1.4859253710001212,
+   "total_s": 13.357305449997511,
+   "chunks": 8,
+   "cuts": [
+    24.8,
+    46.9,
+    69.5,
+    89.9,
+    110.3,
+    136.0,
+    157.1
+   ],
+   "text": "With apologies to friends and relatives from the Emerald Isle, who will make their appearance true enough, the humor which follows is dedicated to the memories of Speck McAuliffe and Faye two of the true grades. As their numerical references suggest, the terms diode, triode and pentode indicate the number of elements within the vacuum tube i.e. 2, 3, or 5. All tubes also require a filament or heater, which is not included in the count. Its purpose is to excite electrons from the cathode coating by raising the temperature such that they are able to boil out of the electron rich coating material and form a cloud of free electrons in the vacuum space surrounding the cathode. OK. Also, although the term filament and heater are often used interchangeably, the specific differences, a filament is a directly heated cathode where cathode coating is applied directly to the heating element. So examples are 5U4 twin diode rectifier and 300B triode amplifier tubes. A heater on the other hand is a heating element which is separate from the cathode and is usually inserted within the a tubular cathode sleeve. Examples are a 12A7 twin triode amplifier and a 6V6 or EL84 beam power panto tubes. In all cases this fundamental aspect of each tubes construction is clearly visible, especially when the heating element is glowing red hot."
+  },
+  "chunk20L": {
+   "wer": 0.0945945945945946,
+   "end_f1": 0.9411764705882353,
+   "comma_f1": 0.5555555555555556,
+   "spurious": 0.16666666666666666,
+   "wait_s": 1.5655195489998732,
+   "total_s": 12.064302777998819,
+   "chunks": 7,
+   "cuts": [
+    27.1,
+    50.4,
+    72.1,
+    100.8,
+    129.2,
+    154.7
+   ],
+   "text": "With apologies to friends and relatives from the Emerald Isle, who will make their appearance true enough, the humor which follows is dedicated to the memories of Speck McAuliffe and Faye Raphael McNally, two of the two greats. As the numerical references suggest, the terms diode, triode and pentode indicate the number of elements within the vacuum tube, i.e. 2, 3 or 5. All tubes also require a filament or heater which is not included in the count. Its purpose is to excite electrons from the cathode coating by raising the temperature such that they are able to to boil out of the electron-rich coating material and form a cloud of free electrons in the vacuum space surrounding the cathode. Although the term filament and heater are often used interchangeably, there are specific differences. A filament is a directly heated cathode where cathode coating is applied directly to the heating element. So examples are 5U4 twin diode rectifier and 300B triode amplifier cubes. A heater on the other hand The heating element, which is separate from the cathode and is usually inserted within the tubular cathode sleeve. Examples are 12AX7 twin triode amplifier and a 6V6 or EL84 beam power panto tubes. and so on. In all cases, this fundamental aspect of each tube's construction is clearly visible, especially when the heating element is glowing red hot."
+  },
+  "chunk20L+styleonly": {
+   "wer": 0.08108108108108109,
+   "end_f1": 0.8888888888888888,
+   "comma_f1": 0.6,
+   "spurious": 0.16666666666666666,
+   "wait_s": 1.5630040349988121,
+   "total_s": 12.116933863997474,
+   "chunks": 7,
+   "cuts": [
+    27.1,
+    50.4,
+    72.1,
+    100.8,
+    129.2,
+    154.7
+   ],
+   "text": "With apologies to friends and relatives from the Emerald Isle, who will make their appearance through enough, the humor which follows is dedicated to the memories of Speck McAuliffe and Faye Raphael McNally, two of the two greats. As the numerical references suggest, the terms diode, triode and pentode indicate the number of elements within the vacuum tube, i.e. 2, 3 or 5. All tubes also require a filament or heater which is not included in the count. Its purpose is to excite electrons from the cathode coating by raising the temperature such that they are able to To boil out of the electron rich coating material and form a cloud of free electrons in the vacuum space surrounding the cathode. Although the term filament and heater are often used interchangeably, there are specific differences. A filament is a directly heated cathode where cathode coating is applied directly to the heating element. So, examples are 5U4 twin diode rectifier and 300B triode amplifier tubes, a heater on the other hand, The heating element, which is separate from the cathode and is usually inserted within the tubular cathode sleeve. Examples are 12AX7 twin triode amplifier and a 6V6 or EL84 beam power panto tubes. In all cases, this fundamental aspect of each tubes construction is clearly visible, especially when the heating element is glowing red hot."
+  },
+  "chunk15L": {
+   "wer": 0.0945945945945946,
+   "end_f1": 0.9473684210526316,
+   "comma_f1": 0.6,
+   "spurious": 0.14285714285714285,
+   "wait_s": 1.5450147219999053,
+   "total_s": 13.346954593998817,
+   "chunks": 8,
+   "cuts": [
+    18.4,
+    36.1,
+    60.0,
+    89.9,
+    110.3,
+    129.2,
+    154.7
+   ],
+   "text": "With apologies to friends and relatives from the Emerald Isle, who will make their appearance through enough, the humor which follows. is dedicated to the memories of Speck McAuliffe and Faye Raphael McNally, two of the two greats. As their numerical references suggest, The terms diode, triode and pentode indicate the number of elements within the vacuum tube, i.e. 2, 3 or 5. All tubes also require a filament or heater, which is not included in the count. Its purpose is to excite electrons from the cathode coating by raising the temperature such that they are able to boil out of the electron-rich coating material and form a cloud of free electrons in the vacuum space surrounding the cathode. Also, although the term filament and heater are often used interchangeably, the specific differences, a filament is a directly heated cathode where cathode coating is applied directly to the heating element. so examples are 5U4 twin diode rectifier and 300B triode amplifier tubes. A heater on the other hand The heating element, which is separate from the cathode and is usually inserted within the tubular cathode sleeve. Examples are 12AX7 twin triode amplifier and a 6V6 or EL84 beam power panto tubes. and so on. In all cases, this fundamental aspect of each tube's construction is clearly visible, especially when the heating element is glowing red hot."
+  },
+  "chunk15L+styleonly": {
+   "wer": 0.08108108108108109,
+   "end_f1": 0.8421052631578948,
+   "comma_f1": 0.5,
+   "spurious": 0.14285714285714285,
+   "wait_s": 1.5395493759988312,
+   "total_s": 13.26549291399715,
+   "chunks": 8,
+   "cuts": [
+    18.4,
+    36.1,
+    60.0,
+    89.9,
+    110.3,
+    129.2,
+    154.7
+   ],
+   "text": "With apologies to friends and relatives from the Emerald Isle, who will make their appearance through enough, the humor which follows, It is dedicated to the memories of Speck McAuliffe and Faye Raffael McNally, two of the two greats, as their numerical references suggest. The terms diode, triode and pentode indicate the number of elements within the vacuum tube i.e. 2, 3 or 5. All tubes also require a filament or heater which is not included in the count. Its purpose is to excite electrons from the cathode coating by raising the temperature such that they are able to boil out of the electron rich coating material and form a cloud of free electrons in the vacuum space surrounding the cathode. Also, although the term filament and heater are often used interchangeably, there are specific differences. A filament is a directly heated cathode, where cathode coating is applied directly to the heating element. So examples are 5U4 twin diode rectifier and 300B triode amplifier tubes. A heater on the other hand, The heating element, which is separate from the cathode and is usually inserted within the tubular cathode sleeve. Examples are 12AX7 twin triode amplifier and a 6V6 or EL84 beam power panto tubes. In all cases, this fundamental aspect of each tubes construction is clearly visible, especially when the heating element is glowing red hot."
+  }
+ },
+ "02_mesa_boogie_manual_extract/take_01": {
+  "chunk20": {
+   "wer": 0.04975124378109453,
+   "end_f1": 0.962962962962963,
+   "comma_f1": 0.6956521739130435,
+   "spurious": 0.3333333333333333,
+   "wait_s": 1.4941355470000417,
+   "total_s": 7.570739099999628,
+   "chunks": 4,
+   "cuts": [
+    22.5,
+    46.8,
+    71.2
+   ],
+   "text": "Do not block any ventilation openings. Install in accordance with the manufacturer's instructions. Do not install near any heat sources such as radiators, heat registers, stoves, or other apparatus, including amplifiers, that produce heat. Do not defeat the safety purpose of the polarized or grounding type plug. A polarized plug has two blades, with one wider than the other. A grounding type plug has two blades and the third grounding prong. The wide blade or the third prong are provided for your safety. If the provided plug does not fit into your outlet, consult an electrician for replacement of the obsolete outlet. Protect the power cord from being walked on or pinched, particularly at plugs. convenience receptacles in the point where they exit from the apparatus. Only use attachments, accessories specified by the manufacturer. Unplug this apparatus during lightning storms when unused for long periods of time. Refer all servicing to qualified service personnel. Servicing is required when the apparatus has been damaged in any way, such as power supply cord or plug is damaged, liquid has been spilled or objects have fallen into the apparatus, the apparatus has been exposed to rain or moisture, does not operate normally or has been dropped."
+  },
+  "chunk20L": {
+   "wer": 0.05472636815920398,
+   "end_f1": 0.9600000000000001,
+   "comma_f1": 0.7999999999999999,
+   "spurious": 0.0,
+   "wait_s": 1.9057691839989275,
+   "total_s": 6.339498282999557,
+   "chunks": 3,
+   "cuts": [
+    26.6,
+    55.7
+   ],
+   "text": "Do not block any ventilation openings, install in accordance with the manufacturer's instructions. Do not install near any heat sources such as radiators, heat registers, stoves or other apparatus including amplifiers that produce heat. Do not defeat the safety purpose of the polarized or grounding type plug. A polarized plug has two blades with one wider than the other. A grounding type plug has two blades and the third grounding prong. The white blade or the third prong are provided for your safety. If the provided plug does not fit into your outlet, consult an electrician for replacement of the obsolete outlet. Protect the power cord from being walked on or pinched particularly at plugs, convenience receptacles in the point where they exit from the apparatus. Only use attachments, accessories specified by the manufacturer. Unplug this apparatus during lightning storms when unused for long periods of time. Refer all servicing to qualified service personnel. Servicing is required when the apparatus has been damaged in any way, such as power supply cord or plug is damaged, liquid has been spilled or objects have fallen into the apparatus, the apparatus has been exposed to rain or moisture, does not operate normally or has been dropped."
+  },
+  "chunk20L+styleonly": {
+   "wer": 0.04975124378109453,
+   "end_f1": 1.0,
+   "comma_f1": 0.7272727272727273,
+   "spurious": 0.0,
+   "wait_s": 1.9557036080004764,
+   "total_s": 6.268765414999507,
+   "chunks": 3,
+   "cuts": [
+    26.6,
+    55.7
+   ],
+   "text": "Do not block any ventilation openings. Install in accordance with the manufacturer's instructions. Do not install near any heat sources such as radiators, heat registers, stoves or other apparatus, including amplifiers, that produce heat. Do not defeat the safety purpose of the polarized or grounding type plug. A polarized plug has two blades with one wider than the other. A grounding type plug has two blades and the third grounding prong. The white blade or the third prong are provided for your safety. If the provided plug does not fit into your outlet, consult an electrician for replacement of the obsolete outlet. Protect the power cord from being walked on or pinched, particularly at plugs, convenience receptacles and the point where they exit from the apparatus. Only use attachments, accessories specified by the manufacturer. Unplug this apparatus during lightning storms when unused for long periods of time. Refer all servicing to qualified service personnel. Servicing is required when the apparatus has been damaged in any way, such as power supply cord or plug is damaged, liquid has been spilled or objects have fallen into the apparatus, the apparatus has been exposed to rain or moisture, does not operate normally or has been dropped."
+  },
+  "chunk15L": {
+   "wer": 0.05472636815920398,
+   "end_f1": 0.9230769230769231,
+   "comma_f1": 0.7368421052631579,
+   "spurious": 0.3333333333333333,
+   "wait_s": 1.3757727929987595,
+   "total_s": 7.485579648999192,
+   "chunks": 4,
+   "cuts": [
+    26.6,
+    55.7,
+    75.4
+   ],
+   "text": "Do not block any ventilation openings, install in accordance with the manufacturer's instructions. Do not install near any heat sources such as radiators, heat registers, stoves or other apparatus including amplifiers that produce heat. Do not defeat the safety purpose of the polarized or grounding type plug. A polarized plug has two blades with one wider than the other. A grounding type plug has two blades and the third grounding prong. The white blade or the third prong are provided for your safety. If the provided plug does not fit into your outlet, consult an electrician for replacement of the obsolete outlet. Protect the power cord from being walked on or pinched particularly at plugs, convenience receptacles in the point where they exit from the apparatus. Only use attachments, accessories specified by the manufacturer. Unplug this apparatus during lightning storms when unused for long periods of time. Refer all servicing to qualified service personnel. Servicing is required when the apparatus has been damaged in any way, such as power supply cord or plug is damaged, liquid has been spilled or objects have fallen into the apparatus. The apparatus has been exposed to rain or moisture, does not operate normally or has been dropped."
+  },
+  "chunk15L+styleonly": {
+   "wer": 0.04975124378109453,
+   "end_f1": 0.962962962962963,
+   "comma_f1": 0.6666666666666666,
+   "spurious": 0.3333333333333333,
+   "wait_s": 1.42131519600116,
+   "total_s": 7.526193209001576,
+   "chunks": 4,
+   "cuts": [
+    26.6,
+    55.7,
+    75.4
+   ],
+   "text": "Do not block any ventilation openings. Install in accordance with the manufacturer's instructions. Do not install near any heat sources such as radiators, heat registers, stoves or other apparatus, including amplifiers, that produce heat. Do not defeat the safety purpose of the polarized or grounding type plug. A polarized plug has two blades with one wider than the other. A grounding type plug has two blades and the third grounding prong. The white blade or the third prong are provided for your safety. If the provided plug does not fit into your outlet, consult an electrician for replacement of the obsolete outlet. Protect the power cord from being walked on or pinched, particularly at plugs, convenience receptacles and the point where they exit from the apparatus. Only use attachments, accessories specified by the manufacturer. Unplug this apparatus during lightning storms when unused for long periods of time. Refer all servicing to qualified service personnel. Servicing is required when the apparatus has been damaged in any way, such as power supply cord or plug is damaged, liquid has been spilled or objects have fallen into the apparatus. The apparatus has been exposed to rain or moisture, does not operate normally or has been dropped."
+  }
+ },
+ "02_mesa_boogie_manual_extract/take_02": {
+  "chunk20": {
+   "wer": 0.06965174129353234,
+   "end_f1": 0.888888888888889,
+   "comma_f1": 0.6666666666666665,
+   "spurious": 0.125,
+   "wait_s": 1.5140688450010202,
+   "total_s": 14.230185248003181,
+   "chunks": 9,
+   "cuts": [
+    20.2,
+    43.1,
+    65.1,
+    85.2,
+    106.5,
+    127.5,
+    149.5,
+    170.3
+   ],
+   "text": "Do not block any ventilation openings. Install in accordance with the manufacturer's instructions. Do not install near any heat sources such as radiators, heat registers, stoves or other apparatus including amplifiers. that produce heat. Do not defeat the safety purpose of the polarized or grounding type plug. A polarized plug has two blades with one wider than the other. A grounding type plug has two blades, and a third grounding prong. The white blade or the third prong are provided for your safety. if the provided plug does not fit into your outlet consult an electrician for a replacement of the obsolete outlet yeah okay right protect the power cord from being walked on or pinched particularly at plugs, convenience receptacles, and the point where they exit from the apparatus. Only use attachments, accessories specified by the manufacturer. unplug this apparatus during lightning storms or when unused for long periods of time. Refer all servicing to qualify the service personnel. Servicing is required when the apparatus has been damaged in any way such as power supply cord or plug is damaged, liquid has been spilled or Objects have fallen into the apparatus. The apparatus has been exposed to rain or moisture, does not operate normally or has been dropped."
+  },
+  "chunk20L": {
+   "wer": 0.08955223880597014,
+   "end_f1": 0.8333333333333333,
+   "comma_f1": 0.6666666666666665,
+   "spurious": 0.14285714285714285,
+   "wait_s": 1.4144513699993695,
+   "total_s": 12.999196353997831,
+   "chunks": 8,
+   "cuts": [
+    20.2,
+    46.0,
+    74.3,
+    100.7,
+    127.5,
+    149.5,
+    174.5
+   ],
+   "text": "Do not block any ventilation openings. Install in accordance with the manufacturer's instructions. Do not install near any heat sources such as radiators, heat registers, stoves or other apparatus including amplifiers that produce heat. Do not defeat the safety purpose of the polarized or grounding type plug. A polarized plug has two blades with one wider than the other. A grounding type plug has two blades and the third grounding prong the the white blade or the third prong are provided for your safety if the provided plug does not fit into your outlet consult an electrician for a replacement of the obsolete outlet yeah okay right 1. Protect the power cord from being walked on or pinched particularly at plugs, convenience receptacles and the point where they exit from the apparatus. 2. Only use attachments, accessories specified by the manufacturer. unplug this apparatus during lightning storms or when unused for long periods of time. Refer all servicing to qualify the Service Personnel. Servicing is required when the apparatus has been damaged in any way, such as power supply cord or plug is damaged, liquid has been spilled, or objects have fallen into the apparatus. The apparatus has been exposed to rain or moisture, does not operate normally or has been dropped."
+  },
+  "chunk20L+styleonly": {
+   "wer": 0.04975124378109453,
+   "end_f1": 0.962962962962963,
+   "comma_f1": 0.7368421052631579,
+   "spurious": 0.14285714285714285,
+   "wait_s": 1.4096168749983917,
+   "total_s": 13.054491473998496,
+   "chunks": 8,
+   "cuts": [
+    20.2,
+    46.0,
+    74.3,
+    100.7,
+    127.5,
+    149.5,
+    174.5
+   ],
+   "text": "Do not block any ventilation openings. Install in accordance with the manufacturer's instructions. Do not install near any heat sources such as radiators, heat registers, stoves or other apparatus including amplifiers that produce heat. Do not defeat the safety purpose of the polarized or grounding type plug. A polarized plug has two blades with one wider than the other. A grounding type plug has two blades and a third grounding prong. The white blade or the third prong are provided for your safety. If the provided plug does not fit into your outlet, consult an electrician for replacement of the obsolete outlet. Protect the power cord from being walked on or pinched, particularly at plugs, convenience receptacles and the point where they exit from the apparatus. Only use attachments, accessories specified by the manufacturer. Unplug this apparatus during lightning storms or when unused for long periods of time. Refer all servicing to qualify the service personnel. Servicing is required when the apparatus has been damaged in any way, such as power supply cord or plug is damaged, liquid has been spilled or objects have fallen into the apparatus. The apparatus has been exposed to rain or moisture, does not operate normally or has been dropped."
+  },
+  "chunk15L": {
+   "wer": 0.07960199004975124,
+   "end_f1": 0.8333333333333333,
+   "comma_f1": 0.5882352941176471,
+   "spurious": 0.14285714285714285,
+   "wait_s": 1.5606445649991656,
+   "total_s": 13.009525347995805,
+   "chunks": 8,
+   "cuts": [
+    20.2,
+    46.0,
+    74.3,
+    100.7,
+    127.5,
+    143.8,
+    165.6
+   ],
+   "text": "Do not block any ventilation openings. Install in accordance with the manufacturer's instructions. Do not install near any heat sources such as radiators, heat registers, stoves or other apparatus including amplifiers that produce heat. Do not defeat the safety purpose of the polarized or grounding type plug. A polarized plug has two blades with one wider than the other. A grounding type plug has two blades and the third grounding prong the the white blade or the third prong are provided for your safety if the provided plug does not fit into your outlet consult an electrician for a replacement of the obsolete outlet yeah okay right 1. Protect the power cord from being walked on or pinched particularly at plugs, convenience receptacles and the point where they exit from the apparatus. 2. Only use attachments, accessories specified by the manufacturer. unplug this apparatus during lightning storms or when unused for long periods of time. Refer all servicing to qualified service personnel. Servicing is required when the apparatus has been damaged in any way such as power supply cord or plug is damaged. liquid has been spilled, or objects have fallen into the apparatus, the apparatus has been exposed to rain or moisture, does not operate normally or has been dropped."
+  },
+  "chunk15L+styleonly": {
+   "wer": 0.03980099502487562,
+   "end_f1": 0.9285714285714286,
+   "comma_f1": 0.6666666666666665,
+   "spurious": 0.14285714285714285,
+   "wait_s": 1.5431231359998492,
+   "total_s": 13.017627318999075,
+   "chunks": 8,
+   "cuts": [
+    20.2,
+    46.0,
+    74.3,
+    100.7,
+    127.5,
+    143.8,
+    165.6
+   ],
+   "text": "Do not block any ventilation openings. Install in accordance with the manufacturer's instructions. Do not install near any heat sources such as radiators, heat registers, stoves or other apparatus including amplifiers that produce heat. Do not defeat the safety purpose of the polarized or grounding type plug. A polarized plug has two blades with one wider than the other. A grounding type plug has two blades and a third grounding prong. The white blade or the third prong are provided for your safety. If the provided plug does not fit into your outlet, consult an electrician for replacement of the obsolete outlet. Protect the power cord from being walked on or pinched, particularly at plugs, convenience receptacles and the point where they exit from the apparatus. Only use attachments, accessories specified by the manufacturer. Unplug this apparatus during lightning storms or when unused for long periods of time. Refer all servicing to qualified service personnel. Servicing is required when the apparatus has been damaged in any way, such as power supply cord or plug is damaged. Liquid has been spilled or objects have fallen into the apparatus. The apparatus has been exposed to rain or moisture, does not operate normally or has been dropped."
+  }
+ },
+ "02_mesa_boogie_manual_extract/take_03": {
+  "chunk20": {
+   "wer": 0.04975124378109453,
+   "end_f1": 0.9230769230769231,
+   "comma_f1": 0.6666666666666665,
+   "spurious": 0.0,
+   "wait_s": 1.5941499569998996,
+   "total_s": 7.557421846997386,
+   "chunks": 4,
+   "cuts": [
+    20.1,
+    43.1,
+    64.5
+   ],
+   "text": "Do not block any ventilation openings, install in accordance with the manufacturer's instructions. Do not install near any heat sources such as radiators, heat registers, stoves or other apparatus including amplifiers that produce heat. Do not defeat the safety purpose of the polarized or grounding type plug. A polarized plug has two blades with one wider than the other. A grounding type plug has two blades and a third grounding prong. The wide blade and the third prong are provided for your safety. If the provided plug does not fit into your outlet, consult an electrician for replacement of the obsolete outlet. Protect the power cord from being walked on or pinched particularly at plugs convenience receptacles, and the point where they exit from the apparatus. Only use attachments, accessories, if specified by the manufacturer. Unplug this apparatus during lightning storms or when unused for long periods of time. Refer all servicing to qualified service personnel. Servicing is required when the apparatus has been damaged in any way such as power supply cord or plug is damaged, liquid has been spilled or objects have fallen to the apparatus. The apparatus has been exposed to rain or moisture, does not operate normally or has been dropped."
+  },
+  "chunk20L": {
+   "wer": 0.04477611940298507,
+   "end_f1": 0.9230769230769231,
+   "comma_f1": 0.7000000000000001,
+   "spurious": 0.3333333333333333,
+   "wait_s": 1.3862650230003055,
+   "total_s": 7.4948223199990025,
+   "chunks": 4,
+   "cuts": [
+    20.1,
+    47.2,
+    71.9
+   ],
+   "text": "Do not block any ventilation openings, install in accordance with the manufacturer's instructions. Do not install near any heat sources such as radiators, heat registers, stoves or other apparatus including amplifiers that produce heat. Do not defeat the safety purpose of the polarized or grounding type plug. A polarized plug has two blades, with one wider than the other. A grounding type plug has two blades and a third grounding prong. The wide blade and the third prong are provided for your safety. If the provided plug does not fit into your outlet, consult an electrician for replacement of the obsolete outlet. Protect the power cord from being walked on or pinched particularly at plugs, convenience receptacles and the point where they exit from the apparatus. Only use attachments, accessories specified by the manufacturer. Unplug this apparatus during lightning storms or when unused for long periods of time. Refer all servicing to qualified service personnel. Servicing is required when the apparatus has been damaged in any way, such as power supply cord or plug is damaged, liquid has been spilled or objects have fallen to the apparatus. The apparatus has been exposed to rain or moisture, does not operate normally or has been dropped."
+  },
+  "chunk20L+styleonly": {
+   "wer": 0.03980099502487562,
+   "end_f1": 0.962962962962963,
+   "comma_f1": 0.7777777777777778,
+   "spurious": 0.3333333333333333,
+   "wait_s": 1.379295328999433,
+   "total_s": 7.486913746000937,
+   "chunks": 4,
+   "cuts": [
+    20.1,
+    47.2,
+    71.9
+   ],
+   "text": "Do not block any ventilation openings. Install in accordance with the manufacturer's instructions. Do not install near any heat sources such as radiators, heat registers, stoves or other apparatus including amplifiers that produce heat. Do not defeat the safety purpose of the polarized or grounding type plug. A polarized plug has two blades with one wider than the other. A grounding type plug has two blades and a third grounding prong. The wide blade and the third prong are provided for your safety. If the provided plug does not fit into your outlet, consult an electrician for replacement of the obsolete outlet. Protect the power cord from being walked on or pinched particularly at plugs, convenience receptacles and the point where they exit from the apparatus. Only use attachments specified by the manufacturer. Unplug this apparatus during lightning storms or when unused for long periods of time. Refer all servicing to qualified service personnel. Servicing is required when the apparatus has been damaged in any way, such as power supply cord or plug is damaged, liquid has been spilled or objects have fallen to the apparatus. The apparatus has been exposed to rain or moisture, does not operate normally or has been dropped."
+  },
+  "chunk15L": {
+   "wer": 0.04477611940298507,
+   "end_f1": 0.962962962962963,
+   "comma_f1": 0.7777777777777778,
+   "spurious": 0.25,
+   "wait_s": 1.3940560419996473,
+   "total_s": 8.695758604995717,
+   "chunks": 5,
+   "cuts": [
+    15.7,
+    32.8,
+    51.2,
+    71.9
+   ],
+   "text": "Do not block any ventilation openings. Install in accordance with the manufacturer's instructions. Do not install near any heat sources such as radiators, heat registers, stoves or other apparatus including amplifiers that produce heat. Do not defeat the safety purpose of the polarized or grounding type plug. A polarized plug has two blades with one wider than the other. A grounding type plug has two blades and a third grounding prong. The wide blade and the third prong are provided for your safety. If the provided plug does not fit into your outlet, consult an electrician for replacement of the obsolete outlet. Protect the power cord from being walked on or pinched particularly at plugs, convenience receptacles and the point where they exit from the apparatus. Only use attachments, accessories specified by the manufacturer. Unplug this apparatus during lightning storms or when unused for long periods of time. Refer all servicing to qualified service personnel. Servicing is required when the apparatus has been damaged in any way, such as power supply cord or plug is damaged, liquid has been spilled or objects have fallen to the apparatus. The apparatus has been exposed to rain or moisture, does not operate normally or has been dropped."
+  },
+  "chunk15L+styleonly": {
+   "wer": 0.04477611940298507,
+   "end_f1": 0.962962962962963,
+   "comma_f1": 0.7777777777777778,
+   "spurious": 0.25,
+   "wait_s": 1.430933253999683,
+   "total_s": 8.769990425000287,
+   "chunks": 5,
+   "cuts": [
+    15.7,
+    32.8,
+    51.2,
+    71.9
+   ],
+   "text": "Do not block any ventilation openings. Install in accordance with the manufacturer's instructions. Do not install near any heat sources such as radiators, heat registers, stoves or other apparatus including amplifiers that produce heat. Do not defeat the safety purpose of the polarized or grounding type plug. A polarized plug has two blades with one wider than the other. A grounding type plug has two blades and a third grounding prong. The wide blade and the third prong are provided for your safety. If the provided plug does not fit into your outlet, consult an electrician for replacement of the obsolete outlet. Protect the power cord from being walked on or pinched particularly at plugs, convenience receptacles and the point where they exit from the apparatus. Only use attachments, accessories specified by the manufacturer. Unplug this apparatus during lightning storms or when unused for long periods of time. Refer all servicing to qualified service personnel. Servicing is required when the apparatus has been damaged in any way, such as power supply cord or plug is damaged, liquid has been spilled or objects have fallen to the apparatus. The apparatus has been exposed to rain or moisture, does not operate normally or has been dropped."
+  }
+ },
+ "03_beer_article_extract/take_01": {
+  "chunk20": {
+   "wer": 0.056818181818181816,
+   "end_f1": 1.0,
+   "comma_f1": 1.0,
+   "spurious": 0.0,
+   "wait_s": 1.4976346559997182,
+   "total_s": 7.41203707099703,
+   "chunks": 4,
+   "cuts": [
+    27.7,
+    52.0,
+    72.3
+   ],
+   "text": "In the analysis of sensitivities of model output, imprecise probabilities can provide useful new insights with features for systematic and extended investigations. The consideration of imprecise parameters on a set theoretical basis enables the investigation of sensitivities with respect to changes of the parameters in the entire set of the inputs. This reveals sensitivities in a global sense over a finite domain rather than in a differential manner. Tolerances given in absolute terms can thereby be translated directly to bounds for model output without extrapolation as required in differential approaches. The advantages of this in cases when the model behavior is strongly non-linear or discontinuous of any derivatives cannot be determined for some reason. Results from a set theoretical approach are then more robust and reliable. Another advantage of the exploration of an entire domain for input parameters is the identification of favorable and less favorable parameter adjustments. This information can be used to collect further information or to perform further analysis systematically in order to identify the causes for sensitivities or to exclude sensitivities by parameter restrictions."
+  },
+  "chunk20L": {
+   "wer": 0.045454545454545456,
+   "end_f1": 1.0,
+   "comma_f1": 0.2857142857142857,
+   "spurious": 0.0,
+   "wait_s": 1.3391051599992352,
+   "total_s": 7.3543039899977884,
+   "chunks": 4,
+   "cuts": [
+    27.7,
+    55.2,
+    79.5
+   ],
+   "text": "In the analysis of sensitivities of model output, imprecise probabilities can provide useful new insights with features for systematic and extended investigations. The consideration of imprecise parameters on a set theoretical basis enables the investigation of sensitivities with respect to changes of the parameters in the entire set of the inputs. This reveals sensitivities, in a global sense, over a finite domain, rather than in a differential manner. Tolerances given in absolute terms can thereby be translated directly to bounds for model output, without extrapolation as required in differential approaches. The advantages of this in cases when the model behavior is strongly non-linear or discontinuous, or when derivatives cannot be determined for some reason. results from a set theoretical approach are then more robust and reliable. Another advantage of the exploration of an entire domain for input parameters is the identification of favorable and less favorable parameter adjustments. This information can be used to collect further information or to perform further analysis systematically in order to identify the causes for sensitivities or to exclude sensitivities by parameter restrictions."
+  },
+  "chunk20L+styleonly": {
+   "wer": 0.05113636363636364,
+   "end_f1": 1.0,
+   "comma_f1": 1.0,
+   "spurious": 0.0,
+   "wait_s": 1.366631746001076,
+   "total_s": 7.391746293000324,
+   "chunks": 4,
+   "cuts": [
+    27.7,
+    55.2,
+    79.5
+   ],
+   "text": "In the analysis of sensitivities of model output, imprecise probabilities can provide useful new insights with features for systematic and extended investigations. The consideration of imprecise parameters on a set theoretical basis enables the investigation of sensitivities with respect to changes of the parameters in the entire set of the inputs. This reveals sensitivities in a global sense over a finite domain rather than in a differential manner. Tolerances given in absolute terms can thereby be translated directly to bounds for model output without extrapolation as required in differential approaches. The advantages of this in cases when the model behavior is strongly non-linear or discontinuous or when derivatives cannot be determined for some reason. Results from a set theoretical approach are then more robust and reliable. Another advantage of the exploration of an entire domain for input parameters is the identification of favorable and less favorable parameter adjustments. This information can be used to collect further information or to perform further analysis systematically in order to identify the causes for sensitivities Or to exclude the sensitivities by parameter restrictions."
+  },
+  "chunk15L": {
+   "wer": 0.056818181818181816,
+   "end_f1": 1.0,
+   "comma_f1": 1.0,
+   "spurious": 0.0,
+   "wait_s": 1.5644057469999098,
+   "total_s": 7.471834964000664,
+   "chunks": 4,
+   "cuts": [
+    27.7,
+    45.7,
+    68.8
+   ],
+   "text": "In the analysis of sensitivities of model output, imprecise probabilities can provide useful new insights with features for systematic and extended investigations. The consideration of imprecise parameters on a set theoretical basis enables the investigation of sensitivities with respect to changes of the parameters in the entire set of the inputs. This reveals sensitivities in a global sense over a finite domain rather than in a differential manner. Tolerances given in absolute terms can thereby be translated directly to bounds for model output without extrapolation as required in differential approaches. The advantages of this in cases when the model behavior is strongly non-linear or discontinuous of any derivatives cannot be determined for some reason. Results from a set theoretical approach are then more robust and reliable. Another advantage of the exploration of an entire domain for input parameters is the identification of favorable and less favorable parameter adjustments. This information can be used to collect further information or to perform further analysis systematically in order to identify the causes for sensitivities or to exclude sensitivities by parameter restrictions."
+  },
+  "chunk15L+styleonly": {
+   "wer": 0.045454545454545456,
+   "end_f1": 1.0,
+   "comma_f1": 1.0,
+   "spurious": 0.0,
+   "wait_s": 1.588272015000257,
+   "total_s": 7.2995819880015915,
+   "chunks": 4,
+   "cuts": [
+    27.7,
+    45.7,
+    68.8
+   ],
+   "text": "In the analysis of sensitivities of model output, imprecise probabilities can provide useful new insights with features for systematic and extended investigations. The consideration of imprecise parameters on a set theoretical basis enables the investigation of sensitivities with respect to changes of the parameters in the entire set of the inputs. This reveals sensitivities in a global sense over a finite domain rather than in a differential manner. Tolerances given in absolute terms can thereby be translated directly to bounds for model output without extrapolation as required in differential approaches. The advantages of this in cases when the model behavior is strongly non-linear or discontinuous or when derivatives cannot be determined for some reason. Results from a set theoretical approach are then more robust and reliable. Another advantage of the exploration of an entire domain for input parameters is the identification of favorable and less favorable parameter adjustments. This information can be used to collect further information or to perform further analysis systematically in order to identify the causes for sensitivities or to exclude sensitivities by parameter restrictions."
+  }
+ },
+ "03_beer_article_extract/take_02": {
+  "chunk20": {
+   "wer": 0.045454545454545456,
+   "end_f1": 1.0,
+   "comma_f1": 1.0,
+   "spurious": 0.0,
+   "wait_s": 1.9666438050007855,
+   "total_s": 6.204195723999874,
+   "chunks": 3,
+   "cuts": [
+    21.8,
+    47.5
+   ],
+   "text": "In the analysis of sensitivities of model output, imprecise probabilities can provide useful new insights with features for systematic and extended investigations. The concentration of imprecise parameters on a set theoretical basis enables the investigation of sensitivities with respect to changes of the parameters in the entire set of the input. This reveals the sensitivities in a global sense over a finite domain rather than in a differential manner. Tolerances given in absolute terms can thereby be translated directly to bounds for model output without extrapolation as required in differential approaches. The advantages are obvious in cases where the model behavior is strongly non-linear or discontinuous or when derivatives cannot be determined for some reason. results from a set theoretical approach are then more robust and reliable. Another advantage of the exploration of an entire domain for input parameters is the identification of favorable and less favorable parameter adjustments. This information can be used to collect further information or to perform further analysis systematically in order to identify the causes for sensitivities or to exclude sensitivities by parameter restrictions."
+  },
+  "chunk20L": {
+   "wer": 0.045454545454545456,
+   "end_f1": 1.0,
+   "comma_f1": 1.0,
+   "spurious": 0.0,
+   "wait_s": 1.8897331509997457,
+   "total_s": 6.019653077000839,
+   "chunks": 3,
+   "cuts": [
+    21.8,
+    47.5
+   ],
+   "text": "In the analysis of sensitivities of model output, imprecise probabilities can provide useful new insights with features for systematic and extended investigations. The concentration of imprecise parameters on a set theoretical basis enables the investigation of sensitivities with respect to changes of the parameters in the entire set of the input. This reveals the sensitivities in a global sense over a finite domain rather than in a differential manner. Tolerances given in absolute terms can thereby be translated directly to bounds for model output without extrapolation as required in differential approaches. The advantages are obvious in cases where the model behavior is strongly non-linear or discontinuous or when derivatives cannot be determined for some reason. results from a set theoretical approach are then more robust and reliable. Another advantage of the exploration of an entire domain for input parameters is the identification of favorable and less favorable parameter adjustments. This information can be used to collect further information or to perform further analysis systematically in order to identify the causes for sensitivities or to exclude sensitivities by parameter restrictions."
+  },
+  "chunk20L+styleonly": {
+   "wer": 0.045454545454545456,
+   "end_f1": 1.0,
+   "comma_f1": 1.0,
+   "spurious": 0.0,
+   "wait_s": 1.8679021379994083,
+   "total_s": 5.959550247000152,
+   "chunks": 3,
+   "cuts": [
+    21.8,
+    47.5
+   ],
+   "text": "In the analysis of sensitivities of model output, imprecise probabilities can provide useful new insights with features for systematic and extended investigations. The concentration of imprecise parameters on a set theoretical basis enables the investigation of sensitivities with respect to changes of the parameters in the entire set of the input. This reveals the sensitivities in a global sense over a finite domain rather than in a differential manner. Tolerances given in absolute terms can thereby be translated directly to bounds for model output without extrapolation as required in differential approaches. The advantages are obvious in cases where the model behavior is strongly non-linear or discontinuous or when derivatives cannot be determined for some reason. Results from a set theoretical approach are then more robust and reliable. Another advantage of the exploration of an entire domain for input parameters is the identification of favorable and less favorable parameter adjustments. This information can be used to collect further information or to perform further analysis systematically in order to identify the causes for sensitivities or to exclude sensitivities by parameter restrictions."
+  },
+  "chunk15L": {
+   "wer": 0.045454545454545456,
+   "end_f1": 0.8571428571428571,
+   "comma_f1": 1.0,
+   "spurious": 0.0,
+   "wait_s": 1.5576293960002658,
+   "total_s": 7.233156921000045,
+   "chunks": 4,
+   "cuts": [
+    21.8,
+    39.4,
+    61.4
+   ],
+   "text": "In the analysis of sensitivities of model output, imprecise probabilities can provide useful new insights with features for systematic and extended investigations. The concentration of imprecise parameters on a set theoretical basis enables the investigation of sensitivities with respect to changes of the parameters in the entire set of the input. this reveals the sensitivities in a global sense over a finite domain rather than in a differential manner tolerances given in absolute terms can thereby be translated directly to bounds for model output without extrapolation as required in differential approaches The advantages are obvious in cases where the model behavior is strongly non-linear or discontinuous or when derivatives cannot be determined for some reason. Results from a set theoretical approach are then more robust and reliable. Another advantage of the exploration of an entire domain for input parameters is the identification of favorable and less favorable parameter adjustments. This information can be used to collect further information or to perform further analysis systematically in order to identify the causes for sensitivities or to exclude sensitivities by parameter restrictions."
+  },
+  "chunk15L+styleonly": {
+   "wer": 0.0625,
+   "end_f1": 1.0,
+   "comma_f1": 1.0,
+   "spurious": 0.0,
+   "wait_s": 1.5113542939998297,
+   "total_s": 7.1688118139973085,
+   "chunks": 4,
+   "cuts": [
+    21.8,
+    39.4,
+    61.4
+   ],
+   "text": "In the analysis of sensitivities of model output, imprecise probabilities can provide useful new insights with features for systematic and extended investigations. The concentration of imprecise parameters on a set theoretical basis enables the investigation of sensitivities with respect to changes of the parameters in the entire set of the input. This reveals the sensitivities in a global sense over a finite domain rather than in a differential manner. Tolerances given in absolute terms can thereby be translated directly to bounds for model output without extrapolation as required in differential approaches. The advantages are obvious in cases where the model behaviour is strongly non-linear or discontinuous or when derivatives cannot be determined for some reason. Results from a set theoretical approach are then more robust and reliable. Another advantage of the exploration of an entire domain for input parameters is the identification of favourable and less favourable parameter adjustments. This information can be used to collect further information or to perform further analysis systematically in order to identify the causes for sensitivities or to exclude sensitivities by parameter restrictions."
+  }
+ },
+ "03_beer_article_extract/take_03": {
+  "chunk20": {
+   "wer": 0.056818181818181816,
+   "end_f1": 1.0,
+   "comma_f1": 0.6666666666666666,
+   "spurious": 0.0,
+   "wait_s": 1.406529956999293,
+   "total_s": 10.164599300998816,
+   "chunks": 6,
+   "cuts": [
+    20.9,
+    41.0,
+    63.9,
+    88.5,
+    108.5
+   ],
+   "text": "In the analysis of sensitivities of model output, imprecise probabilities can provide useful new insights with features for systematic and extended investigations. The consideration of imprecise parameters on a set theoretical basis enables the investigation of sensitivities with respect to changes of the parameters in the entire set of the input. This reveals sensitivities in a global sense over a finite domain, rather than in a differential manner. Tolerances given in absolute terms can thereby be translated directly to bounds for model output without explotipulation, as required in differential approaches. The advantages are obvious in cases when the model behavior is strongly non-linear but is continuous or when derivatives cannot be determined for some reason. Results from a set theoretical approach are then more robust and reliable. Another advantage of the exploration of an entire domain for input parameters is the identification of favorable and less favorable parameter adjustments. This information can be used to collect further information or to perform further analysis systematically in order to identify for causes for sensitivities or to exclude sensitivities by parameter restrictions."
+  },
+  "chunk20L": {
+   "wer": 0.05113636363636364,
+   "end_f1": 1.0,
+   "comma_f1": 1.0,
+   "spurious": 0.0,
+   "wait_s": 1.4179522829999769,
+   "total_s": 9.993009859999802,
+   "chunks": 6,
+   "cuts": [
+    20.9,
+    46.0,
+    75.3,
+    99.5,
+    108.5
+   ],
+   "text": "In the analysis of sensitivities of model output, imprecise probabilities can provide useful new insights with features for systematic and extended investigations. The consideration of imprecise parameters on a set theoretical basis enables the investigation of sensitivities with respect to changes of the parameters in the entire set of the input. This reveals sensitivities in a global sense over a finite domain rather than in a differential manner. Tolerances given in absolute terms can thereby be translated directly to bounds for model output without extrapolation as required in differential approaches. The advantages are obvious in cases when the model behavior is strongly non-linear that is continuous or when derivatives cannot be determined for some reason. Results from a set theoretical approach are then more robust and reliable. Another advantage of the exploration of an entire domain for input parameters is the identification of favorable and less favorable parameter adjustments. This information can be used to collect further information or to perform further analysis systematically in order to identify for causes for sensitivities or to exclude sensitivities by parameter restrictions."
+  },
+  "chunk20L+styleonly": {
+   "wer": 0.056818181818181816,
+   "end_f1": 1.0,
+   "comma_f1": 0.6666666666666666,
+   "spurious": 0.0,
+   "wait_s": 1.4154238740011351,
+   "total_s": 9.998875897001199,
+   "chunks": 6,
+   "cuts": [
+    20.9,
+    46.0,
+    75.3,
+    99.5,
+    108.5
+   ],
+   "text": "In the analysis of sensitivities of model output, imprecise probabilities can provide useful new insights with features for systematic and extended investigations. The consideration of imprecise parameters on a set theoretical basis enables the investigation of sensitivities with respect to changes of the parameters in the entire set of the input. This reveals sensitivities in a global sense over a finite domain rather than in a differential manner. Tolerances given in absolute terms can thereby be translated directly to bounds for model output without expatriculation as required in differential approaches. The advantages are obvious in cases when the model behavior is strongly non-linear, It is continuous, or when derivatives cannot be determined for some reason. Results from a set theoretical approach are then more robust and reliable. Another advantage of the exploration of an entire domain for input parameters is the identification of favorable and less favorable parameter adjustments. This information can be used to collect further information or to perform further analysis systematically in order to identify for causes For sensitivities or to exclude sensitivities by parameter restrictions."
+  },
+  "chunk15L": {
+   "wer": 0.056818181818181816,
+   "end_f1": 1.0,
+   "comma_f1": 1.0,
+   "spurious": 0.0,
+   "wait_s": 1.4094165799997427,
+   "total_s": 11.200449176998518,
+   "chunks": 7,
+   "cuts": [
+    20.9,
+    46.0,
+    63.9,
+    81.2,
+    99.5,
+    108.5
+   ],
+   "text": "In the analysis of sensitivities of model output, imprecise probabilities can provide useful new insights with features for systematic and extended investigations. The consideration of imprecise parameters on a set theoretical basis enables the investigation of sensitivities with respect to changes of the parameters in the entire set of the input. This reveals sensitivities in a global sense over a finite domain rather than in a differential manner. Tolerances given in absolute terms can thereby be translated directly to bounds for model output without expo-population as required in differential approaches. The advantages are obvious in cases when the model behavior is strongly nonlinear but is continuous or when derivatives cannot be determined for some reason. results from a set theoretical approach are then more robust and reliable. Another advantage of the exploration of an entire domain for input parameters is the identification of favorable and less favorable parameter adjustments. This information can be used to collect further information or to perform further analysis systematically in order to identify for causes for sensitivities or to exclude sensitivities by parameter restrictions."
+  },
+  "chunk15L+styleonly": {
+   "wer": 0.0625,
+   "end_f1": 1.0,
+   "comma_f1": 1.0,
+   "spurious": 0.0,
+   "wait_s": 1.408560899000804,
+   "total_s": 11.16718048900475,
+   "chunks": 7,
+   "cuts": [
+    20.9,
+    46.0,
+    63.9,
+    81.2,
+    99.5,
+    108.5
+   ],
+   "text": "In the analysis of sensitivities of model output, imprecise probabilities can provide useful new insights with features for systematic and extended investigations. The consideration of imprecise parameters on a set theoretical basis enables the investigation of sensitivities with respect to changes of the parameters in the entire set of the input. This reveals sensitivities in a global sense over a finite domain rather than in a differential manner. Tolerances given in absolute terms can thereby be translated directly to bounds for model output without expert population as required in differential approaches. The advantages are obvious in cases when the model behavior is strongly nonlinear but is continuous or when derivatives cannot be determined for some reason. Results from a set theoretical approach are then more robust and reliable. Another advantage of the exploration of an entire domain for input parameters is the identification of favorable and less favorable parameter adjustments. This information can be used to collect further information or to perform further analysis systematically in order to identify for causes For sensitivities or to exclude sensitivities by parameter restrictions."
+  }
+ },
+ "04_maupassant_la_ficelle_extract_fr/take_01": {
+  "chunk20": {
+   "wer": 0.2087378640776699,
+   "end_f1": 0.6666666666666666,
+   "comma_f1": 0.6666666666666666,
+   "spurious": 0.25,
+   "wait_s": 1.8683635879988287,
+   "total_s": 9.768449323997629,
+   "chunks": 5,
+   "cuts": [
+    24.9,
+    45.7,
+    66.4,
+    88.1
+   ],
+   "text": "Les uns tiraient au bout d'une corde d'une vache un vauvre et leur femme derri\u00e8re l'animal lui fouettait les reins d'une branche encore garnie de feuilles pour h\u00e2ter sa marche. Elle portait au bras de l'arche panier d'o\u00f9 sortait des t\u00eates de poulet par-ci des t\u00eates de canards par l\u00e0, et elles marchaient d'un pas plus court et plus vif que leurs hommes, la taille s\u00e8che, droite et drap\u00e9e dans un petit ch\u00e2le \u00e9triqu\u00e9, \u00e9pingl\u00e9es sur leurs poitrines plates, la t\u00eate envelopp\u00e9e d'un linge blanc coll\u00e9 sur les cheveux, et surmont\u00e9 d'un bonnet, puis un char \u00e0 banc pass\u00e9 au trot saccad\u00e9 d'un bidet secouant \u00e9trangement deux hommes assis c\u00f4te \u00e0 c\u00f4te et une femme dans le fond du v\u00e9hicule dont elle tenait le bord pour att\u00e9nuer. sur la place de Goderville, c'\u00e9tait une foule, une cohue d'humains et de b\u00eates m\u00e9lang\u00e9es, les cornes des b\u0153ufs, les eaux chapeaux \u00e0 longs poils des paysans riches et les coiffes des paysannes \u00e9merg\u00e9es \u00e0 la surface de l'assembl\u00e9e, et les voix criardes, aigu\u00ebs, clapissantes formaient une clameur continue et sauvage qui dominait parfois un grand \u00e9clat pouss\u00e9 par la robuste poitrine d'un campagnard en gaiet\u00e9 ou le long mugglement d'une vache attach\u00e9e au mur d'une maison."
+  },
+  "chunk20L": {
+   "wer": 0.1650485436893204,
+   "end_f1": 0.7272727272727272,
+   "comma_f1": 0.7692307692307693,
+   "spurious": 0.25,
+   "wait_s": 1.5765666169991164,
+   "total_s": 9.666627031001553,
+   "chunks": 5,
+   "cuts": [
+    27.4,
+    48.8,
+    77.4,
+    97.8
+   ],
+   "text": "Les uns tiraient au bout d'une corde d'une vache un veau et leurs femmes derri\u00e8re l'animal lui fouettaient les reins d'une branche encore garnie de feuilles pour h\u00e2ter sa marche. Elle portait au bras de l'arche panier d'o\u00f9 sortaient des t\u00eates de poulets par-ci, des t\u00eates de canards par-l\u00e0. Ils marchaient d'un pas plus court et plus vif que leurs hommes, la taille s\u00e8che, droite et drap\u00e9e dans un petit ch\u00e2le \u00e9triqu\u00e9. \u00c9pingl\u00e9s sur leur poitrine plate, la t\u00eate envelopp\u00e9e d'un linge blanc coll\u00e9 sur les cheveux et surmont\u00e9 d'un bonnet. Puis un char \u00e0 banc pass\u00e9, au trop saccad\u00e9 d'un bidet, secouant \u00e9trangement deux hommes assis c\u00f4te \u00e0 c\u00f4te et une femme dans le fond du v\u00e9hicule dont elle tenait le bord pour att\u00e9nuer les burkaos. Sur la place de Goderville, c'\u00e9tait une foule, une cohue d'humains et de b\u00eates m\u00e9lang\u00e9es, Les cornes des b\u0153ufs, les eaux chapeaux \u00e0 longs poils des paysans riches et les coiffes des paysannes \u00e9merg\u00e9es \u00e0 la surface de l'assembl\u00e9e et les voix criardes, aigu\u00ebs, clapissantes formaient une clameur continue et sauvage qui dominait parfois un grand... \u00e9clat pouss\u00e9 par la robuste poitrine d'un campagnard en gaiet\u00e9 ou le long mugglement d'une vache attach\u00e9e au mur d'une maison."
+  },
+  "chunk20L+styleonly": {
+   "wer": 0.18446601941747573,
+   "end_f1": 0.888888888888889,
+   "comma_f1": 0.846153846153846,
+   "spurious": 0.25,
+   "wait_s": 1.5718876560003991,
+   "total_s": 9.726394369998161,
+   "chunks": 5,
+   "cuts": [
+    27.4,
+    48.8,
+    77.4,
+    97.8
+   ],
+   "text": "Les uns tiraient au bout d'une corde d'une vache un vauvre et leur femme derri\u00e8re l'animal lui fouettait les reins d'une branche encore garnie de feuilles pour h\u00e2ter sa marche. Elle portait au bras de l'arche panier d'o\u00f9 sortaient des t\u00eates de poulets par-ci, des t\u00eates de canards par-l\u00e0. Elle marchait d'un pas plus court et plus vif que leurs hommes, la taille s\u00e8che, droite et drap\u00e9e dans un petit ch\u00e2le \u00e9triqu\u00e9, \u00e9pingl\u00e9e sur leur poitrine plate, la t\u00eate envelopp\u00e9e d'un linge blanc coll\u00e9 sur les cheveux et surmont\u00e9e d'un bonnet. Puis un char \u00e0 banc pass\u00e9 au trop saccad\u00e9 d'un bidet, secouant \u00e9trangement deux hommes assis c\u00f4te \u00e0 c\u00f4te et une femme dans le fond du v\u00e9hicule dont elle tenait le bord pour att\u00e9nuer les burqaos. Sur la place de Goderville, c'\u00e9tait une foule, une cohue d'humains et de b\u00eates m\u00e9lang\u00e9es. Les cornes des b\u0153ufs, les eaux chapeaux \u00e0 longs poils des paysans riches et les coiffes des paysannes \u00e9merg\u00e9es \u00e0 la surface de l'assembl\u00e9e et les voix criardes, aigu\u00ebs, clapissantes formaient une clameur continue et sauvage qui dominait parfois un grand... \u00c9clat pouss\u00e9 par la robuste poitrine d'un campagnard en gaiet\u00e9 ou le long mugglement d'une vache attach\u00e9e au mur d'une maison."
+  },
+  "chunk15L": {
+   "wer": 0.1553398058252427,
+   "end_f1": 0.6666666666666666,
+   "comma_f1": 0.7333333333333334,
+   "spurious": 0.0,
+   "wait_s": 1.3946489160007332,
+   "total_s": 10.993642017001548,
+   "chunks": 6,
+   "cuts": [
+    18.0,
+    45.7,
+    68.8,
+    88.1,
+    103.8
+   ],
+   "text": "Les uns tiraient au bout d'une corde d'une vache un vauvre et leurs femmes derri\u00e8re l'animal lui fouettaient les reins d'une branche encore garnie de feuilles pour h\u00e2ter sa marche. Elles portaient aux bras de l'arche paninier, d'o\u00f9 sortaient des t\u00eates de poulets par-ci, des t\u00eates de canards par-l\u00e0, et elles marchaient d'un pas plus court et plus vif que leurs hommes, la taille s\u00e8che, droite et drap\u00e9e dans un petit ch\u00e2le \u00e9triqu\u00e9, \u00e9pingl\u00e9 sur leur poitrine plate, la t\u00eate envelopp\u00e9e d'un linge blanc coll\u00e9 sur les cheveux, et surmont\u00e9 d'un bonnet, puis un char \u00e0 banc pass\u00e9 au trot saccad\u00e9 d'un bidet secouant \u00e9trangement deux hommes assis c\u00f4te \u00e0 c\u00f4te et une femme dans le fond du v\u00e9hicule dont elle tenait le bord pour att\u00e9nuer lui dur chaos. Sur la place de Goderville, c'\u00e9tait une foule, une cohue d'humains et de b\u00eates m\u00e9lang\u00e9es, les cornes des b\u0153ufs, les eaux-chapeaux \u00e0 longs poils des paysans riches et les coiffes des paysannes \u00e9merg\u00e9es \u00e0 la surface de l'assembl\u00e9e, Et les voix criardes, aigu\u00ebs, clapissantes formaient une clameur continue et sauvage qui dominait parfois un grand \u00e9clat pouss\u00e9 par la robuste poitrine d'un campagnard en gaiet\u00e9, ou le long moglement d'une vache attach\u00e9e au mur d'une maison."
+  },
+  "chunk15L+styleonly": {
+   "wer": 0.1941747572815534,
+   "end_f1": 0.7272727272727273,
+   "comma_f1": 0.7499999999999999,
+   "spurious": 0.4,
+   "wait_s": 1.4022071390008932,
+   "total_s": 10.91647717700107,
+   "chunks": 6,
+   "cuts": [
+    18.0,
+    45.7,
+    68.8,
+    88.1,
+    103.8
+   ],
+   "text": "Les uns tirait au bout d'une corde d'une vache un vauvre et leur femme derri\u00e8re l'animal lui fouettait les reins d'une branche encore garnie de feuilles pour h\u00e2ter sa marche. Elle portait aux bras de l'arche paninier, d'o\u00f9 sortaient des t\u00eates de poulets par-ci, des t\u00eates de canards par-l\u00e0. Et elle marchait d'un pas plus court et plus vif que leurs hommes, la taille s\u00e8che, droite et drap\u00e9e dans un petit ch\u00e2le \u00e9triqu\u00e9. \u00c9pingl\u00e9e sur leur poitrine plate, la t\u00eate envelopp\u00e9e d'un linge blanc coll\u00e9 sur les cheveux. Et surmont\u00e9 d'un bonnet. Puis un char \u00e0 banc pass\u00e9 au trot saccad\u00e9 d'un bidet secouant \u00e9trangement deux hommes assis c\u00f4te \u00e0 c\u00f4te et une femme dans le fond du v\u00e9hicule dont elle tenait le bord pour att\u00e9nuer lui dur chaos. Sur la place de Goderville, c'\u00e9tait une foule, une cohue d'humains et de b\u00eates m\u00e9lang\u00e9es, les cornes des b\u0153ufs, les eaux chapeaux \u00e0 longs poils des paysans riches et les coiffes des paysannes \u00e9merg\u00e9es \u00e0 la surface de l'assembl\u00e9e. Et les voix criardes, aigu\u00ebs, clapissantes formaient une clameur continue et sauvage qui dominait parfois un grand \u00e9clat pouss\u00e9 par la robuste poitrine d'un campagnard en gaiet\u00e9. Ou le long moglement d'une vache attach\u00e9e au mur d'une maison."
+  }
+ },
+ "04_maupassant_la_ficelle_extract_fr/take_02": {
+  "chunk20": {
+   "wer": 0.1650485436893204,
+   "end_f1": 0.6666666666666666,
+   "comma_f1": 0.782608695652174,
+   "spurious": 0.0,
+   "wait_s": 1.735585598000398,
+   "total_s": 8.295281843998964,
+   "chunks": 4,
+   "cuts": [
+    20.7,
+    42.8,
+    63.5
+   ],
+   "text": "les uns tiraient au bout d'une corde une b\u00e2che un vent et leurs femmes derri\u00e8re l'animal y fouettaient les reins d'une branche encore garnie de feuilles pour h\u00e2ter sa marche elles portaient aux bras de larges paniers d'o\u00f9 sortaient des t\u00eates de poulet par-ci des t\u00eates de canard par-l\u00e0 et elles marchaient d'un pas plus court et plus vif que leurs hommes La taille s\u00e8che, droite et drap\u00e9e dans un petit ch\u00e2le \u00e9triqu\u00e9, \u00e9pingl\u00e9 sur leur poitrine plate, la t\u00eate envelopp\u00e9e d'un linge blanc coll\u00e9 sur les cheveux et surmont\u00e9 d'un bonnet. Puis un char \u00e0 banc pass\u00e9, au trot saccad\u00e9 d'un bidet, secouant \u00e9trangement deux hommes assis c\u00f4te \u00e0 c\u00f4te et une femme dans le fond du v\u00e9hicule, dont elle tenait le bord pour att\u00e9nuer les durs caoux. Sur la place de Goddorville, c'\u00e9tait une foule, une cohue d'humains et de b\u00eates m\u00e9lang\u00e9es. Les cornes des b\u0153ufs, les eaux-chapeaux \u00e0 long poil des paysans riches et les coiffes des paysannes \u00e9mergeaient \u00e0 la surface de l'assembl\u00e9e, et les voies criardes, aigu\u00ebs, glapissante, formait une clameur continue et sauvage qui dominait parfois un grand \u00e9clat pouss\u00e9 par la robuste poitrine d'un campagnard en gaiet\u00e9 ou le long meuglement d'une vache attach\u00e9e au mur d'une maison."
+  },
+  "chunk20L": {
+   "wer": 0.18446601941747573,
+   "end_f1": 1.0,
+   "comma_f1": 0.8148148148148148,
+   "spurious": 0.0,
+   "wait_s": 2.190901097999813,
+   "total_s": 7.1627578970001196,
+   "chunks": 3,
+   "cuts": [
+    27.4,
+    53.3
+   ],
+   "text": "Les uns tiraient au bout d'une corde, d'une b\u00e2che, un vent. Et leur femme, derri\u00e8re l'animal, y fouettait les reins d'une branche encore garnie de seuil pour h\u00e2ter sa marche. Elles portaient aux bras de larges paniers d'o\u00f9 sortaient des t\u00eates de poulet par-ci, des t\u00eates de canard par-l\u00e0. Et elles marchaient d'un pas plus court et plus vif que leurs hommes, la taille s\u00e8che, droite, et drap\u00e9e dans un petit ch\u00e2le \u00e9triqu\u00e9, \u00e9pingl\u00e9 sur leur poitrine plate, la t\u00eate envelopp\u00e9e d'un linge blanc coll\u00e9 sur les cheveux et surmont\u00e9 d'un bonnet. Puis, un char \u00e0 banc pass\u00e9, au trot saccad\u00e9 d'un bidet, secouant \u00e9trangement deux hommes assis c\u00f4te \u00e0 c\u00f4te et une femme dans le fond du v\u00e9hicule dont elle tenait le bord pour att\u00e9nuer les durs c\u00e2bles. Sur la place de Goddorville, c'\u00e9tait une foule, une cohue d'humains et de b\u00eates m\u00e9lang\u00e9es. Les cornes des b\u0153ufs, les eaux-chapeaux \u00e0 long poil des paysans riches et les couaches des paysannes \u00e9mergeaient \u00e0 la surface de l'assembl\u00e9e, et les voix criardes, aigu\u00ebs, glapissantes, formaient une clameur continue et sauvage qui dominait parfois un grand \u00e9clat pouss\u00e9 par la robuste poitrine d'un campagnard en gaiet\u00e9 ou le long moglement d'une vache attach\u00e9e au mur d'une maison."
+  },
+  "chunk20L+styleonly": {
+   "wer": 0.18446601941747573,
+   "end_f1": 1.0,
+   "comma_f1": 0.8799999999999999,
+   "spurious": 0.0,
+   "wait_s": 2.179034659999161,
+   "total_s": 7.093678067998553,
+   "chunks": 3,
+   "cuts": [
+    27.4,
+    53.3
+   ],
+   "text": "Les uns tiraient au bout d'une corde une b\u00e2che un vent. Et leur femme, derri\u00e8re l'animal, lui fouettait les reins d'une branche encore garnie de seuil pour h\u00e2ter sa marche. Elle portait aux bras de larges paniers d'o\u00f9 sortaient des t\u00eates de poulet par-ci, des t\u00eates de canard par-l\u00e0. Et elle marchait d'un pas plus court et plus vif que leurs hommes, la taille s\u00e8che, droite, et drap\u00e9e dans un petit ch\u00e2le \u00e9triqu\u00e9, \u00e9pingl\u00e9 sur leur poitrine plate, La t\u00eate envelopp\u00e9e d'un linge blanc coll\u00e9 sur les cheveux et surmont\u00e9e d'un bonnet. Puis un char \u00e0 banc pass\u00e9, au trot saccad\u00e9 d'un bidet, secouant \u00e9trangement deux hommes assis c\u00f4te \u00e0 c\u00f4te et une femme dans le fond du v\u00e9hicule dont elle tenait le bord pour att\u00e9nuer les durs caoux. Sur la place de Goddorville, c'\u00e9tait une foule, une cohue d'humains et de b\u00eates m\u00e9lang\u00e9es. Les cornes des b\u0153ufs, les eaux chapeaux \u00e0 long poil des paysans riches et les couaches des paysannes \u00e9mergeaient \u00e0 la surface de l'assembl\u00e9e, et les voix criardes, aigu\u00ebs, glapissantes, formaient une clameur continue et sauvage qui dominait parfois un grand \u00e9clat pouss\u00e9 par la robuste poitrine d'un campagnard en gaiet\u00e9 ou le long moglement d'une vache attach\u00e9e au mur d'une maison."
+  },
+  "chunk15L": {
+   "wer": 0.19902912621359223,
+   "end_f1": 0.4,
+   "comma_f1": 0.631578947368421,
+   "spurious": 0.0,
+   "wait_s": 2.1742672710006445,
+   "total_s": 8.200917722000668,
+   "chunks": 4,
+   "cuts": [
+    17.4,
+    33.5,
+    53.3
+   ],
+   "text": "les uns tiraient au bout d'une corde d'une b\u00e2che un vent et leur femme derri\u00e8re l'animal y fouettait les reins d'une branche encore garnie de feuilles pour h\u00e2ter sa marche elles portaient aux bras de larges paniers d'o\u00f9 sortaient des t\u00eates de poulet par-ci des t\u00eates de canard par-l\u00e0 et elles marchaient d'un pas plus court et plus vif que leurs hommes la taille s\u00e8che droite et drap\u00e9e dans un petit ch\u00e2le \u00e9triqu\u00e9 \u00e9pingl\u00e9 sur leurs poitrines plates la t\u00eate envelopp\u00e9e d'un linge blanc coll\u00e9 sur les cheveux et surmont\u00e9 d'un bonnet Puis un char \u00e0 banc pass\u00e9, au trot saccad\u00e9 d'un bidet, secouant \u00e9trangement deux hommes assis c\u00f4te \u00e0 c\u00f4te et une femme dans le fond du v\u00e9hicule dont elle tenait le bord pour attenuer les durs chaos. Sur la place de Goddardville, c'\u00e9tait une foule, une cohue d'humains et de b\u00eates m\u00e9lang\u00e9es. Les cornes des b\u0153ufs, les eaux-chapeaux \u00e0 long poil des paysans riches et les couaches des paysannes \u00e9mergeaient \u00e0 la surface de l'assembl\u00e9e, et les voix criardes, aigu\u00ebs, glapissantes, formaient une clameur continue et sauvage qui dominait parfois un grand \u00e9clat pouss\u00e9 par la robuste poitrine d'un campagnard en gaiet\u00e9 ou le long moglement d'une vache attach\u00e9e au mur d'une maison."
+  },
+  "chunk15L+styleonly": {
+   "wer": 0.1941747572815534,
+   "end_f1": 1.0,
+   "comma_f1": 0.88,
+   "spurious": 0.0,
+   "wait_s": 2.1476560900009645,
+   "total_s": 8.285799297000267,
+   "chunks": 4,
+   "cuts": [
+    17.4,
+    33.5,
+    53.3
+   ],
+   "text": "Les uns tiraient au bout d'une corde d'une b\u00e2che un vent, et leur femme, derri\u00e8re l'animal, y fouettait les reins d'une branche encore garnie de feuilles pour h\u00e2ter sa marche. Elle portait aux bras de larges paniers d'o\u00f9 sortaient des t\u00eates de poulet par-ci, des t\u00eates de canard par-l\u00e0. Et elle marchait d'un pas plus court et plus vif que leurs hommes, la taille s\u00e8che, droite et drap\u00e9e dans un petit ch\u00e2le \u00e9triqu\u00e9, \u00e9pingl\u00e9 sur leur poitrine plate, la t\u00eate envelopp\u00e9e d'un linge blanc coll\u00e9 sur les cheveux et surmont\u00e9 d'un bonnet. Puis un char \u00e0 banc pass\u00e9, au trot saccad\u00e9 d'un bidet, secouant \u00e9trangement deux hommes assis c\u00f4te \u00e0 c\u00f4te et une femme dans le fond du v\u00e9hicule dont elle tenait le bord pour att\u00e9nuer les durs caoux. Sur la place de Goddardville, c'\u00e9tait une foule, une cohue d'humains et de b\u00eates m\u00e9lang\u00e9es. Les cornes des b\u0153ufs, les eaux chapeaux \u00e0 long poil des paysans riches et les couaches des paysannes \u00e9mergeaient \u00e0 la surface de l'assembl\u00e9e, et les voix criardes, aigu\u00ebs, glapissantes, formaient une clameur continue et sauvage qui dominait parfois un grand \u00e9clat pouss\u00e9 par la robuste poitrine d'un campagnard en gaiet\u00e9 ou le long moglement d'une vache attach\u00e9e au mur d'une maison."
+  }
+ },
+ "04_maupassant_la_ficelle_extract_fr/take_03": {
+  "chunk20": {
+   "wer": 0.1650485436893204,
+   "end_f1": 0.7499999999999999,
+   "comma_f1": 0.8749999999999999,
+   "spurious": 0.0,
+   "wait_s": 2.157840538999153,
+   "total_s": 6.962117310000394,
+   "chunks": 3,
+   "cuts": [
+    23.9,
+    45.4
+   ],
+   "text": "Les uns tiraient au bout d'une corde d'une b\u00e2che un veau, et leur femme, derri\u00e8re l'animal, lui fouettait les reins d'une branche encore garnie de feuilles pour h\u00e2ter sa marche. Elle portait aux bras de larges paniers d'o\u00f9 sortaient des t\u00eates de poulet par-ci, des t\u00eates de canard par-l\u00e0, et elle marchait d'un pas plus court et plus vif que leurs hommes, la taille s\u00e8che, droite, et drap\u00e9e dans un petit ch\u00e2le \u00e9triqu\u00e9, \u00e9pingl\u00e9 sur leur poitrine plate, La t\u00eate envelopp\u00e9e d'un linge blanc coll\u00e9 sur les cheveux et surmont\u00e9 d'un bonnet. Puis un char \u00e0 banc passait, au trot saccat\u00e9 d'un bidet, secouant \u00e9trangement deux hommes assis c\u00f4te \u00e0 c\u00f4te et une femme dans le fond du v\u00e9hicule, dont elle tenait le bord pour att\u00e9nuer les durs chaos. Sur la place de Goddorville, c'\u00e9tait une foule, une cohue d'humains et de b\u00eates m\u00e9lang\u00e9es. Les cornes des b\u0153ufs, les hauts chapeaux \u00e0 longs poils des paysans riches et les coiffes des paysannes \u00e9mergeaient \u00e0 la surface de l'assembl\u00e9e, et les voix criardes, aigu\u00ebs, glapissantes, formaient une clameur continue et sauvage qui dominait parfois un grand \u00e9clat pouss\u00e9 par la robuste poitrine d'un campagnard en gaiet\u00e9, ou le long mugglement d'une vache attach\u00e9e au mur d'une maison."
+  },
+  "chunk20L": {
+   "wer": 0.1553398058252427,
+   "end_f1": 0.7499999999999999,
+   "comma_f1": 0.8484848484848485,
+   "spurious": 0.0,
+   "wait_s": 1.7786834959988482,
+   "total_s": 7.016816496998217,
+   "chunks": 3,
+   "cuts": [
+    28.5,
+    52.9
+   ],
+   "text": "Les uns tiraient au bout d'une corde d'une b\u00e2che un veau, et leurs femmes, derri\u00e8re l'animal, lui fouettaient les reins d'une branche encore garnie de feuilles pour attaquer sa marche. Elles portaient aux bras de larges paniers d'o\u00f9 sortaient des t\u00eates de poulet par-ci, des t\u00eates de canard par-l\u00e0, et elles marchaient d'un pas plus court et plus vif que leurs hommes, la taille s\u00e8che, droite, et drap\u00e9e dans un petit ch\u00e2le \u00e9triqu\u00e9, \u00e9pingl\u00e9 sur leur poitrine plate, la t\u00eate envelopp\u00e9e d'un linge blanc coll\u00e9 sur les cheveux et surmont\u00e9 d'un bonnet. Puis un char \u00e0 banc passait, au trou saccat\u00e9 d'un bidet, secouant \u00e9trangement deux hommes assis c\u00f4te \u00e0 c\u00f4te et une femme dans le fond du v\u00e9hicule, dont elle tenait le bord pour att\u00e9nuer les durs chaos. Sur la place de Goddorville, c'\u00e9tait une foule, une cohue d'humains et de b\u00eates m\u00e9lang\u00e9es. Les cornes des b\u0153ufs, les hauts chapeaux \u00e0 long poil des paysans riches et les coiffes des paysannes \u00e9merg\u00e9s \u00e0 la surface de l'assembl\u00e9e, Les voix criardes, aigu\u00ebs, glapissantes, formaient une clameur continue et sauvage qui dominait parfois un grand \u00e9clat pouss\u00e9 par la robuste poitrine d'un campagnard en gaiet\u00e9 ou le long meuglement d'une vache attach\u00e9e au mur d'une maison."
+  },
+  "chunk20L+styleonly": {
+   "wer": 0.18446601941747573,
+   "end_f1": 0.7499999999999999,
+   "comma_f1": 0.8000000000000002,
+   "spurious": 0.0,
+   "wait_s": 1.8749935870000627,
+   "total_s": 7.118726120999781,
+   "chunks": 3,
+   "cuts": [
+    28.5,
+    52.9
+   ],
+   "text": "Les uns tiraient au bout d'une corde d'une b\u00e2che un veau, et leur femme, derri\u00e8re l'animal, lui fouettait les reins d'une branche encore garnie de feuilles pour ater sa marche. Elle portait aux bras de larges paniers d'o\u00f9 sortaient des t\u00eates de poulet par-ci, des t\u00eates de canard par-l\u00e0, et elle marchait d'un pas plus court et plus vif que leurs hommes, la taille s\u00e8che, droite, et drap\u00e9e dans un petit ch\u00e2le \u00e9triqu\u00e9, \u00e9pingl\u00e9 sur leur poitrine plate, la t\u00eate envelopp\u00e9e d'un linge blanc coll\u00e9 sur les cheveux et surmont\u00e9 d'un bonnet. Puis un char \u00e0 banc passait, au trot saccat\u00e9 d'un bidet, secouant \u00e9trangement deux hommes assis c\u00f4te \u00e0 c\u00f4te et une femme dans le fond du v\u00e9hicule, dont elle tenait le bord pour att\u00e9nuer les durs chaos. Sur la place de Goddorville, c'\u00e9tait une foule, une cohue d'humains et de b\u00eates m\u00e9lang\u00e9es. Les cornes des b\u0153ufs, les hauts chapeaux \u00e0 long poil des paysans riches et les coiffes des paysannes \u00e9merg\u00e9s \u00e0 la surface de l'assembl\u00e9e. Les voix criardes, aigu\u00ebs, glapissantes formaient une clameur continue et sauvage qui dominait parfois un grand \u00e9clat pouss\u00e9 par la robuste poitrine d'un campagnard en gaiet\u00e9 ou le long meuglement d'une vache attach\u00e9e au mur d'une maison."
+  },
+  "chunk15L": {
+   "wer": 0.14563106796116504,
+   "end_f1": 0.7499999999999999,
+   "comma_f1": 0.8823529411764706,
+   "spurious": 0.0,
+   "wait_s": 1.3896149880001758,
+   "total_s": 8.386488371001178,
+   "chunks": 4,
+   "cuts": [
+    28.5,
+    45.4,
+    62.4
+   ],
+   "text": "Les uns tiraient au bout d'une corde d'une b\u00e2che un veau, et leurs femmes, derri\u00e8re l'animal, lui fouettaient les reins d'une branche encore garnie de feuilles pour attaquer sa marche. Elles portaient aux bras de larges paniers d'o\u00f9 sortaient des t\u00eates de poulet par-ci, des t\u00eates de canard par-l\u00e0, et elles marchaient d'un pas plus court et plus vif que leurs hommes, la taille s\u00e8che, droite, et drap\u00e9e dans un petit ch\u00e2le \u00e9triqu\u00e9, \u00e9pingl\u00e9 sur leur poitrine plate, la t\u00eate envelopp\u00e9e d'un linge blanc coll\u00e9 sur les cheveux et surmont\u00e9 d'un bonnet. Puis un char \u00e0 banc passait, au trot saccat\u00e9 d'un bidet, secouant \u00e9trangement deux hommes assis c\u00f4te \u00e0 c\u00f4te et une femme dans le fond du v\u00e9hicule, dont elle tenait le bord pour att\u00e9nuer les durs chaos. Sur la place de Goddorville, c'\u00e9tait une foule, une cohue d'humains et de b\u00eates m\u00e9lang\u00e9es. Les cornes des b\u0153ufs, les hauts chapeaux \u00e0 long poil des paysans riches et les coiffes des paysannes \u00e9mergeaient \u00e0 la surface de l'assembl\u00e9e, et les voix criardes, aigu\u00ebs, glapissantes, formaient une clameur continue et sauvage qui dominait parfois un grand \u00e9clat pouss\u00e9 par la robuste poitrine d'un campagnard en gaiet\u00e9, ou le long moglement d'une vache attach\u00e9e au mur d'une maison."
+  },
+  "chunk15L+styleonly": {
+   "wer": 0.1796116504854369,
+   "end_f1": 0.7499999999999999,
+   "comma_f1": 0.8749999999999999,
+   "spurious": 0.0,
+   "wait_s": 1.379734420001114,
+   "total_s": 8.271912401998634,
+   "chunks": 4,
+   "cuts": [
+    28.5,
+    45.4,
+    62.4
+   ],
+   "text": "Les uns tiraient au bout d'une corde d'une b\u00e2che un veau, et leur femme, derri\u00e8re l'animal, lui fouettait les reins d'une branche encore garnie de feuilles pour ater sa marche. Elle portait aux bras de larges paniers d'o\u00f9 sortaient des t\u00eates de poulet par-ci, des t\u00eates de canard par-l\u00e0, et elle marchait d'un pas plus court et plus vif que leurs hommes, la taille s\u00e8che, droite, et drap\u00e9e dans un petit ch\u00e2le \u00e9triqu\u00e9, \u00e9pingl\u00e9 sur leur poitrine plate, la t\u00eate envelopp\u00e9e d'un linge blanc coll\u00e9 sur les cheveux et surmont\u00e9 d'un bonnet. Puis un char \u00e0 banc passait, au trot saccat\u00e9 d'un bidet, secouant \u00e9trangement deux hommes assis c\u00f4te \u00e0 c\u00f4te et une femme dans le fond du v\u00e9hicule, dont elle tenait le bord pour att\u00e9nuer les durs chaos. Sur la place de Goddorville, c'\u00e9tait une foule, une cohue d'humains et de b\u00eates m\u00e9lang\u00e9es. Les cornes des b\u0153ufs, les hauts chapeaux \u00e0 long poil des paysans riches et les coiffes des paysannes \u00e9mergeaient \u00e0 la surface de l'assembl\u00e9e, et les voix criardes, aigu\u00ebs, glapissantes, formaient une clameur continue et sauvage qui dominait parfois un grand \u00e9clat pouss\u00e9 par la robuste poitrine d'un campagnard en gaiet\u00e9, ou le long moglement d'une vache attach\u00e9e au mur d'une maison."
+  }
+ },
+ "05_coal_iron_english_revolution_extract/take_01": {
+  "chunk20": {
+   "wer": 0.031007751937984496,
+   "end_f1": 0.9166666666666666,
+   "comma_f1": 0.7391304347826088,
+   "spurious": 0.16666666666666666,
+   "wait_s": 1.7165223450010672,
+   "total_s": 12.017459005001001,
+   "chunks": 7,
+   "cuts": [
+    21.1,
+    41.3,
+    62.4,
+    84.2,
+    106.3,
+    128.2
+   ],
+   "text": "Like other European countries, Britain had begun in the 17th century to set up the basis of a new commercial economy. The first banks had been founded, London had acquired a stock exchange and other trading institutions, and international trade was developing. But what set Britain apart from other countries, notably France and Spain, was that at the same time Britain also developed other key institutions and social features that would stimulate change. A parliamentary system with political parties, more and more public schools to educate a part of the population, and above all a protestant ethic which encouraged innovation, science, work and the generation of wealth. Eight years after Toll invented the Sea Drill, a Quaker iron master called Abraham Darby, developed a new method of smelting iron using coke instead of charcoal. This was a pivotal breakthrough. Coke, made from coal, was cheaper and far more available than charcoal, which came from wood. People in Europe had been making things out of iron since pure historic times. But until Darby came up with this new process, making iron was a cottage industry concentrated in forests where there was plenty of wood. Thanks to Darby, it could move away from forests and rivers and set up production in places where there were large deposits of iron and coal. From then on, iron could be produced on a much larger scale and at lower costs. And significantly, new larger ironworks could make much larger objects than in the past. Iron became a building material stronger and more versatile than wood."
+  },
+  "chunk20L": {
+   "wer": 0.04263565891472868,
+   "end_f1": 0.88,
+   "comma_f1": 0.7272727272727272,
+   "spurious": 0.16666666666666666,
+   "wait_s": 1.3485494880005717,
+   "total_s": 12.042123122999328,
+   "chunks": 7,
+   "cuts": [
+    21.1,
+    44.1,
+    69.9,
+    91.4,
+    116.4,
+    142.1
+   ],
+   "text": "Like other European countries, Britain had begun in the 17th century to set up the basis of a new commercial economy. The first banks had been founded, London had acquired a stock exchange and other trading institutions, and international trade was developing. But what set Britain apart from other countries, notably France and Spain, was that... At the same time, Britain also developed other key institutions and social features that would stimulate change. A parliamentary system with political parties, more and more public schools to educate a part of the population, and above all a protestant ethic which encouraged innovation, science, work and the generation of wealth. Eight years after Toll invented the Seedrill, a Quaker iron master called Abraham Darby developed a new method of smelting iron using coke instead of charcoal. This was a pivotal breakthrough. Coke, made from coal, was cheaper and far more available than charcoal, which came from wood. People in Europe had been making things out of iron since pure historic times. But until Derby came up with this new process, making iron was a cottage industry concentrated in forests where there was plenty of wood. Thanks to Darby, it could move away from forests and rivers and set up production in places where there were large deposits of iron and coal. From then on, iron could be produced on a much larger scale and at lower costs. And significantly, new larger ironworks could make much larger objects than in the past. Hain became a building material stronger and more versatile than wood."
+  },
+  "chunk20L+styleonly": {
+   "wer": 0.03875968992248062,
+   "end_f1": 0.9166666666666666,
+   "comma_f1": 0.782608695652174,
+   "spurious": 0.16666666666666666,
+   "wait_s": 1.351412773001357,
+   "total_s": 12.018030283999906,
+   "chunks": 7,
+   "cuts": [
+    21.1,
+    44.1,
+    69.9,
+    91.4,
+    116.4,
+    142.1
+   ],
+   "text": "Like other European countries, Britain had begun in the 17th century to set up the basis of a new commercial economy. The first banks had been founded, London had acquired a stock exchange and other trading institutions, and international trade was developing. But what set Britain apart from other countries, notably France and Spain, was that... At the same time Britain also developed other key institutions and social features that would stimulate change, a parliamentary system with political parties, more and more public schools to educate a part of the population, and above all a protestant ethic which encouraged innovation, science, work and the generation of wealth. Eight years after Toll invented the seed drill, a quaker iron master called Abraham Daube developed a new method of smelting iron using coke instead of charcoal. This was a pivotal breakthrough. Coke, made from coal, was cheaper and far more available than charcoal, which came from wood. People in Europe had been making things out of iron since pure historic times. But until Derby came up with this new process, making iron was a cottage industry concentrated in forests where there was plenty of wood. Thanks to Darby, it could move away from forests and rivers and set up production in places where there were large deposits of iron and coal. From then on, iron could be produced on a much larger scale and at lower costs. And significantly, new larger ironworks could make much larger objects than in the past. Hain became a building material stronger and more versatile than wood."
+  },
+  "chunk15L": {
+   "wer": 0.03875968992248062,
+   "end_f1": 0.88,
+   "comma_f1": 0.7272727272727272,
+   "spurious": 0.16666666666666666,
+   "wait_s": 1.4956308619985066,
+   "total_s": 11.977954944997691,
+   "chunks": 7,
+   "cuts": [
+    21.1,
+    44.1,
+    69.9,
+    91.4,
+    116.4,
+    135.5
+   ],
+   "text": "Like other European countries, Britain had begun in the 17th century to set up the basis of a new commercial economy. The first banks had been founded, London had acquired a stock exchange and other trading institutions, and international trade was developing. But what set Britain apart from other countries, notably France and Spain, was that... At the same time, Britain also developed other key institutions and social features that would stimulate change. A parliamentary system with political parties, more and more public schools to educate a part of the population, and above all a protestant ethic which encouraged innovation, science, work and the generation of wealth. Eight years after Toll invented the Seedrill, a Quaker iron master called Abraham Darby developed a new method of smelting iron using coke instead of charcoal. This was a pivotal breakthrough. Coke, made from coal, was cheaper and far more available than charcoal, which came from wood. People in Europe had been making things out of iron since pure historic times. But until Derby came up with this new process, making iron was a cottage industry concentrated in forests where there was plenty of wood. Thanks to Darby, it could move away from forests and rivers and set up production in places where there were large deposits of iron and coal. From then on, iron could be produced on a much larger scale and at lower costs. And significantly, new larger ironworks could make much larger objects than in the past. Iron became a building material stronger and more versatile than wood."
+  },
+  "chunk15L+styleonly": {
+   "wer": 0.03488372093023256,
+   "end_f1": 0.9166666666666666,
+   "comma_f1": 0.782608695652174,
+   "spurious": 0.16666666666666666,
+   "wait_s": 1.5097068400009448,
+   "total_s": 12.001660329000515,
+   "chunks": 7,
+   "cuts": [
+    21.1,
+    44.1,
+    69.9,
+    91.4,
+    116.4,
+    135.5
+   ],
+   "text": "Like other European countries, Britain had begun in the 17th century to set up the basis of a new commercial economy. The first banks had been founded, London had acquired a stock exchange and other trading institutions, and international trade was developing. But what set Britain apart from other countries, notably France and Spain, was that... At the same time Britain also developed other key institutions and social features that would stimulate change, a parliamentary system with political parties, more and more public schools to educate a part of the population, and above all a protestant ethic which encouraged innovation, science, work and the generation of wealth. Eight years after Toll invented the seed drill, a quaker iron master called Abraham Daube developed a new method of smelting iron using coke instead of charcoal. This was a pivotal breakthrough. Coke, made from coal, was cheaper and far more available than charcoal, which came from wood. People in Europe had been making things out of iron since pure historic times. But until Derby came up with this new process, making iron was a cottage industry concentrated in forests where there was plenty of wood. Thanks to Darby, it could move away from forests and rivers and set up production in places where there were large deposits of iron and coal. From then on, iron could be produced on a much larger scale and at lower costs. And significantly, new larger ironworks could make much larger objects than in the past. Iron became a building material stronger and more versatile than wood."
+  }
+ },
+ "05_coal_iron_english_revolution_extract/take_02": {
+  "chunk20": {
+   "wer": 0.04263565891472868,
+   "end_f1": 0.8695652173913044,
+   "comma_f1": 0.4864864864864865,
+   "spurious": 0.125,
+   "wait_s": 1.4544530980001582,
+   "total_s": 14.737752653001735,
+   "chunks": 9,
+   "cuts": [
+    20.9,
+    42.7,
+    64.5,
+    85.0,
+    106.5,
+    128.6,
+    149.5,
+    171.1
+   ],
+   "text": "Like other European countries, Britain had begun in the 17th century to set up the basis of a new commercial economy. The first banks had been founded. London had acquired a stock exchange and other trading institutions and international trade was developing. But what set Britain apart from other countries? notably France and Spain, was that at the same time Britain also developed other key institutions and social features that would stimulate change. A parliamentary system with political parties more and more public schools to educate a part of the population and above all a protestant ethic which encouraged innovation, science, work and 8 years after Tull invented the seed drill, a quaker iron master called Abram Darby developed a new method of smelting iron using coke instead of charcoal. This was a pivotal breakthrough. Coke made from coal was cheaper and far more available than charcoal, which came from wood. People in Europe had been making things out of iron since prehistoric times, but until Derby came up with a new process making iron was a cottage industry concentrated in forests where there was plenty of wood. Thanks to Darby it could move away from forests and rivers and set up production in places where there were large deposits of iron and coal. From then on, iron could be produced on a much larger scale and at lower costs. And significantly, new larger ironworks could make much larger objects than in the past. Iron became a building material stronger and more versatile than wood."
+  },
+  "chunk20L": {
+   "wer": 0.027131782945736434,
+   "end_f1": 0.7826086956521738,
+   "comma_f1": 0.6,
+   "spurious": 0.14285714285714285,
+   "wait_s": 1.3346754030008015,
+   "total_s": 13.375651182002912,
+   "chunks": 8,
+   "cuts": [
+    20.9,
+    42.7,
+    71.4,
+    100.8,
+    128.6,
+    156.0,
+    178.4
+   ],
+   "text": "Like other European countries, Britain had begun in the 17th century to set up the basis of a new commercial economy. The first banks had been founded. London had acquired a stock exchange and other trading institutions and international trade was developing. But what set Britain apart from other countries? notably France and Spain, was that at the same time Britain also developed other key institutions and social features that would stimulate change. A parliamentary system with political parties, more and more public schools to educate a part of the population, and above all a protestant ethic which encouraged innovation, science, work and the generation of wealth. Eight years after Tull invented the seed drill, a quaker iron master called Abram Darby developed a new method of smelting iron using coke instead of charcoal. And this was a pivotal breakthrough. Coke made from coal was cheaper and far more available than charcoal, which came from wood. People in Europe had been making things out of iron since prehistoric times, but until Derby came up with a new process, Making iron was a cottage industry, concentrated in forests where there was plenty of wood. Thanks to Darby, it could move away from forests and rivers and set up production in places where there were large deposits of iron and coal. from then on iron could be produced on a much larger scale and at lower costs and significantly new larger ironworks could make much larger objects than in the past Iron became a building material stronger and more versatile than wood."
+  },
+  "chunk20L+styleonly": {
+   "wer": 0.023255813953488372,
+   "end_f1": 0.8333333333333333,
+   "comma_f1": 0.6976744186046512,
+   "spurious": 0.2857142857142857,
+   "wait_s": 1.3429387859996496,
+   "total_s": 13.420135213000322,
+   "chunks": 8,
+   "cuts": [
+    20.9,
+    42.7,
+    71.4,
+    100.8,
+    128.6,
+    156.0,
+    178.4
+   ],
+   "text": "Like other European countries, Britain had begun in the 17th century to set up the basis of a new commercial economy. The first banks had been founded, London had acquired a stock exchange and other trading institutions and international trade was developing. But what set Britain apart from other countries? Notably France and Spain was that at the same time Britain also developed other key institutions and social features that would stimulate change. A parliamentary system with political parties, more and more public schools to educate a part of the population. And above all a protestant ethic, which encouraged innovation, science, work, and the generation of wealth. Eight years after Tull invented the seed drill, a Quaker iron master called Abram Darby developed a new method of smelting iron using coke instead of charcoal. This was a pivotal breakthrough. Coke, made from coal, was cheaper and far more available than charcoal, which came from wood. People in Europe had been making things out of iron since prehistoric times, but until Derby came up with a new process, Making iron was a cottage industry concentrated in forests where there was plenty of wood. Thanks to Darby, it could move away from forests and rivers and set up production in places where there were large deposits of iron and coal. From then on, iron could be produced on a much larger scale and at lower costs and significantly new larger ironworks could make much larger objects than in the past. Iron became a building material stronger and more versatile than wood."
+  },
+  "chunk15L": {
+   "wer": 0.04263565891472868,
+   "end_f1": 0.8181818181818182,
+   "comma_f1": 0.5142857142857142,
+   "spurious": 0.25,
+   "wait_s": 1.3526425170002767,
+   "total_s": 14.801610419001008,
+   "chunks": 9,
+   "cuts": [
+    20.9,
+    38.5,
+    58.7,
+    85.0,
+    114.4,
+    136.6,
+    156.0,
+    178.4
+   ],
+   "text": "Like other European countries, Britain had begun in the 17th century to set up the basis of a new commercial economy. The first banks had been founded, London had acquired a stock exchange and other trading institutions and international trade was developing. But what set Britain apart from other countries, notably France and Spain, was that at the same time Britain also developed other key institutions and social features that would stimulate change. a parliamentary system with political parties, more and more public schools to educate a part of the population and above all a protestant ethic which encouraged innovation, science, and the generation of wealth. 8 years after Tull invented the seed drill a quaker iron master called Abram Darby developed a new method of smelting iron using coke instead of charcoal. This was a pivotal breakthrough. Coke made from coal was cheaper and far more available than charcoal which came from wood. People in Europe had been making things out of iron since prehistoric times, but until Derby came up with this new process, making iron was a cottage industry concentrated in forests. where where there was plenty of wood. Thanks to Derby it could move away from forests and rivers and set up production and places where there were large deposits of iron and coal. from then on iron could be produced on a much larger scale and at lower costs and significantly new larger ironworks could make much larger objects than in the past Iron became a building material stronger and more versatile than wood."
+  },
+  "chunk15L+styleonly": {
+   "wer": 0.046511627906976744,
+   "end_f1": 0.8181818181818182,
+   "comma_f1": 0.65,
+   "spurious": 0.375,
+   "wait_s": 1.3633325930004503,
+   "total_s": 14.580690222997873,
+   "chunks": 9,
+   "cuts": [
+    20.9,
+    38.5,
+    58.7,
+    85.0,
+    114.4,
+    136.6,
+    156.0,
+    178.4
+   ],
+   "text": "Like other European countries, Britain had begun in the 17th century to set up the basis of a new commercial economy. The first banks had been founded, London had acquired a stock exchange and other trading institutions and international trade was developing. But what set Britain apart from other countries, notably France and Spain, was that at the same time Britain also developed other key institutions and social features that would stimulate change. A parliamentary system with political parties, more and more public schools to educate a part of the population, and above all a protestant ethic, which encouraged innovation, science, work and... 8 years after Tull invented the seed drill, a Quaker iron master called Abram Darby developed a new method of smelting iron using coke instead of charcoal. This was a pivotal breakthrough. Coke made from coal was cheaper and far more available than charcoal which came from wood. People in Europe had been making things out of iron since prehistoric times, but until Derby came up with this new process, making iron was a cottage industry concentrated in forests. Where there was plenty of wood. Thanks to Derby it could move away from forests and rivers and set up production in places where there were large deposits of iron and coal. From then on, iron could be produced on a much larger scale and at lower costs and significantly new larger ironworks could make much larger objects than in the past. Iron became a building material stronger and more versatile than wood."
+  }
+ },
+ "05_coal_iron_english_revolution_extract/take_03": {
+  "chunk20": {
+   "wer": 0.031007751937984496,
+   "end_f1": 0.8695652173913043,
+   "comma_f1": 0.7555555555555556,
+   "spurious": 0.0,
+   "wait_s": 1.6731536650004273,
+   "total_s": 9.326141801000631,
+   "chunks": 5,
+   "cuts": [
+    23.7,
+    46.8,
+    67.6,
+    90.0
+   ],
+   "text": "Like other European countries, Britain had begun in the 17th century to set up the basis of a new commercial economy. The first banks had been founded, London had acquired a stock exchange and other trading institutions, and international trade was developing. But what set Britain apart from other countries, notably France and Spain, was that at the same time Britain had also developed other key institutions and social features that would stimulate change. A parliamentary system with political parties, more and more public schools to educate a quarter of the population, and above all a protestant ethic which encouraged innovation, science, work and the generation of wealth, Eight years after Tull invented the seed drill, a Quaker iron master called Abraham Darby developed a new method of smelting iron using coke instead of charcoal. This was a pivotal breakthrough. Coke, made from coal, was cheaper and far more available than charcoal, which came from wood. People in Europe had been making things out of iron since prehistoric times. But until Derby came up with this new process, making iron was a cottage industry concentrated in forests where there was plenty of wood. Thanks to Derby, it could move away from forests and rivers and set up production in places where there were large deposits of iron and coal. From then on, iron could be produced on a much larger scale and at lower costs. And significantly, new larger ironworks could make much larger objects than in the past. Iron became a building material, stronger and more versatile than wood."
+  },
+  "chunk20L": {
+   "wer": 0.031007751937984496,
+   "end_f1": 0.8695652173913043,
+   "comma_f1": 0.782608695652174,
+   "spurious": 0.25,
+   "wait_s": 1.5129268079999747,
+   "total_s": 9.234374588000719,
+   "chunks": 5,
+   "cuts": [
+    23.7,
+    46.8,
+    72.8,
+    95.2
+   ],
+   "text": "Like other European countries, Britain had begun in the 17th century to set up the basis of a new commercial economy. The first banks had been founded, London had acquired a stock exchange and other trading institutions, and international trade was developing. But what set Britain apart from other countries, notably France and Spain, was that at the same time Britain had also developed other key institutions and social features that would stimulate change. A parliamentary system with political parties, more and more public schools to educate a quarter of the population, and above all a protestant ethic which encouraged innovation, science, work and the generation of wealth, Eight years after Tull invented the seed drill, a Quaker iron master called Abraham Darby developed a new method of smelting iron using coke instead of charcoal. This was a pivotal breakthrough. Coke, made from coal, was cheaper and far more available than charcoal, which came from wood. People in Europe had been making things out of iron since prehistoric times. But until Derby came up with this new process, making iron was a cottage industry, concentrated in forests where there was plenty of wood. Thanks to Derby, it could move away from forests and rivers and set up production in places where there were large deposits of iron and coal. From then on, iron could be produced on a much larger scale and at lower costs. And significantly, new larger ironworks could make much larger objects than in the past. Iron became a building material, stronger and more versatile than wood."
+  },
+  "chunk20L+styleonly": {
+   "wer": 0.031007751937984496,
+   "end_f1": 0.8695652173913043,
+   "comma_f1": 0.75,
+   "spurious": 0.25,
+   "wait_s": 1.4983595419998892,
+   "total_s": 9.272688585999276,
+   "chunks": 5,
+   "cuts": [
+    23.7,
+    46.8,
+    72.8,
+    95.2
+   ],
+   "text": "Like other European countries, Britain had begun in the 17th century to set up the basis of a new commercial economy. The first banks had been founded, London had acquired a stock exchange and other trading institutions, and international trade was developing. But what set Britain apart from other countries, notably France and Spain, Was that at the same time, Britain had also developed other key institutions and social features that would stimulate change. A parliamentary system with political parties, more and more public schools to educate a quarter of the population, and above all a protestant ethic which encouraged innovation, science, work and the generation of wealth, Eight years after Tull invented the seed drill, a Quaker iron master called Abraham Darby developed a new method of smelting iron using coke instead of charcoal. This was a pivotal breakthrough. Coke, made from coal, was cheaper and far more available than charcoal, which came from wood. People in Europe had been making things out of iron since prehistoric times. But until Derby came up with this new process, making iron was a cottage industry, concentrated in forests where there was plenty of wood. Thanks to Derby, it could move away from forests and rivers and set up production in places where there were large deposits of iron and coal. From then on, iron could be produced on a much larger scale and at lower costs. And significantly, new, larger ironworks could make much larger objects than in the past. Iron became a building material, stronger and more versatile than wood."
+  },
+  "chunk15L": {
+   "wer": 0.027131782945736434,
+   "end_f1": 0.8695652173913043,
+   "comma_f1": 0.782608695652174,
+   "spurious": 0.25,
+   "wait_s": 1.5033440030001657,
+   "total_s": 9.315906223999264,
+   "chunks": 5,
+   "cuts": [
+    19.0,
+    46.8,
+    72.8,
+    95.2
+   ],
+   "text": "Like other European countries, Britain had begun in the 17th century to set up the basis of a new commercial economy. The first banks had been founded, London had acquired a stock exchange and other trading institutions, and international trade was developing. But what set Britain apart from other countries, notably France and Spain, was that at the same time Britain had also developed other key institutions and social features that would stimulate change. A parliamentary system with political parties, more and more public schools to educate a part of the population, and above all a Protestant ethic which encouraged innovation, science, work and the generation of wealth, Eight years after Tull invented the seed drill, a Quaker iron master called Abraham Darby developed a new method of smelting iron using coke instead of charcoal. This was a pivotal breakthrough. Coke, made from coal, was cheaper and far more available than charcoal, which came from wood. People in Europe had been making things out of iron since prehistoric times. But until Derby came up with this new process, making iron was a cottage industry, concentrated in forests where there was plenty of wood. Thanks to Derby, it could move away from forests and rivers and set up production in places where there were large deposits of iron and coal. From then on, iron could be produced on a much larger scale and at lower costs. And significantly, new larger ironworks could make much larger objects than in the past. Iron became a building material, stronger and more versatile than wood."
+  },
+  "chunk15L+styleonly": {
+   "wer": 0.027131782945736434,
+   "end_f1": 0.8695652173913043,
+   "comma_f1": 0.7916666666666667,
+   "spurious": 0.25,
+   "wait_s": 1.4996312989987928,
+   "total_s": 9.265293783002562,
+   "chunks": 5,
+   "cuts": [
+    19.0,
+    46.8,
+    72.8,
+    95.2
+   ],
+   "text": "Like other European countries, Britain had begun in the 17th century to set up the basis of a new commercial economy. The first banks had been founded, London had acquired a stock exchange and other trading institutions, and international trade was developing. But what set Britain apart from other countries, notably France and Spain, was that at the same time Britain had also developed other key institutions and social features that would stimulate change. A parliamentary system with political parties, more and more public schools to educate a part of the population, and above all a Protestant ethic which encouraged innovation, science, work, and the generation of wealth, Eight years after Tull invented the seed drill, a Quaker iron master called Abraham Darby developed a new method of smelting iron using coke instead of charcoal. This was a pivotal breakthrough. Coke, made from coal, was cheaper and far more available than charcoal, which came from wood. People in Europe had been making things out of iron since prehistoric times. But until Derby came up with this new process, making iron was a cottage industry, concentrated in forests where there was plenty of wood. Thanks to Derby, it could move away from forests and rivers and set up production in places where there were large deposits of iron and coal. From then on, iron could be produced on a much larger scale and at lower costs. And significantly, new, larger ironworks could make much larger objects than in the past. Iron became a building material, stronger and more versatile than wood."
+  }
+ }
+}

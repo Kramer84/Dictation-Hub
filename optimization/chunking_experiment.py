@@ -25,7 +25,7 @@ Metrics (against reference.txt):
              if earlier chunks were processed during recording
   total_s    total whisper time
 
-Usage: uv run python optimization/chunking_experiment.py [--quick] [--out results.json]
+Usage: uv run python optimization/chunking_experiment.py [--round 1|2] [--quick] [--out results.json]
 """
 
 import argparse
@@ -102,16 +102,22 @@ def duration(wav: Path) -> float:
     return float(out)
 
 
-def cut_points(gaps, total: float, min_len: float, min_tail: float = 3.0):
-    """Cut at the first pause once a chunk is min_len long; never exceed
-    MAX_CHUNK_S (then cut at the longest pause available, or hard-cut)."""
+def cut_points(gaps, total: float, min_len: float, min_tail: float = 3.0, strategy: str = "first"):
+    """Cut once a chunk is min_len long, never exceeding MAX_CHUNK_S.
+
+    strategy "first": the first pause after min_len.
+    strategy "longest": the longest pause between min_len and MAX_CHUNK_S
+    (more likely a sentence boundary). Without a usable pause, cut at the
+    longest pause available, or hard-cut."""
     cuts, start = [], 0.0
     while True:
         window = [(m, g) for m, g in gaps if start + 1.0 < m <= start + MAX_CHUNK_S]
         if total - start <= MAX_CHUNK_S and not [m for m, _ in window if m - start >= min_len]:
             break
         ready = [m for m, _ in window if m - start >= min_len]
-        if ready:
+        if ready and strategy == "longest":
+            cut = max(((m, g) for m, g in window if m - start >= min_len), key=lambda x: x[1])[0]
+        elif ready:
             cut = ready[0]
         elif window:
             cut = max(window, key=lambda x: x[1])[0]
@@ -193,26 +199,26 @@ def score(reference: str, hypothesis: str, boundary_word_idx):
 
 
 # --------------------------------------------------------------------- driver
-def run_take(wav: Path, reference: str, language: str, args: dict, variants, tmp: Path):
+def run_take(wav: Path, reference: str, language: str, args: dict, variants, tmp: Path, baselines=True):
     prepared = tmp / "prepared.wav"
     prepare_audio(wav, prepared)
     total = duration(prepared)
     style = STYLE.get(language, STYLE["en"])
     results = {}
 
-    for name, prompt in (("whole", ""), ("whole+style", style)):
+    for name, prompt in ((("whole", ""), ("whole+style", style)) if baselines else ()):
         text, _, elapsed = transcribe(prepared, args, "auto", prompt)
         results[name] = dict(score(reference, text, []), wait_s=elapsed, total_s=elapsed, chunks=1, text=text)
 
     gaps = pauses(prepared, args)
-    for min_len, mode in variants:
-        name = f"chunk{min_len}" + (f"+{mode}" if mode else "")
+    for min_len, strategy, mode in variants:
+        name = f"chunk{min_len}" + ("L" if strategy == "longest" else "") + (f"+{mode}" if mode else "")
         texts, times, lang = [], [], "auto"
-        cuts = cut_points(gaps, total, min_len)
+        cuts = cut_points(gaps, total, min_len, strategy=strategy)
         for n, (a, b) in enumerate(cuts):
             chunk = extract(prepared, a, b, tmp / f"c{n:03d}.wav")
             tail = " ".join(texts)[-PROMPT_CHARS:]
-            prompt = {"": "", "prev": tail, "style": f"{style} {tail}".strip()}[mode]
+            prompt = {"": "", "prev": tail, "style": f"{style} {tail}".strip(), "styleonly": style}[mode]
             t, detected, elapsed = transcribe(chunk, args, lang, prompt)
             if lang == "auto":
                 lang = detected
@@ -235,10 +241,17 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--quick", action="store_true", help="first take of each text only")
     parser.add_argument("--out", type=Path, default=REPO / "optimization" / "chunking_results.json")
+    parser.add_argument("--round", type=int, default=2, help="1: first-pause cuts and prompt modes; 2: cut placement")
     opts = parser.parse_args()
 
     args = base_args()
-    variants = [(m, mode) for m in (10, 20) for mode in ("", "prev", "style")]
+    if opts.round == 1:
+        variants = [(m, "first", mode) for m in (10, 20) for mode in ("", "prev", "style")]
+    else:
+        variants = [
+            (20, "first", ""), (20, "longest", ""), (20, "longest", "styleonly"),
+            (15, "longest", ""), (15, "longest", "styleonly"),
+        ]
     takes = sorted(DATASET.glob("*/take_0*.wav"))
     if opts.quick:
         takes = [t for t in takes if t.stem == "take_01"]
@@ -249,7 +262,7 @@ def main():
         language = meta.get(wav.stem, {}).get("language", "en")
         with tempfile.TemporaryDirectory() as tmp:
             all_results[f"{wav.parent.name}/{wav.stem}"] = run_take(
-                wav, reference, language, args, variants, Path(tmp)
+                wav, reference, language, args, variants, Path(tmp), baselines=opts.round == 1
             )
         print(f"done {wav.parent.name}/{wav.stem}", file=sys.stderr, flush=True)
         opts.out.write_text(json.dumps(all_results, indent=1))
