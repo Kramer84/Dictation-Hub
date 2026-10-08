@@ -10,7 +10,7 @@ import typer
 from click.shell_completion import CompletionItem
 
 from .client.streamer import run_remote_stream
-from .core.invocation import InvocationError, parse_invocation
+from .core.invocation import InvocationError, complete_invocation, parse_invocation
 from .core.config_manager import get_config_dir, load_deployment_env, load_json_config
 from .core.local_runner import run_local_pipeline
 
@@ -63,16 +63,37 @@ class DictationRouter(typer.core.TyperGroup):
             A list of completion items matching the incomplete input
             string.
         """
-        completions = super().shell_complete(ctx, incomplete)
+        previous = list(getattr(ctx, "_protected_args", [])) + list(ctx.args)
+        completions = []
+        if not previous:
+            completions = [
+                c for c in super().shell_complete(ctx, incomplete)
+                if c.value in self.commands and not self.commands[c.value].hidden
+            ]
         try:
             config = load_json_config("pipeline_config.json")
             profiles = list(config.get("profiles", {}).keys())
         except Exception:
             profiles = ["standard", "technical", "mail_drafting"]
-        for profile in profiles:
-            if profile.startswith(incomplete):
-                completions.append(CompletionItem(profile, help="Dictation profile"))
+        for value, help_text in complete_invocation(
+            previous, incomplete, profiles, installed_models()
+        ):
+            completions.append(CompletionItem(value, help=help_text))
         return completions
+
+
+def installed_models() -> list:
+    """Whisper models available under WHISPER_DIR/models (test fixtures excluded)."""
+    try:
+        whisper_dir = load_deployment_env().get("WHISPER_DIR") or "~/whisper.cpp"
+    except Exception:
+        whisper_dir = "~/whisper.cpp"
+    models_dir = Path(os.path.expandvars(whisper_dir)).expanduser() / "models"
+    return sorted(
+        p.stem[len("ggml-"):]
+        for p in models_dir.glob("ggml-*.bin")
+        if "silero" not in p.stem
+    )
 
 
 app = typer.Typer(cls=DictationRouter)

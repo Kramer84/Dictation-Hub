@@ -1,7 +1,7 @@
 import inspect
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from .whisper_interface import whisper_transcribe
 
@@ -72,3 +72,81 @@ def parse_invocation(args: List[str], default_profile: str = "standard") -> Invo
     if len(positionals) > 1:
         raise InvocationError(f"Expected a single profile, got: {' '.join(positionals)}")
     return Invocation(positionals[0] if positionals else default_profile, overrides, audio_file)
+
+
+LANGUAGES = ["auto", "en", "fr", "de", "es", "it", "nl", "pt"]
+FILE_FLAGS = ("-f", "--file")
+
+
+def _option_help(name: str) -> str:
+    for meta in getattr(_PARAMS[name].annotation, "__metadata__", ()):
+        if getattr(meta, "help", None):
+            return meta.help
+    return ""
+
+
+def _all_options() -> List[Tuple[str, str]]:
+    short = [
+        ("-f", "Reprocess an existing audio file"),
+        ("-l", "Language code (e.g. fr, en, auto)"),
+        ("-m", "Whisper model"),
+        ("-t", "Number of threads"),
+    ]
+    long = [("--file", "Reprocess an existing audio file")] + sorted(
+        ("--" + name.replace("_", "-"), _option_help(name)) for name in WHISPER_OPTIONS
+    )
+    return short + long
+
+
+def _takes_value(token: str) -> bool:
+    if token in FILE_FLAGS or token in SHORT_FLAGS:
+        return True
+    if token.startswith("--") and "=" not in token:
+        key = token[2:].replace("-", "_")
+        return key in WHISPER_OPTIONS and key not in BOOL_OPTIONS
+    return False
+
+
+def _value_key(token: str) -> str:
+    if token in FILE_FLAGS:
+        return "file"
+    return SHORT_FLAGS.get(token) or token[2:].replace("-", "_")
+
+
+def _scan(previous: List[str]) -> Tuple[List[str], Optional[str]]:
+    """Return the positional tokens and the option still waiting for its value."""
+    positionals: List[str] = []
+    pending: Optional[str] = None
+    for token in previous:
+        if pending is not None:
+            pending = None
+        elif _takes_value(token):
+            pending = token
+        elif not token.startswith("-"):
+            positionals.append(token)
+    return positionals, pending
+
+
+def complete_invocation(
+    previous: List[str], incomplete: str, profiles: List[str], models: List[str]
+) -> List[Tuple[str, str]]:
+    """Completion candidates as (value, help) for the dictation command line.
+
+    An empty result for a file value lets the shell fall back to its own path
+    completion.
+    """
+    positionals, pending = _scan(previous)
+    if pending is not None:
+        key = _value_key(pending)
+        if key == "language":
+            choices = [(c, "") for c in LANGUAGES]
+        elif key == "model":
+            choices = [(m, "Installed whisper model") for m in models]
+        else:
+            return []
+        return [(v, h) for v, h in choices if v.startswith(incomplete)]
+    if incomplete.startswith("-"):
+        return [(v, h) for v, h in _all_options() if v.startswith(incomplete)]
+    if positionals:
+        return []
+    return [(p, "Dictation profile") for p in profiles if p.startswith(incomplete)]
