@@ -1,5 +1,7 @@
 import inspect
-from typing import Dict, List, Tuple
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Dict, List, Optional
 
 from .whisper_interface import whisper_transcribe
 
@@ -14,8 +16,15 @@ class InvocationError(ValueError):
     pass
 
 
-def parse_invocation(args: List[str], default_profile: str = "standard") -> Tuple[str, Dict[str, str]]:
-    """Split raw CLI tokens into a profile name and whisper overrides.
+@dataclass
+class Invocation:
+    profile: str
+    overrides: Dict[str, str] = field(default_factory=dict)
+    audio_file: Optional[Path] = None
+
+
+def parse_invocation(args: List[str], default_profile: str = "standard") -> Invocation:
+    """Split raw CLI tokens into a profile, whisper overrides and an optional input file.
 
     Accepts ``-l fr``, ``--language fr``, ``--language=fr`` and bare boolean
     flags (``--no-gpu``). Non-boolean options always consume the next token,
@@ -23,10 +32,22 @@ def parse_invocation(args: List[str], default_profile: str = "standard") -> Tupl
     """
     positionals: List[str] = []
     overrides: Dict[str, str] = {}
+    audio_file: Optional[Path] = None
     i = 0
     while i < len(args):
         token = args[i]
-        if token in SHORT_FLAGS or token.startswith("--"):
+        if token in ("-f", "--file") or token.startswith("--file="):
+            if "=" in token:
+                path = token.split("=", 1)[1]
+            elif i + 1 < len(args):
+                i += 1
+                path = args[i]
+            else:
+                raise InvocationError(f"Option '{token}' requires a path.")
+            audio_file = Path(path).expanduser()
+            if not audio_file.is_file():
+                raise InvocationError(f"Audio file not found: {audio_file}")
+        elif token in SHORT_FLAGS or token.startswith("--"):
             if token in SHORT_FLAGS:
                 key, value = SHORT_FLAGS[token], None
             else:
@@ -50,4 +71,4 @@ def parse_invocation(args: List[str], default_profile: str = "standard") -> Tupl
         i += 1
     if len(positionals) > 1:
         raise InvocationError(f"Expected a single profile, got: {' '.join(positionals)}")
-    return (positionals[0] if positionals else default_profile), overrides
+    return Invocation(positionals[0] if positionals else default_profile, overrides, audio_file)

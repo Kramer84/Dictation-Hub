@@ -95,6 +95,33 @@ def process_audio(
     subprocess.run(cmd, check=True)
 
 
+def prepare_audio(
+    input_path: Path,
+    output: Path,
+    normalize: bool = True,
+    remove_silence: bool = False,
+    highpass: bool = False,
+    sample_rate: int = 16000,
+    channels: int = 1,
+    codec: str = "pcm_s16le",
+    target_peak: float = -6.0,
+) -> None:
+    """Convert any ffmpeg-readable recording into the WAV whisper expects."""
+    gain = None
+    if normalize:
+        print("   -> Analyzing audio for peak normalization...")
+        max_vol = get_max_volume(input_path)
+        if max_vol is not None:
+            gain = target_peak - max_vol
+            print(
+                f"   -> Applying static whole-file peak gain adjustment: {gain:.2f}dB (Target: {target_peak}dB)..."
+            )
+        else:
+            print("   ⚠️ Warning: Could not detect audio peak. Skipping normalization.")
+    filters = build_ffmpeg_filters(normalize, remove_silence, highpass, gain)
+    process_audio(input_path, output, sample_rate, channels, codec, filters)
+
+
 def record_audio_app(
     output: Path = typer.Option(
         ..., "--output", "-o", help="Path to the output audio file."
@@ -127,19 +154,10 @@ def record_audio_app(
     output.parent.mkdir(parents=True, exist_ok=True)
     temp_wav = raw_output or output.with_suffix(".tmp.wav")
     record_audio(temp_wav, record_format, record_type)
-    gain = None
-    if normalize:
-        print("   -> Analyzing audio for peak normalization...")
-        max_vol = get_max_volume(temp_wav)
-        if max_vol is not None:
-            gain = target_peak - max_vol
-            print(
-                f"   -> Applying static whole-file peak gain adjustment: {gain:.2f}dB (Target: {target_peak}dB)..."
-            )
-        else:
-            print("   ⚠️ Warning: Could not detect audio peak. Skipping normalization.")
-    filters = build_ffmpeg_filters(normalize, remove_silence, highpass, gain)
-    process_audio(temp_wav, output, sample_rate, channels, codec, filters)
+    prepare_audio(
+        temp_wav, output, normalize, remove_silence, highpass,
+        sample_rate, channels, codec, target_peak,
+    )
     if raw_output is None:
         temp_wav.unlink(missing_ok=True)
     print(f"✅ Audio saved to {output}")

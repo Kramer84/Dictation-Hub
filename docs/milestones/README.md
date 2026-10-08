@@ -5,8 +5,8 @@ The roadmap lives in `CLAUDE.md` §2. This folder tracks **progress**: what was 
 | ID | Title | Status | Doc |
 |----|-------|--------|-----|
 | M0 | Audit, defect catalog, architecture proposal | 🟢 Done | [M0-audit.md](M0-audit.md) |
-| M0.5 | Stabilize: repair tests, fix high-severity defects test-first | 🟡 In progress | [M0.5-stabilize.md](M0.5-stabilize.md) |
-| M1 | Session orchestrator, recording controls, 16 kHz capture, `--file`, server autostart/fallback | ⚪ Not started | — |
+| M0.5 | Stabilize: repair tests, fix high-severity defects test-first | 🟢 Done (merged to main) | [M0.5-stabilize.md](M0.5-stabilize.md) |
+| M1 | Session orchestrator, recording controls, 16 kHz capture, `--file`, server autostart/fallback | 🟡 In progress | [M1-session.md](M1-session.md) |
 | M1b | Chunked capture & incremental transcription (VRAM-frugal) | ⚪ Not started | — |
 | M2 | GPU pre-flight & fail-fast | ⚪ Not started | — |
 | M3 | CLI router redesign & completion | ⚪ Not started | — |
@@ -21,3 +21,4 @@ Legend: ⚪ not started · 🟡 in progress / blocked on decision · 🟢 done
 - **2026-10-08** — M0 audit carried out. 31 findings are cataloged in `M0-audit.md`, along with the proposed architecture and the open decisions. Recording-control rule changed: explicit keys replace Ctrl-C/Enter. New goal added: write and transcribe audio in chunks *during* recording.
 - **2026-10-08** — M0 decisions recorded (keymap, Tailscale-only bind, no permanently resident model, server at boot). M0.5 started.
 - **2026-10-08** — M0.5 first pass: test suite repaired (48 passing, live tests marked), and D01–D04, D07, D10, D17–D19, D21–D23 and D27 fixed test-first, plus the Tailscale-only bind. See `M0.5-stabilize.md`.
+- **2026-10-08** — M0.5 merged to `main`. Lone filler segments kept. The tool install is editable. M1 started on branch `m1-session`.

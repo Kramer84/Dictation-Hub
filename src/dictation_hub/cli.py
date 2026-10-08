@@ -105,16 +105,17 @@ def load_machine_role() -> str:
 )
 def main_run(ctx: typer.Context):
     try:
-        profile, overrides = parse_invocation(ctx.args)
+        invocation = parse_invocation(ctx.args)
     except InvocationError as e:
         typer.secho(f"Error: {e}", fg=typer.colors.RED)
         raise typer.Exit(code=2)
+    profile, overrides = invocation.profile, invocation.overrides
     role = load_machine_role()
     if role == "host":
         typer.secho(
             f"[Host] Executing '{profile}' locally via GPU...", fg=typer.colors.MAGENTA
         )
-        run_local_pipeline(profile, overrides)
+        run_local_pipeline(profile, overrides, audio_file=invocation.audio_file)
     elif role == "client":
         typer.secho(
             f"[Client] Streaming '{profile}' audio to server...", fg=typer.colors.BLUE
@@ -129,6 +130,7 @@ def main_run(ctx: typer.Context):
             server_protocol=protocol,
             server_ip=ip,
             server_port=port,
+            audio_file=invocation.audio_file,
         )
     else:
         typer.secho("Error: Unknown machine role.", fg=typer.colors.RED)

@@ -55,3 +55,28 @@ def test_missing_pid_file_is_fine(tmp_path):
 )
 def test_build_url(overrides, expected):
     assert streamer.build_url("http", "h", "8000", "standard", overrides) == expected
+
+
+def test_file_is_uploaded_instead_of_recording(tmp_path, monkeypatch):
+    import json
+    from unittest.mock import MagicMock
+
+    wav = tmp_path / "take.wav"
+    wav.write_bytes(b"RIFF-take")
+    uploaded, clipboard = [], []
+
+    def fake_upload(audio_stream, url, resp_path):
+        uploaded.append((audio_stream.read(), url))
+        with open(resp_path, "w") as f:
+            json.dump({"raw_text": "salut", "final_text": "Salut."}, f)
+        return MagicMock(wait=lambda: 0)
+
+    monkeypatch.setattr(streamer, "get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr(streamer, "launch_audio_backend", lambda log: pytest.fail("mic opened"))
+    monkeypatch.setattr(streamer, "stream_audio_to_server", fake_upload)
+    monkeypatch.setattr(streamer, "copy_to_clipboard", clipboard.append)
+
+    streamer.run_remote_stream("standard", {"language": "fr"}, "http", "h", "8000", audio_file=wav)
+
+    assert uploaded == [(b"RIFF-take", "http://h:8000/transcribe?profile=standard&language=fr")]
+    assert clipboard == ["Salut."]

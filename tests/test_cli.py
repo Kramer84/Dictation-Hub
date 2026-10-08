@@ -12,14 +12,20 @@ runner = CliRunner()
 def host_run():
     """Invoke the CLI as a host and capture what reaches the local runner."""
     calls = []
+
+    def fake_runner(profile, overrides, audio_file=None):
+        calls.append((profile, overrides))
+        invoke.audio_file = audio_file
+
     with patch.object(cli, "load_machine_role", return_value="host"), patch.object(
-        cli, "run_local_pipeline", side_effect=lambda profile, overrides: calls.append((profile, overrides))
+        cli, "run_local_pipeline", side_effect=fake_runner
     ):
         def invoke(*argv):
             result = runner.invoke(cli.app, list(argv))
             assert result.exit_code == 0, result.output
             return calls[-1]
 
+        invoke.audio_file = None
         yield invoke
 
 
@@ -64,3 +70,29 @@ def test_client_mode_forwards_overrides():
     assert result.exit_code == 0, result.output
     assert remote.call_args.kwargs["profile"] == "standard"
     assert remote.call_args.kwargs["overrides"] == {"language": "fr"}
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ("scheduling", "--file", "{wav}"),
+        ("-f", "{wav}", "scheduling"),
+        ("scheduling", "--file={wav}", "-l", "fr"),
+    ],
+)
+def test_file_option_selects_reprocessing(host_run, tmp_path, argv):
+    wav = tmp_path / "take.wav"
+    wav.write_bytes(b"RIFF")
+    profile, _ = host_run(*(a.format(wav=wav) for a in argv))
+    assert profile == "scheduling"
+    assert host_run.audio_file == wav
+
+
+def test_missing_file_is_an_error(tmp_path):
+    with patch.object(cli, "load_machine_role", return_value="host"), patch.object(
+        cli, "run_local_pipeline"
+    ) as local:
+        result = runner.invoke(cli.app, ["standard", "--file", str(tmp_path / "nope.wav")])
+    assert result.exit_code == 2
+    assert "nope.wav" in result.output
+    local.assert_not_called()

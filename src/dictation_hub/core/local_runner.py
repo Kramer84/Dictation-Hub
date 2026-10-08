@@ -1,5 +1,6 @@
+import shutil
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 import typer
 
@@ -14,12 +15,14 @@ from .config_manager import (
 )
 from .invocation import WHISPER_OPTIONS
 from .postprocess import dispatch_webhook, run_post_processing
-from .record_audio import record_audio_app
+from .record_audio import prepare_audio, record_audio_app
 from .utils import copy_to_clipboard, save_metadata
 from .whisper_interface import whisper_transcribe
 
 
-def run_local_pipeline(profile: str, cli_overrides: Dict[str, str]) -> None:
+def run_local_pipeline(
+    profile: str, cli_overrides: Dict[str, str], audio_file: Optional[Path] = None
+) -> None:
     try:
         pipeline_config = load_json_config("pipeline_config.json")
         static_json_path = get_config_dir() / "static.json"
@@ -62,19 +65,25 @@ def run_local_pipeline(profile: str, cli_overrides: Dict[str, str]) -> None:
         valid_args=valid_args,
     )
     try:
-        record_audio_app(
-            output=file_wav,
-            normalize=True,
-            remove_silence=False,
-            highpass=False,
-            record_format="cd",
-            record_type="wav",
-            sample_rate=16000,
-            channels=1,
-            codec="pcm_s16le",
-            target_peak=-6.0,
-            raw_output=workspace / f"{timestamp}_capture.wav",
-        )
+        if audio_file is not None:
+            capture = workspace / f"{timestamp}_capture{audio_file.suffix}"
+            shutil.copy2(audio_file, capture)
+            typer.secho(f"[Router] Reprocessing {audio_file}", fg=typer.colors.MAGENTA)
+            prepare_audio(capture, file_wav)
+        else:
+            record_audio_app(
+                output=file_wav,
+                normalize=True,
+                remove_silence=False,
+                highpass=False,
+                record_format="cd",
+                record_type="wav",
+                sample_rate=16000,
+                channels=1,
+                codec="pcm_s16le",
+                target_peak=-6.0,
+                raw_output=workspace / f"{timestamp}_capture.wav",
+            )
         if not file_wav.is_file():
             typer.secho(
                 "[Router] Error: Audio file was not created. Aborting.",

@@ -186,10 +186,18 @@ def run_remote_stream(
     server_protocol: str = "http",
     server_ip: str = "127.0.0.1",
     server_port: str = "8000",
+    audio_file: Optional[Path] = None,
 ):
+    target_url = build_url(server_protocol, server_ip, server_port, profile, overrides)
+    if audio_file is not None:
+        with tempfile.TemporaryDirectory() as temp_dir, open(audio_file, "rb") as audio:
+            resp_path = os.path.join(temp_dir, "dictation.resp")
+            print(f"-> Uploading {audio_file} (Profile: {profile})...")
+            stream_audio_to_server(audio, target_url, resp_path).wait()
+            handle_server_response(resp_path)
+        return
     capture_pid_file = get_config_dir() / "client_capture.pid"
     kill_stale_capture(capture_pid_file)
-    target_url = build_url(server_protocol, server_ip, server_port, profile, overrides)
     with tempfile.TemporaryDirectory() as temp_dir:
         err_path = os.path.join(temp_dir, "dictation.err")
         resp_path = os.path.join(temp_dir, "dictation.resp")
