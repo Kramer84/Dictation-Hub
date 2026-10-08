@@ -35,14 +35,13 @@ def wav_seconds(path):
         return w.getnframes() / w.getframerate()
 
 
-def test_capture_command_uses_proven_cd_format(tmp_path):
-    # 2026-10-08: direct 16 kHz mono capture degraded a live dictation; back to
-    # the format used before M1 (44.1 kHz stereo, converted by prepare_audio)
-    # until an A/B comparison shows the direct path is as good.
+def test_capture_command_records_16k_mono_directly(tmp_path):
+    # A/B on 2026-10-08 (optimization/ab_capture.sh): identical transcripts and
+    # levels for CD-format and direct 16 kHz capture; the earlier degradation
+    # was GSM phone interference, not the format.
     cmd = recorder.arecord_command(tmp_path / "x.wav")
     assert cmd[0] == "arecord"
-    assert cmd[cmd.index("-f") + 1] == "cd"
-    assert "-r" not in cmd
+    assert cmd[cmd.index("-r") + 1] == "16000" and cmd[cmd.index("-c") + 1] == "1"
 
 
 def test_recorder_survives_terminal_signals_and_finalizes_wav(tmp_path):

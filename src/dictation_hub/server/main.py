@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from dictation_hub.pipeline.core.static_config import WhisperPipelineConfig
 from dictation_hub.core.config_manager import USER_CONFIG_DIR, generate_temp_env
-from dictation_hub.core.record_audio import get_max_volume, build_ffmpeg_filters, process_audio
+from dictation_hub.core.record_audio import prepare_audio
 from dictation_hub.core.whisper_interface import whisper_transcribe
 from dictation_hub.core.postprocess import dispatch_webhook, run_post_processing
 from dictation_hub.core.utils import save_metadata
@@ -65,19 +65,7 @@ def execute_pipeline(workspace: Path, raw_audio: Path, timestamp: str, profile_n
     valid_args = config.get("valid_arguments", [])
 
     # --- 1. Audio Normalization ---
-    max_vol = get_max_volume(raw_audio)
-    target_peak = -6.0
-    gain = (target_peak - max_vol) if max_vol is not None else None
-    filters = build_ffmpeg_filters(normalize=True, remove_silence=False, highpass_filter=False, gain=gain)
-
-    process_audio(
-        input_path=raw_audio,
-        output_path=norm_wav,
-        sample_rate=16000,
-        channels=1,
-        codec="pcm_s16le",
-        filters=filters
-    )
+    prepare_audio(raw_audio, norm_wav)
 
     # --- 2. Environment Config Generation ---
     base_env_path = REPO_ROOT / "configs" / base_env

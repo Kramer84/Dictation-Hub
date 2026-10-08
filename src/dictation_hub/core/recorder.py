@@ -13,12 +13,12 @@ KEY_HELP = "[Space] stop & process   [p] pause/resume   [q] quit (keep audio)   
 
 
 def arecord_command(path: Path) -> List[str]:
-    """Capture in CD format; prepare_audio converts to 16 kHz mono afterwards.
+    """Capture 16 kHz mono PCM directly: whisper's native input.
 
-    Direct 16 kHz mono capture was tried and degraded a live dictation, so the
-    pre-M1 format stays until an A/B comparison says otherwise.
+    An A/B against CD-format capture (optimization/ab_capture.sh) gave
+    identical results on this machine.
     """
-    return ["arecord", "-q", "-f", "cd", "-t", "wav", str(path)]
+    return ["arecord", "-q", "-f", "S16_LE", "-r", "16000", "-c", "1", "-t", "wav", str(path)]
 
 
 class Recorder:

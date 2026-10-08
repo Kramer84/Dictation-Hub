@@ -48,3 +48,41 @@ def test_capture_is_kept_untouched_next_to_processed_audio(tmp_path):
     assert capture.read_bytes() == reference.read_bytes()
     with wave.open(str(processed)) as w:
         assert (w.getframerate(), w.getnchannels()) == (16000, 1)
+
+
+def write_signal(path, buzz: bool, seconds=3, rate=16000):
+    """Noise standing in for speech, optionally plus a GSM-style 217 Hz pulse train."""
+    import random
+
+    rnd = random.Random(0)
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(rate)
+        frames = bytearray()
+        for n in range(rate * seconds):
+            sample = rnd.gauss(0, 1500)
+            if buzz and (n * 217 // rate) % 2 == 0 and (n * 217 / rate) % 1 < 0.125:
+                sample += 6000  # TDMA burst: 1/8 duty cycle at 217 Hz
+            frames += struct.pack("<h", max(-32768, min(32767, int(sample))))
+        w.writeframes(bytes(frames))
+
+
+def test_gsm_buzz_is_detected_only_when_present(tmp_path):
+    write_signal(tmp_path / "clean.wav", buzz=False)
+    write_signal(tmp_path / "buzz.wav", buzz=True)
+    assert record_audio.gsm_buzz_level(tmp_path / "clean.wav") < 3
+    assert record_audio.gsm_buzz_level(tmp_path / "buzz.wav") > 6
+
+
+def test_prepare_audio_removes_detected_buzz(tmp_path, capsys):
+    write_signal(tmp_path / "buzz.wav", buzz=True)
+    record_audio.prepare_audio(tmp_path / "buzz.wav", tmp_path / "out.wav")
+    assert record_audio.gsm_buzz_level(tmp_path / "out.wav") < 3
+    assert "phone" in capsys.readouterr().out.lower()
+
+
+def test_prepare_audio_leaves_clean_audio_unfiltered(tmp_path, capsys):
+    write_signal(tmp_path / "clean.wav", buzz=False)
+    record_audio.prepare_audio(tmp_path / "clean.wav", tmp_path / "out.wav")
+    assert "phone" not in capsys.readouterr().out.lower()

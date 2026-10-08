@@ -22,3 +22,4 @@ Legend: ⚪ not started · 🟡 in progress / blocked on decision · 🟢 done
 - **2026-10-08** — M0 decisions recorded (keymap, Tailscale-only bind, no permanently resident model, server at boot). M0.5 started.
 - **2026-10-08** — M0.5 first pass: test suite repaired (48 passing, live tests marked), and D01–D04, D07, D10, D17–D19, D21–D23 and D27 fixed test-first, plus the Tailscale-only bind. See `M0.5-stabilize.md`.
 - **2026-10-08** — M0.5 merged to `main`. Lone filler segments kept. The tool install is editable. M1 started on branch `m1-session`.
+- **2026-10-08** — M1: `--file`, recording keys and pause/resume landed. A live-test quality drop was traced to GSM phone interference (not the 16 kHz format), and an automatic 217 Hz buzz detector and filter was added.
