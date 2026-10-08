@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from dictation_hub.core import session
 from dictation_hub.server import main
 
 pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
@@ -62,8 +63,8 @@ def fake_whisper(input_wav, config, output_base):
 @pytest.fixture
 def server(tmp_path, monkeypatch):
     monkeypatch.setattr(main.static_config.storage, "base_dir", tmp_path / "store")
-    monkeypatch.setattr(main, "whisper_transcribe", fake_whisper)
-    monkeypatch.setitem(main.PIPELINE_MAP, "standard", RecordingPipeline)
+    monkeypatch.setattr(session, "whisper_transcribe", fake_whisper)
+    monkeypatch.setitem(session.PIPELINE_MAP, "standard", RecordingPipeline)
     RecordingPipeline.instances.clear()
     return TestClient(main.app)
 
@@ -84,7 +85,7 @@ def test_unknown_profile_is_rejected_without_touching_disk(server, tmp_path, pro
 
 
 def test_llm_failure_falls_back_to_scrubbed_text(server, tmp_path, monkeypatch):
-    monkeypatch.setitem(main.PIPELINE_MAP, "standard", FailingPipeline)
+    monkeypatch.setitem(session.PIPELINE_MAP, "standard", FailingPipeline)
     resp = server.post("/transcribe?profile=standard", content=tone_wav_bytes(tmp_path))
     assert resp.status_code == 200
     body = resp.json()
@@ -107,3 +108,15 @@ def test_dispatcher_cli_reports_missing_metadata(tmp_path, monkeypatch, capsys):
         n8n_dispatcher.main()
     assert exc.value.code == 1
     assert "No metadata.json" in capsys.readouterr().out
+
+
+def test_whisper_failure_returns_an_error_instead_of_crashing(server, tmp_path, monkeypatch):
+    import typer
+
+    def failing_whisper(**kwargs):
+        raise typer.Exit(code=1)
+
+    monkeypatch.setattr(session, "whisper_transcribe", failing_whisper)
+    resp = server.post("/transcribe?profile=standard", content=tone_wav_bytes(tmp_path))
+    assert resp.status_code == 200
+    assert resp.json()["error"] == "Whisper execution failed."

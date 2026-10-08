@@ -1,8 +1,5 @@
 import json
 import os
-import subprocess
-import sys
-import tempfile
 import time
 from pathlib import Path
 
@@ -11,12 +8,8 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from dictation_hub.pipeline.core.static_config import WhisperPipelineConfig
-from dictation_hub.core.config_manager import USER_CONFIG_DIR, generate_temp_env
-from dictation_hub.core.record_audio import prepare_audio
-from dictation_hub.core.whisper_interface import whisper_transcribe
-from dictation_hub.core.postprocess import dispatch_webhook, run_post_processing
-from dictation_hub.core.utils import save_metadata
-from dictation_hub.pipeline.engine import PIPELINE_MAP, setup_logging
+from dictation_hub.core.config_manager import USER_CONFIG_DIR
+from dictation_hub.core.session import TranscriptionError, process_capture
 
 # 1. Resolve core paths
 SERVER_DIR = Path(__file__).resolve().parent
@@ -55,63 +48,21 @@ async def serve_ui():
     return index_path.read_text(encoding="utf-8")
 
 def execute_pipeline(workspace: Path, raw_audio: Path, timestamp: str, profile_name: str, query_params: dict):
-    norm_wav = workspace / f"{timestamp}{static_config.suffixes.audio}"
-    json_out = workspace / f"{timestamp}{static_config.suffixes.full_json}"
-
     config = load_pipeline_config()
-    profile_data = config["profiles"][profile_name]
-    base_env = profile_data.get("env", "standard.env")
-    env_overrides = profile_data.get("env_overrides", {})
-    valid_args = config.get("valid_arguments", [])
-
-    # --- 1. Audio Normalization ---
-    prepare_audio(raw_audio, norm_wav)
-
-    # --- 2. Environment Config Generation ---
-    base_env_path = REPO_ROOT / "configs" / base_env
-    cli_overrides = {
-        k: v for k, v in query_params.items() if k != "profile" and v != "auto"
-    }
-
-    temp_env_path = generate_temp_env(
-        base_env_path=base_env_path,
-        env_overrides=env_overrides,
-        cli_overrides=cli_overrides,
-        valid_args=valid_args
-    )
-
-    # --- 3. Whisper Transcription ---
+    overrides = {k: v for k, v in query_params.items() if k != "profile" and v != "auto"}
     try:
-        whisper_transcribe(
-            input_wav=norm_wav,
-            config=temp_env_path,
-            output_base=json_out.with_suffix("")
+        result = process_capture(
+            capture=raw_audio,
+            workspace=workspace,
+            timestamp=timestamp,
+            profile=profile_name,
+            pipeline_config=config,
+            static_config=static_config,
+            overrides=overrides,
+            valid_args=config.get("valid_arguments", []),
         )
-    finally:
-        temp_env_path.unlink(missing_ok=True)
-
-    # --- 4. Metadata Extraction ---
-    save_metadata(workspace, json_out, profile_name, timestamp)
-
-    # --- 5. Post-Processing Pipeline Execution ---
-    setup_logging(workspace)
-    pipeline_class = PIPELINE_MAP.get(profile_name, PIPELINE_MAP["standard"])
-    pipeline = pipeline_class(
-        repo_root=REPO_ROOT,
-        static_config=static_config,
-        profile_data=profile_data,
-        workspace_dir=workspace,
-        user_information=config.get("user_information", {}),
-    )
-    result = run_post_processing(
-        pipeline, json_out, workspace, timestamp, static_config.suffixes
-    )
-
-    # --- 6. Webhook / Automation Trigger ---
-    dispatch_webhook(profile_data, result, workspace)
-
-    (workspace / ".completed").touch()
-
+    except TranscriptionError as e:
+        return {"raw_text": "", "final_text": "", "error": str(e)}
     response = {"raw_text": result.raw_text, "final_text": result.final_text}
     if result.error:
         response["error"] = result.error

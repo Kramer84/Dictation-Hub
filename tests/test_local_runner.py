@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from dictation_hub.core import local_runner
+from dictation_hub.core import local_runner, session
 
 
 def write_tone(path, rate=16000, channels=1, seconds=1):
@@ -53,13 +53,13 @@ def run(tmp_path, monkeypatch):
     workspace.mkdir()
     monkeypatch.setattr(local_runner, "create_workspace", lambda *a: (workspace, "20261008_120000"))
     monkeypatch.setattr(
-        local_runner,
+        session,
         "whisper_transcribe",
         lambda input_wav, config, output_base: (transcribed.append(input_wav), fake_whisper(input_wav, config, output_base)),
     )
-    monkeypatch.setattr(local_runner, "setup_logging", lambda ws: None)
+    monkeypatch.setattr(session, "setup_logging", lambda ws: None)
     monkeypatch.setattr(local_runner, "copy_to_clipboard", clipboard.append)
-    monkeypatch.setitem(local_runner.PIPELINE_MAP, "standard", FailingPipeline)
+    monkeypatch.setitem(session.PIPELINE_MAP, "standard", FailingPipeline)
 
     def invoke(outcome="process"):
         monkeypatch.setattr(local_runner, "record_from_mic", fake_mic(outcome))
@@ -128,13 +128,13 @@ def test_existing_file_is_reprocessed_without_recording(tmp_path, monkeypatch):
     monkeypatch.setattr(local_runner, "create_workspace", lambda *a: (workspace, "20261008_130000"))
     monkeypatch.setattr(local_runner, "record_from_mic", lambda capture: pytest.fail("recorded"))
     monkeypatch.setattr(
-        local_runner,
+        session,
         "whisper_transcribe",
         lambda input_wav, config, output_base: (transcribed.append(input_wav), fake_whisper(input_wav, config, output_base)),
     )
-    monkeypatch.setattr(local_runner, "setup_logging", lambda ws: None)
+    monkeypatch.setattr(session, "setup_logging", lambda ws: None)
     monkeypatch.setattr(local_runner, "copy_to_clipboard", clipboard.append)
-    monkeypatch.setitem(local_runner.PIPELINE_MAP, "standard", FailingPipeline)
+    monkeypatch.setitem(session.PIPELINE_MAP, "standard", FailingPipeline)
 
     local_runner.run_local_pipeline("standard", {}, audio_file=source)
 
