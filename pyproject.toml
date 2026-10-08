@@ -20,9 +20,13 @@ dependencies = [
     "dateparser",
     "python-dotenv",
     "websockets",
+]
+
+[dependency-groups]
+dev = [
     "pytest",
     "freezegun",
-    "python-dotenv",
+    "httpx",
     "ipython>=8.18.1",
 ]
 
@@ -41,3 +45,10 @@ dictation-hub = "dictation_hub.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/dictation_hub"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "live: needs real hardware or services (mic, GPU, whisper.cpp, Ollama, Mistral). Run with: pytest -m live",
+]
+addopts = "-m 'not live'"

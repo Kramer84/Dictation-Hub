@@ -16,6 +16,10 @@ from dictation_hub.pipeline.pipelines.base import BasePipeline
 logger = logging.getLogger(__name__)
 
 
+class SchedulingError(RuntimeError):
+    """The LLM output could not be turned into a valid event."""
+
+
 class RecurrenceRule(BaseModel):
     frequency: Literal["DAILY", "WEEKLY", "MONTHLY", "YEARLY"] = Field(
         ..., description="The strict base frequency of the repeating event."
@@ -538,19 +542,16 @@ class SchedulingPipeline(BasePipeline):
                 )
                 if attempt == max_retries - 1:
                     logger.error(
-                        "Max validation retries (%d) reached. Aborting and returning error payload. Last raw_output: %r",
+                        "Max validation retries (%d) reached. Aborting. Last raw_output: %r",
                         max_retries,
                         raw_output,
                     )
                     print(
-                        "❌ [SchedulingPipeline] Max validation retries reached. Returning error payload."
+                        "❌ [SchedulingPipeline] Max validation retries reached."
                     )
-                    return json.dumps(
-                        {
-                            "error": f"Validation failed after {max_retries} attempts",
-                            "raw_output": raw_output,
-                        }
-                    )
+                    raise SchedulingError(
+                        f"Validation failed after {max_retries} attempts: {e}"
+                    ) from e
                 logger.debug(
                     "Appending system error correction note to current_text for retry %d.",
                     attempt + 2,

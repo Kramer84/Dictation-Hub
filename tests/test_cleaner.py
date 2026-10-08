@@ -1,12 +1,6 @@
 import pytest
-import sys
-import os
 
-# Ensure the parent directory is in the path to import the module
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-# Adjust this import to match the actual name of your script file (e.g., cleaner.py)
-from post_processing.deterministic_cleaner import (
+from dictation_hub.pipeline.core.text_tools import (
     add_confidence_marker,
     compress_repetitions_marked,
     dedup_and_filter_hallucinations,
@@ -19,11 +13,10 @@ from post_processing.deterministic_cleaner import (
 # --- Unit Tests: Confidence Markers ---
 
 @pytest.mark.parametrize("text, p_val, expected", [
-    ("Terrible", 0.35, "Terrible[---]"),
-    ("low", 0.55, "low[--]"),
-    ("confidence", 0.75, "confidence[-]"),
-    ("normal", 0.85, "normal"),
-    ("perfect", 0.995, "perfect[+]"),
+    ("terrible", 0.10, "terrible [??]"),
+    ("low", 0.45, "low [?]"),
+    ("fine", 0.75, "fine"),
+    ("perfect", 0.995, "perfect"),
 ])
 def test_add_confidence_marker(text, p_val, expected):
     assert add_confidence_marker(text, p_val) == expected
@@ -83,7 +76,8 @@ def test_dedup_backchannels_allowed_streaks():
 
 @pytest.mark.parametrize("text, expected", [
     ("Mm-hmm.", True),
-    ("Yeah, sure.", True),
+    # Decision 2026-10-08: phrases made only of fillers are kept (they can carry intent/hesitation).
+    ("Yeah, sure.", False),
     ("Uh-huh!", True),
     ("This is real text", False),
     ("Okay, let's go", False),

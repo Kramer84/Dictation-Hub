@@ -7,14 +7,16 @@ import time
 from pathlib import Path
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from dictation_hub.pipeline.core.static_config import WhisperPipelineConfig
 from dictation_hub.core.config_manager import USER_CONFIG_DIR, generate_temp_env
 from dictation_hub.core.record_audio import get_max_volume, build_ffmpeg_filters, process_audio
 from dictation_hub.core.whisper_interface import whisper_transcribe
+from dictation_hub.core.postprocess import dispatch_webhook, run_post_processing
+from dictation_hub.core.utils import save_metadata
 from dictation_hub.pipeline.engine import PIPELINE_MAP, setup_logging
-from dictation_hub.server.n8n_dispatcher import push_to_n8n
 
 # 1. Resolve core paths
 SERVER_DIR = Path(__file__).resolve().parent
@@ -33,6 +35,20 @@ static_config = WhisperPipelineConfig.load_from_file(STATIC_JSON_PATH)
 
 app = FastAPI()
 
+
+def load_pipeline_config() -> dict:
+    with open(CONFIG_JSON_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def is_known_profile(profile_name: str) -> bool:
+    return profile_name in load_pipeline_config().get("profiles", {})
+
+
+def unknown_profile_message(profile_name: str) -> str:
+    known = ", ".join(sorted(load_pipeline_config().get("profiles", {})))
+    return f"Unknown profile '{profile_name}'. Known profiles: {known}"
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_ui():
     index_path = SERVER_DIR / "templates" / "index.html"
@@ -42,12 +58,8 @@ def execute_pipeline(workspace: Path, raw_audio: Path, timestamp: str, profile_n
     norm_wav = workspace / f"{timestamp}{static_config.suffixes.audio}"
     json_out = workspace / f"{timestamp}{static_config.suffixes.full_json}"
 
-    with open(CONFIG_JSON_PATH, "r", encoding="utf-8") as f:
-        config = json.load(f)
-
-    profile_data = config.get("profiles", {}).get(
-        profile_name, config["profiles"]["standard"]
-    )
+    config = load_pipeline_config()
+    profile_data = config["profiles"][profile_name]
     base_env = profile_data.get("env", "standard.env")
     env_overrides = profile_data.get("env_overrides", {})
     valid_args = config.get("valid_arguments", [])
@@ -69,7 +81,9 @@ def execute_pipeline(workspace: Path, raw_audio: Path, timestamp: str, profile_n
 
     # --- 2. Environment Config Generation ---
     base_env_path = REPO_ROOT / "configs" / base_env
-    cli_overrides = {k: v for k, v in query_params.items() if v != "auto"}
+    cli_overrides = {
+        k: v for k, v in query_params.items() if k != "profile" and v != "auto"
+    }
 
     temp_env_path = generate_temp_env(
         base_env_path=base_env_path,
@@ -89,59 +103,39 @@ def execute_pipeline(workspace: Path, raw_audio: Path, timestamp: str, profile_n
         temp_env_path.unlink(missing_ok=True)
 
     # --- 4. Metadata Extraction ---
-    detected_lang = "auto"
-    if json_out.exists():
-        with open(json_out, "r", encoding="utf-8") as f:
-            detected_lang = json.load(f).get("language", "auto")
-
-    metadata = {
-        "profile": profile_name,
-        "language": detected_lang,
-        "timestamp": timestamp,
-    }
-    metadata_path = workspace / "metadata.json"
-    metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    save_metadata(workspace, json_out, profile_name, timestamp)
 
     # --- 5. Post-Processing Pipeline Execution ---
     setup_logging(workspace)
-    user_info = config.get("user_information", {})
     pipeline_class = PIPELINE_MAP.get(profile_name, PIPELINE_MAP["standard"])
-
     pipeline = pipeline_class(
         repo_root=REPO_ROOT,
         static_config=static_config,
         profile_data=profile_data,
         workspace_dir=workspace,
-        user_information=user_info,
+        user_information=config.get("user_information", {}),
+    )
+    result = run_post_processing(
+        pipeline, json_out, workspace, timestamp, static_config.suffixes
     )
 
-    final_text = pipeline.execute(json_out)
-
-    # Save outputs
-    final_txt_path = workspace / f"{timestamp}{static_config.suffixes.final_text}"
-    final_txt_path.write_text(final_text, encoding="utf-8")
-
-    raw_txt_path = workspace / f"{timestamp}{static_config.suffixes.raw_text}"
-    raw_text = raw_txt_path.read_text(encoding="utf-8").strip() if raw_txt_path.exists() else ""
-
     # --- 6. Webhook / Automation Trigger ---
-    webhook_url = profile_data.get("webhook_url")
-    if webhook_url:
-        try:
-            payload = json.loads(final_text)
-        except json.JSONDecodeError:
-            payload = {"text_content": final_text}
-        push_to_n8n(webhook_url, payload, workspace.name)
+    dispatch_webhook(profile_data, result, workspace)
 
     (workspace / ".completed").touch()
 
-    return {"raw_text": raw_text, "final_text": final_text}
+    response = {"raw_text": result.raw_text, "final_text": result.final_text}
+    if result.error:
+        response["error"] = result.error
+    return response
 
 
 @app.post("/transcribe")
 async def transcribe(request: Request):
     timestamp = time.strftime(static_config.storage.folder_format)
     profile_name = dict(request.query_params).get("profile", "standard")
+    if not is_known_profile(profile_name):
+        return JSONResponse(status_code=400, content={"error": unknown_profile_message(profile_name)})
 
     workspace = static_config.storage.base_dir / f"{timestamp}_{profile_name}"
     workspace.mkdir(parents=True, exist_ok=True)
@@ -154,8 +148,8 @@ async def transcribe(request: Request):
     if raw_audio.stat().st_size < 100:
         return {"raw_text": "Error: Received empty audio stream.", "final_text": ""}
 
-    return execute_pipeline(
-        workspace, raw_audio, timestamp, profile_name, dict(request.query_params)
+    return await run_in_threadpool(
+        execute_pipeline, workspace, raw_audio, timestamp, profile_name, dict(request.query_params)
     )
 
 
@@ -169,6 +163,10 @@ async def websocket_transcribe(websocket: WebSocket):
         return
 
     profile_name = config.get("profile", "standard")
+    if not is_known_profile(profile_name):
+        await websocket.send_json({"error": unknown_profile_message(profile_name)})
+        await websocket.close()
+        return
     query_params = {"language": config.get("language", "auto")}
 
     timestamp = time.strftime(static_config.storage.folder_format)
@@ -193,8 +191,8 @@ async def websocket_transcribe(websocket: WebSocket):
         return
 
     try:
-        result = execute_pipeline(
-            workspace, raw_audio, timestamp, profile_name, query_params
+        result = await run_in_threadpool(
+            execute_pipeline, workspace, raw_audio, timestamp, profile_name, query_params
         )
         await websocket.send_json(result)
     except Exception as e:

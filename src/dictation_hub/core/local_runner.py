@@ -1,12 +1,10 @@
-import json
 from pathlib import Path
-from typing import List
+from typing import Dict
 
 import typer
 
 from ..pipeline.core.static_config import WhisperPipelineConfig
 from ..pipeline.engine import PIPELINE_MAP, setup_logging
-from ..server.n8n_dispatcher import push_to_n8n
 from .config_manager import (
     REPO_ROOT,
     create_workspace,
@@ -14,12 +12,14 @@ from .config_manager import (
     get_config_dir,
     load_json_config,
 )
+from .invocation import WHISPER_OPTIONS
+from .postprocess import dispatch_webhook, run_post_processing
 from .record_audio import record_audio_app
 from .utils import copy_to_clipboard, save_metadata
 from .whisper_interface import whisper_transcribe
 
 
-def run_local_pipeline(profile: str, args: List[str]) -> None:
+def run_local_pipeline(profile: str, cli_overrides: Dict[str, str]) -> None:
     try:
         pipeline_config = load_json_config("pipeline_config.json")
         static_json_path = get_config_dir() / "static.json"
@@ -27,28 +27,16 @@ def run_local_pipeline(profile: str, args: List[str]) -> None:
     except Exception as e:
         typer.secho(f"Error loading configurations: {e}", fg=typer.colors.RED)
         raise typer.Exit(code=1)
-    cli_overrides = {}
-    i = 0
-    while i < len(args):
-        if args[i].startswith("--"):
-            key = args[i][2:]
-            if i + 1 < len(args) and not args[i + 1].startswith("--"):
-                cli_overrides[key] = args[i + 1]
-                i += 2
-            else:
-                cli_overrides[key] = "true"
-                i += 1
-        else:
-            i += 1
     if profile not in pipeline_config.get("profiles", {}):
+        known = ", ".join(sorted(pipeline_config.get("profiles", {})))
         typer.secho(
-            f"[Router] Profile '{profile}' not found. Defaulting to standard.",
-            fg=typer.colors.YELLOW,
+            f"Error: Unknown profile '{profile}'. Known profiles: {known}",
+            fg=typer.colors.RED,
         )
-        profile = "standard"
+        raise typer.Exit(code=2)
     profile_data = pipeline_config["profiles"][profile]
     base_env_filename = profile_data.get("env")
-    valid_args = pipeline_config.get("valid_arguments", [])
+    valid_args = sorted(WHISPER_OPTIONS)
     config_full = REPO_ROOT / "configs" / base_env_filename
     base_dir_raw = str(static_config.storage.base_dir)
     folder_format = static_config.storage.folder_format
@@ -85,6 +73,7 @@ def run_local_pipeline(profile: str, args: List[str]) -> None:
             channels=1,
             codec="pcm_s16le",
             target_peak=-6.0,
+            raw_output=workspace / f"{timestamp}_capture.wav",
         )
         if not file_wav.is_file():
             typer.secho(
@@ -114,39 +103,27 @@ def run_local_pipeline(profile: str, args: List[str]) -> None:
         setup_logging(workspace)
         user_info = pipeline_config.get("user_information", {})
         pipeline_class = PIPELINE_MAP.get(profile, PIPELINE_MAP["standard"])
-        try:
-            pipeline = pipeline_class(
-                repo_root=REPO_ROOT,
-                static_config=static_config,
-                profile_data=profile_data,
-                workspace_dir=workspace,
-                user_information=user_info,
-            )
-            final_text = pipeline.execute(file_json)
-        except Exception as e:
-            typer.secho(
-                f"[Router] Error during Python Pipeline execution: {e}",
-                fg=typer.colors.RED,
-            )
-            raise typer.Exit(code=1)
-        final_txt_path = workspace / f"{timestamp}{static_config.suffixes.final_text}"
-        final_txt_path.write_text(final_text, encoding="utf-8")
-        raw_txt_path = workspace / f"{timestamp}{static_config.suffixes.raw_text}"
-        raw_text = (
-            raw_txt_path.read_text(encoding="utf-8").strip()
-            if raw_txt_path.exists()
-            else ""
+        pipeline = pipeline_class(
+            repo_root=REPO_ROOT,
+            static_config=static_config,
+            profile_data=profile_data,
+            workspace_dir=workspace,
+            user_information=user_info,
         )
-        webhook_url = profile_data.get("webhook_url")
-        if webhook_url:
+        result = run_post_processing(
+            pipeline, file_json, workspace, timestamp, static_config.suffixes
+        )
+        if result.error:
+            typer.secho(
+                f"[Router] Post-processing failed ({result.error}). Falling back to scrubbed text.",
+                fg=typer.colors.YELLOW,
+            )
+        raw_text, final_text = result.raw_text, result.final_text
+        if profile_data.get("webhook_url"):
             typer.secho(
                 f"[Router] Routing '{profile}' payload to n8n...", fg=typer.colors.CYAN
             )
-            try:
-                payload = json.loads(final_text)
-            except json.JSONDecodeError:
-                payload = {"text_content": final_text}
-            push_to_n8n(webhook_url, payload, workspace.name)
+        dispatch_webhook(profile_data, result, workspace)
         (workspace / ".completed").touch()
         typer.secho("\n=== RAW TEXT ===", bold=True)
         typer.echo(raw_text)

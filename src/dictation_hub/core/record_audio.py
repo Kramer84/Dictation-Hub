@@ -120,9 +120,12 @@ def record_audio_app(
     target_peak: float = typer.Option(
         -6.0, help="Target peak volume in dB (used with --normalize)."
     ),
+    raw_output: Optional[Path] = typer.Option(
+        None, help="Keep the untouched recording at this path (otherwise it is discarded)."
+    ),
 ) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
-    temp_wav = output.with_suffix(".tmp.wav")
+    temp_wav = raw_output or output.with_suffix(".tmp.wav")
     record_audio(temp_wav, record_format, record_type)
     gain = None
     if normalize:
@@ -137,5 +140,6 @@ def record_audio_app(
             print("   ⚠️ Warning: Could not detect audio peak. Skipping normalization.")
     filters = build_ffmpeg_filters(normalize, remove_silence, highpass, gain)
     process_audio(temp_wav, output, sample_rate, channels, codec, filters)
-    temp_wav.unlink(missing_ok=True)
+    if raw_output is None:
+        temp_wav.unlink(missing_ok=True)
     print(f"✅ Audio saved to {output}")

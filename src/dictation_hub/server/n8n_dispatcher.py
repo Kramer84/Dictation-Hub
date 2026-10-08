@@ -2,6 +2,7 @@ import glob
 import sys
 import argparse
 import json
+import os
 import logging
 from pathlib import Path
 import requests

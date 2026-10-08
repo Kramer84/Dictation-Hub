@@ -6,6 +6,9 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 from freezegun import freeze_time
 
+# Calls a real local LLM (Ollama); excluded from the default run.
+pytestmark = pytest.mark.live
+
 # Configure runpaths dynamically without packaging constraints
 repo_root = Path(__file__).resolve().parent.parent
 

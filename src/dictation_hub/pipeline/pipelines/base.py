@@ -87,7 +87,7 @@ class BasePipeline:
             "Aggregated raw text block (Length: %d characters).", len(raw_text)
         )
         timestamp = self.metadata.get("timestamp", "unknown")
-        raw_txt_path = self.workspace_dir / f"{timestamp}_raw.txt"
+        raw_txt_path = self.workspace_dir / f"{timestamp}{self.static_config.suffixes.raw_text}"
         logger.info("Writing deterministic raw text output to: %s", raw_txt_path)
         with open(raw_txt_path, "w", encoding="utf-8") as f:
             f.write(raw_text)

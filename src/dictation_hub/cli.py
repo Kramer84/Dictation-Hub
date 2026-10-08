@@ -10,6 +10,7 @@ import typer
 from click.shell_completion import CompletionItem
 
 from .client.streamer import run_remote_stream
+from .core.invocation import InvocationError, parse_invocation
 from .core.config_manager import get_config_dir, load_deployment_env, load_json_config
 from .core.local_runner import run_local_pipeline
 
@@ -97,17 +98,23 @@ def load_machine_role() -> str:
     return config.get("DICTATION_ROLE", "host")
 
 
-@app.command("run", hidden=True)
-def main_run(
-    ctx: typer.Context,
-    profile: str = typer.Argument("standard", help="The dictation profile to use."),
-):
+@app.command(
+    "run",
+    hidden=True,
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def main_run(ctx: typer.Context):
+    try:
+        profile, overrides = parse_invocation(ctx.args)
+    except InvocationError as e:
+        typer.secho(f"Error: {e}", fg=typer.colors.RED)
+        raise typer.Exit(code=2)
     role = load_machine_role()
     if role == "host":
         typer.secho(
             f"[Host] Executing '{profile}' locally via GPU...", fg=typer.colors.MAGENTA
         )
-        run_local_pipeline(profile, ctx.args)
+        run_local_pipeline(profile, overrides)
     elif role == "client":
         typer.secho(
             f"[Client] Streaming '{profile}' audio to server...", fg=typer.colors.BLUE
@@ -116,7 +123,13 @@ def main_run(
         protocol = os.environ.get("SERVER_PROTOCOL", "http")
         ip = os.environ.get("SERVER_IP", "127.0.0.1")
         port = os.environ.get("SERVER_PORT", "8000")
-        run_remote_stream(ctx, profile, protocol, ip, port)
+        run_remote_stream(
+            profile=profile,
+            overrides=overrides,
+            server_protocol=protocol,
+            server_ip=ip,
+            server_port=port,
+        )
     else:
         typer.secho("Error: Unknown machine role.", fg=typer.colors.RED)
         raise typer.Exit(code=1)
@@ -198,7 +211,9 @@ def start_languagetool():
 @server_app.command("start")
 def server_start(
     host: str = typer.Option(
-        "0.0.0.0", help="Host IP to bind to (use 'tailscale' for TS IP)"
+        "tailscale",
+        help="Host IP to bind to. Default 'tailscale' binds only the Tailscale IPv4; "
+        "use 127.0.0.1 for local-only.",
     ),
     port: int = typer.Option(8000, help="Port to bind to"),
 ):

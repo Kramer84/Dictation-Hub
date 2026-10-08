@@ -1,40 +1,43 @@
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
 import time
-from typing import IO, Optional, Tuple
+from pathlib import Path
+from typing import IO, Dict, Optional, Tuple
 from urllib.parse import urlencode
 
-import typer
+from ..core.config_manager import get_config_dir
 
 
-def kill_existing_audio_processes() -> None:
-    targets = ["arecord", "parec", "parecord", "rec", "ffmpeg"]
-    for target in targets:
-        subprocess.run(
-            ["killall", target], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
+
+def remember_capture(pid_file: Path, pid: int, program: str) -> None:
+    pid_file.write_text(f"{pid} {program}")
 
 
-def build_url(protocol: str, ip: str, port: str, profile: str, extra_args: list) -> str:
-    query_params = {"profile": profile}
-    i = 0
-    while i < len(extra_args):
-        if extra_args[i].startswith("--"):
-            key = extra_args[i].lstrip("-")
-            val = (
-                extra_args[i + 1]
-                if i + 1 < len(extra_args) and not extra_args[i + 1].startswith("--")
-                else ""
-            )
-            query_params[key] = val
-            i += 2 if val else 1
-        else:
-            i += 1
-    query_string = urlencode(query_params)
+def kill_stale_capture(pid_file: Path) -> None:
+    """Kill the capture process left behind by a previous crashed run, and nothing else."""
+    if not pid_file.exists():
+        return
+    try:
+        pid_str, program = pid_file.read_text().split()
+        pid = int(pid_str)
+        running = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "comm="], capture_output=True, text=True
+        ).stdout.strip()
+        if running == program:
+            os.kill(pid, signal.SIGTERM)
+    except (ValueError, ProcessLookupError, PermissionError):
+        pass
+    finally:
+        pid_file.unlink(missing_ok=True)
+
+
+def build_url(protocol: str, ip: str, port: str, profile: str, overrides: Dict[str, str]) -> str:
+    query_string = urlencode({"profile": profile, **overrides})
     return f"{protocol}://{ip}:{port}/transcribe?{query_string}"
 
 
@@ -178,18 +181,15 @@ def handle_server_response(resp_path: str) -> None:
 
 
 def run_remote_stream(
-    ctx: typer.Context,
-    profile: str = typer.Argument(
-        "standard", help="The dictation profile (e.g. standard, fast, medical)"
-    ),
-    server_protocol: str = typer.Option(
-        "http", "--protocol", help="Protocol of the transcription server"
-    ),
-    server_ip: str = typer.Option("127.0.0.1", "--ip", help="IP address of the server"),
-    server_port: str = typer.Option("8000", "--port", help="Port of the server"),
+    profile: str,
+    overrides: Dict[str, str],
+    server_protocol: str = "http",
+    server_ip: str = "127.0.0.1",
+    server_port: str = "8000",
 ):
-    kill_existing_audio_processes()
-    target_url = build_url(server_protocol, server_ip, server_port, profile, ctx.args)
+    capture_pid_file = get_config_dir() / "client_capture.pid"
+    kill_stale_capture(capture_pid_file)
+    target_url = build_url(server_protocol, server_ip, server_port, profile, overrides)
     with tempfile.TemporaryDirectory() as temp_dir:
         err_path = os.path.join(temp_dir, "dictation.err")
         resp_path = os.path.join(temp_dir, "dictation.resp")
@@ -200,11 +200,13 @@ def run_remote_stream(
             with open(err_path, "r") as f:
                 print(f.read())
             sys.exit(1)
+        remember_capture(capture_pid_file, audio_proc.pid, audio_proc.args[0])
         print(f"✅ Audio Backend Secured: {backend_name} (Profile: {profile})")
         curl_proc = stream_audio_to_server(audio_proc.stdout, target_url, resp_path)
         if audio_proc.stdout:
             audio_proc.stdout.close()
         wait_for_user_stop(audio_proc)
+        capture_pid_file.unlink(missing_ok=True)
         print("-> Audio capture stopped. Waiting for server inference...")
         curl_proc.wait()
         handle_server_response(resp_path)
