@@ -34,5 +34,5 @@ Findings:
 6. **Merge:** offset the per-chunk segments into one `<ts>_full.json`, so the scrubber and pipelines are unchanged. **Boundary repair:** if a chunk ends without `. ? !`, lowercase the first word of the next chunk (examples: "…poitrine plate," ‖ "La tête…", and "…new process," ‖ "Making iron…").
 7. **Remaining error:** at about 1 cut in 10, whisper adds a sentence end where the text continues ("…other countries?" ‖ "Notably France…"). Handled by the punctuation backlog (M0 audit §7).
 
-## Possible quick win before M1b
-Use the style prompt on the current whole-file path. Sentence-end F1 goes 0.845 → 0.945 and comma F1 0.731 → 0.789, at the cost of WER 7.5 % → 8.1 % (mostly French). It needs a prompt per language, so it only works with `-l` or with a language probe.
+## Quick win before M1b — ✅ done 2026-10-08
+`whisper_transcribe` now prepends `STYLE_PROMPTS[language]` (en/fr/de/es/it) to the profile prompt. With `-l xx` no detection is needed. With `auto`, a `whisper-cli -dl` probe (about 1.5 s, first 30 s of audio) detects the language, which is then locked for the real run. If detection fails, the run stays on `auto` with no style prompt. To opt out: `--no-style-prompt`, or `NO_STYLE_PROMPT="true"` in `standard.env`. Original note: use the style prompt on the current whole-file path. Sentence-end F1 goes 0.845 → 0.945 and comma F1 0.731 → 0.789, at the cost of WER 7.5 % → 8.1 % (mostly French). It needs a prompt per language, so it only works with `-l` or with a language probe.

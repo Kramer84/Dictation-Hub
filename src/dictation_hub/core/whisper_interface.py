@@ -1,10 +1,40 @@
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import Annotated, Any, Optional
 
 import typer
 from dotenv import dotenv_values
+
+
+# A short, well-punctuated sentence in the dictation language, passed as
+# --prompt, makes whisper punctuate much better (optimization/chunking_experiment.py:
+# sentence-end F1 0.845 -> 0.945, comma F1 0.731 -> 0.789 on the dataset).
+STYLE_PROMPTS = {
+    "en": "Hello, this is a clearly punctuated dictation. It uses commas, full stops and question marks where they belong.",
+    "fr": "Bonjour, ceci est une dictée bien ponctuée. Elle utilise des virgules, des points et des points d'interrogation là où il faut.",
+    "de": "Hallo, dies ist ein sauber interpunktiertes Diktat. Es verwendet Kommas, Punkte und Fragezeichen dort, wo sie hingehören.",
+    "es": "Hola, este es un dictado bien puntuado. Usa comas, puntos y signos de interrogación donde corresponde.",
+    "it": "Ciao, questo è un dettato ben punteggiato. Usa virgole, punti e punti interrogativi dove servono.",
+}
+
+
+def probe_language(cli_exec: Path, model_path: Path, input_wav: Path, threads: int) -> Optional[str]:
+    """Ask whisper for the spoken language (first 30 s); None if it cannot tell."""
+    cmd = [
+        str(cli_exec), "-f", str(input_wav), "-m", str(model_path),
+        "-t", str(threads), "-l", "auto", "-dl",
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    match = re.search(r"auto-detected language: (\w+)", result.stderr or "")
+    return match.group(1) if match else None
+
+
+def compose_prompt(language: str, initial_prompt: str) -> str:
+    """Style sentence for the language (if known) followed by the profile prompt."""
+    parts = [STYLE_PROMPTS.get(language, ""), initial_prompt or ""]
+    return " ".join(p for p in parts if p)
 
 
 def load_env_config(config_path: Path) -> dict[str, str]:
@@ -290,6 +320,9 @@ def whisper_transcribe(
     vad_max_speech: Annotated[int, typer.Option(help="VAD max speech duration s")] = 30,
     vad_pad: Annotated[int, typer.Option(help="VAD speech pad ms")] = 50,
     vad_overlap: Annotated[float, typer.Option(help="VAD samples overlap")] = 0.10,
+    no_style_prompt: Annotated[
+        bool, typer.Option(help="Do not prepend the punctuation style prompt")
+    ] = False,
 ):
     current_args = locals().copy()
     if config:
@@ -311,6 +344,16 @@ def whisper_transcribe(
     except FileNotFoundError as e:
         typer.secho(f"Error: {e}", fg=typer.colors.RED)
         raise typer.Exit(code=1)
+    if not current_args["no_style_prompt"]:
+        language = current_args["language"]
+        if language == "auto":
+            detected = probe_language(
+                cli_exec, model_path, current_args["input_wav"], current_args["threads"]
+            )
+            if detected:
+                typer.secho(f"-> Detected language: {detected}", fg=typer.colors.CYAN)
+                current_args["language"] = language = detected
+        current_args["initial_prompt"] = compose_prompt(language, current_args["initial_prompt"])
     cmd = build_whisper_command(current_args)
     typer.secho("-> Executing Whisper Inference...", fg=typer.colors.CYAN)
     result = subprocess.run(cmd)
