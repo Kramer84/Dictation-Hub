@@ -12,7 +12,7 @@ from ..pipeline.core.static_config import WhisperPipelineConfig
 from .config_manager import create_workspace, get_config_dir, load_json_config
 from .invocation import WHISPER_OPTIONS
 from .recorder import record_from_mic
-from .session import TranscriptionError, process_capture
+from .session import TranscriptionError, complete_session, process_capture, start_transcription
 from .utils import copy_to_clipboard
 
 
@@ -68,10 +68,24 @@ def run_local_pipeline(
         shutil.copy2(audio_file, capture)
         typer.secho(f"[Router] Reprocessing {audio_file}", fg=typer.colors.MAGENTA)
     else:
+        # Live: chunks are transcribed while recording, only the last one remains at stop.
         capture = workspace / f"{timestamp}_capture.wav"
-        outcome = record_from_mic(capture)
+        job = start_transcription(
+            capture, workspace, timestamp, profile, pipeline_config,
+            overrides=cli_overrides, valid_args=sorted(WHISPER_OPTIONS), live=True,
+        )
+        outcome = record_from_mic(capture, listeners=[job])
+        if outcome != "process":
+            job.cancel()
         if not _handle_unprocessed(outcome, capture, workspace, profile):
             return
+        try:
+            result = complete_session(job, workspace, timestamp, profile, pipeline_config, static_config)
+        except TranscriptionError as e:
+            typer.secho(f"[Router] Error: {e}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+        _deliver(result.raw_text, result.final_text, result.error)
+        return
     _process_locally(capture, workspace, timestamp, profile, pipeline_config, static_config, cli_overrides)
 
 

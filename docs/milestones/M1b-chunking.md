@@ -1,6 +1,6 @@
 # M1b — Chunked Capture & Incremental Transcription
 
-- **Status:** ⚪ Designed from measurements, not started.
+- **Status:** 🟢 Implemented 2026-10-09 (branch `m1-session`).
 - **Evidence:** `optimization/chunking_experiment.py`, run on the 15 dataset takes (12 English, 3 French, 66–184 s each). Results are in `optimization/chunking_results.json` (round 1) and `optimization/chunking_results_round2.json` (round 2).
 
 ## Results (means over 15 takes; turbo-q5, `standard.env` settings)
@@ -36,3 +36,16 @@ Findings:
 
 ## Quick win before M1b — ✅ done 2026-10-08
 `whisper_transcribe` now prepends `STYLE_PROMPTS[language]` (en/fr/de/es/it) to the profile prompt. With `-l xx` no detection is needed. With `auto`, a `whisper-cli -dl` probe (about 1.5 s, first 30 s of audio) detects the language, which is then locked for the real run. If detection fails, the run stays on `auto` with no style prompt. To opt out: `--no-style-prompt`, or `NO_STYLE_PROMPT="true"` in `standard.env`. Original note: use the style prompt on the current whole-file path. Sentence-end F1 goes 0.845 → 0.945 and comma F1 0.731 → 0.789, at the cost of WER 7.5 % → 8.1 % (mostly French). It needs a prompt per language, so it only works with `-l` or with a language probe.
+
+## Implementation (2026-10-09)
+- `core/chunker.py`: `choose_cut` (longest pause between 20 and 30 s, else longest pause, else hard cut). `merge_transcripts` shifts offsets and timestamps, and lowercases the first word after a chunk that ends without `. ? !` (never "I" or all-caps words). `ChunkedTranscription` is a worker thread that reads the growing capture WAV, runs Silero VAD on each 30 s window, and transcribes chunks in the background. `finish()` / `cancel()`. `complete=True` is for existing files.
+- `core/session.py`: `start_transcription` (live or complete) and `complete_session` (merge → `<ts>_full.json` → metadata → pipeline → webhook). `process_capture` converts non-16 kHz input first. Per chunk: buzz filter and gain, whisper with the style prompt, and the language from the first chunk locked. Chunk WAVs are deleted after merging; the per-chunk JSONs are kept in `chunks/`.
+- Live paths: the local recording feeds the job as a recorder listener. The server starts the job as soon as the upload header shows 16 kHz mono PCM; other formats (old client, web UI webm) are processed after upload. q/c cancel the job.
+- **GPU memory:** `whisper-cli` runs once per chunk, so the model is in VRAM only while a chunk is being transcribed, and never during the LLM step. `whisper-server` (model loaded during recording) stays an optional later optimization: it would save about 0.5–1 s of model load on the last chunk.
+
+### Real-run check (dataset take replayed in real time via `DICTATION_CAPTURE_COMMAND`, fresh server)
+`02_mesa_boogie_manual_extract/take_01`, 81 s: **wait after stop 4.5 s** in live chunked mode, against 14.7 s when everything runs after stop (`-f`). WER 2.4 % (experiment, same take: whole file 4.0 %, chunks 5.0 %). Three chunks, the first two transcribed during the recording.
+
+### Follow-ups
+- The test suite now takes about 80 s, mostly the per-chunk buzz check (9 ffmpeg calls). It could be computed in one ffmpeg pass.
+- `optimization/chunking_experiment.py` still has its own copy of the cut logic; switch it to `chunker.choose_cut`.

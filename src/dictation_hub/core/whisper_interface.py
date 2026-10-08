@@ -31,6 +31,31 @@ def probe_language(cli_exec: Path, model_path: Path, input_wav: Path, threads: i
     return match.group(1) if match else None
 
 
+def speech_pauses(wav: Path, whisper_dir: Path, vad_model: str, min_gap: float = 0.25) -> list:
+    """[(middle, length)] in seconds of the pauses between Silero VAD speech segments.
+
+    Returns [] when the VAD tool or model is missing (callers then hard-cut).
+    """
+    whisper_dir = Path(os.path.expandvars(str(whisper_dir))).expanduser()
+    tool = whisper_dir / "build" / "bin" / "whisper-vad-speech-segments"
+    model = whisper_dir / "models" / f"ggml-{vad_model}.bin"
+    if not tool.is_file() or not model.is_file():
+        return []
+    out = subprocess.run(
+        [str(tool), "-f", str(wav), "--vad-model", str(model), "-np"],
+        capture_output=True, text=True,
+    ).stdout
+    segments = [
+        (float(a) / 100, float(b) / 100)  # the tool reports centiseconds
+        for a, b in re.findall(r"start = ([\d.]+), end = ([\d.]+)", out)
+    ]
+    return [
+        ((start + end) / 2, start - end)
+        for (_, end), (start, _) in zip(segments, segments[1:])
+        if start - end >= min_gap
+    ]
+
+
 def compose_prompt(language: str, initial_prompt: str) -> str:
     """Style sentence for the language (if known) followed by the profile prompt."""
     parts = [STYLE_PROMPTS.get(language, ""), initial_prompt or ""]

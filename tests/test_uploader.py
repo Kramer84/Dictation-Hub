@@ -82,3 +82,26 @@ def test_server_health_probe(live_server):
     url, _ = live_server
     assert uploader.server_is_up(url)
     assert not uploader.server_is_up("http://127.0.0.1:9")
+
+
+def test_upload_is_chunked_while_streaming(live_server, monkeypatch):
+    url, store = live_server
+    calls = []
+
+    def counting_whisper(input_wav, config, output_base):
+        calls.append(time.time())
+        fake_whisper(input_wav, config, output_base)
+
+    monkeypatch.setattr(session, "whisper_transcribe", counting_whisper)
+    monkeypatch.setattr(session, "speech_pauses", lambda wav, whisper_dir, vad_model: [(24.0, 1.0)])
+    upload = uploader.ServerUpload(f"{url}/transcribe?profile=standard")
+    for _ in range(700):  # 70 s of audio
+        upload(PCM_BLOCK)
+    deadline = time.time() + 30
+    while len(calls) < 2 and time.time() < deadline:
+        time.sleep(0.1)
+    assert len(calls) >= 2  # transcribed before the upload ended
+    upload(None)
+    result = upload.result(timeout=60)
+    assert result["final_text"] == "Hello there."
+    assert len(calls) == 3

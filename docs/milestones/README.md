@@ -7,7 +7,7 @@ The roadmap lives in `CLAUDE.md` §2. This folder tracks **progress**: what was 
 | M0 | Audit, defect catalog, architecture proposal | 🟢 Done | [M0-audit.md](M0-audit.md) |
 | M0.5 | Stabilize: repair tests, fix high-severity defects test-first | 🟢 Done (merged to main) | [M0.5-stabilize.md](M0.5-stabilize.md) |
 | M1 | Session orchestrator, recording controls, 16 kHz capture, `--file`, server autostart/fallback | 🟡 In progress | [M1-session.md](M1-session.md) |
-| M1b | Chunked capture & incremental transcription (VRAM-frugal) | ⚪ Designed from experiments | [M1b-chunking.md](M1b-chunking.md) |
+| M1b | Chunked capture & incremental transcription (VRAM-frugal) | 🟢 Done | [M1b-chunking.md](M1b-chunking.md) |
 | M2 | GPU pre-flight & fail-fast | ⚪ Not started | — |
 | M3 | CLI router redesign & completion | ⚪ Not started | — |
 | M4 | Desktop active-window injection | ⚪ Not started | — |
@@ -24,3 +24,4 @@ Legend: ⚪ not started · 🟡 in progress / blocked on decision · 🟢 done
 - **2026-10-08** — M0.5 merged to `main`. Lone filler segments kept. The tool install is editable. M1 started on branch `m1-session`.
 - **2026-10-08** — M1: `--file`, recording keys and pause/resume landed. A live-test quality drop was traced to GSM phone interference (not the 16 kHz format), and an automatic 217 Hz buzz detector and filter was added.
 - **2026-10-08** — Chunking experiment, 2 rounds on 15 takes: chunks of ≥20 s cut at the longest Silero pause, with a style prompt, give WER 7.4 % (whole file: 7.5 %), better punctuation, and a 4× shorter wait after stop. M1b design written.
+- **2026-10-09** — M1b implemented: live chunked transcription, locally and on the server. Real run: 81 s dictation, 4.5 s wait after stop (14.7 s when everything runs after stop), WER 2.4 %.

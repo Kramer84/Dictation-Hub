@@ -11,7 +11,13 @@ from starlette.requests import ClientDisconnect
 
 from dictation_hub.pipeline.core.static_config import WhisperPipelineConfig
 from dictation_hub.core.config_manager import USER_CONFIG_DIR
-from dictation_hub.core.session import TranscriptionError, process_capture
+from dictation_hub.core.chunker import is_streamable_wav
+from dictation_hub.core.session import (
+    TranscriptionError,
+    complete_session,
+    process_capture,
+    start_transcription,
+)
 
 # 1. Resolve core paths
 SERVER_DIR = Path(__file__).resolve().parent
@@ -49,26 +55,40 @@ async def serve_ui():
     index_path = SERVER_DIR / "templates" / "index.html"
     return index_path.read_text(encoding="utf-8")
 
-def execute_pipeline(workspace: Path, raw_audio: Path, timestamp: str, profile_name: str, query_params: dict):
-    config = load_pipeline_config()
-    overrides = {k: v for k, v in query_params.items() if k != "profile" and v != "auto"}
+def _overrides(query_params: dict) -> dict:
+    return {k: v for k, v in query_params.items() if k != "profile" and v != "auto"}
+
+
+def _response(run) -> dict:
     try:
-        result = process_capture(
-            capture=raw_audio,
-            workspace=workspace,
-            timestamp=timestamp,
-            profile=profile_name,
-            pipeline_config=config,
-            static_config=static_config,
-            overrides=overrides,
-            valid_args=config.get("valid_arguments", []),
-        )
+        result = run()
     except TranscriptionError as e:
         return {"raw_text": "", "final_text": "", "error": str(e)}
     response = {"raw_text": result.raw_text, "final_text": result.final_text}
     if result.error:
         response["error"] = result.error
     return response
+
+
+def execute_pipeline(workspace: Path, raw_audio: Path, timestamp: str, profile_name: str, query_params: dict):
+    """Process a complete upload (formats that cannot be chunked while streaming)."""
+    config = load_pipeline_config()
+    return _response(lambda: process_capture(
+        capture=raw_audio,
+        workspace=workspace,
+        timestamp=timestamp,
+        profile=profile_name,
+        pipeline_config=config,
+        static_config=static_config,
+        overrides=_overrides(query_params),
+        valid_args=config.get("valid_arguments", []),
+    ))
+
+
+def finish_live(job, workspace: Path, timestamp: str, profile_name: str) -> dict:
+    """Finish a recording that was chunked while it streamed in."""
+    config = load_pipeline_config()
+    return _response(lambda: complete_session(job, workspace, timestamp, profile_name, config, static_config))
 
 
 @app.get("/health")
@@ -87,20 +107,43 @@ async def transcribe(request: Request):
     workspace.mkdir(parents=True, exist_ok=True)
     raw_audio = workspace / f"{timestamp}_client.wav"
 
+    query_params = dict(request.query_params)
+    job, head = None, b""
     try:
         with open(raw_audio, "wb") as f:
             async for chunk in request.stream():
                 f.write(chunk)
+                f.flush()  # the chunk worker reads the file while it grows
+                if job is not None:
+                    job(b"")
+                elif head is not None:
+                    head += chunk
+                    if len(head) >= 44:
+                        if is_streamable_wav(head):
+                            config = load_pipeline_config()
+                            job = start_transcription(
+                                raw_audio, workspace, timestamp, profile_name, config,
+                                overrides=_overrides(query_params),
+                                valid_args=config.get("valid_arguments", []),
+                                live=True,
+                            )
+                        head = None
     except ClientDisconnect:
         # The client quit or cancelled mid-recording; it keeps its own copy.
+        if job is not None:
+            await run_in_threadpool(job.cancel)
         shutil.rmtree(workspace, ignore_errors=True)
         return JSONResponse(status_code=499, content={"error": "Upload aborted by client."})
 
     if raw_audio.stat().st_size < 100:
+        if job is not None:
+            await run_in_threadpool(job.cancel)
         return {"raw_text": "Error: Received empty audio stream.", "final_text": ""}
 
+    if job is not None:
+        return await run_in_threadpool(finish_live, job, workspace, timestamp, profile_name)
     return await run_in_threadpool(
-        execute_pipeline, workspace, raw_audio, timestamp, profile_name, dict(request.query_params)
+        execute_pipeline, workspace, raw_audio, timestamp, profile_name, query_params
     )
 
 

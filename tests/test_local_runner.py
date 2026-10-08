@@ -1,4 +1,5 @@
 import json
+import wave
 import shutil
 from pathlib import Path
 
@@ -108,7 +109,7 @@ def test_llm_failure_still_delivers_scrubbed_text(run):
 def test_raw_capture_is_kept_in_workspace(run):
     workspace, _, transcribed = run()
     assert (workspace / "20261008_120000_capture.wav").is_file()
-    assert transcribed == [workspace / "20261008_120000_raw.wav"]
+    assert [p.parent for p in transcribed] == [workspace / "chunks"]
 
 
 def test_quit_keeps_audio_and_skips_processing(run, capsys):
@@ -157,11 +158,12 @@ def test_existing_file_is_reprocessed_without_recording(tmp_path, monkeypatch):
     clipboard = []
     monkeypatch.setattr(local_runner, "create_workspace", lambda *a: (workspace, "20261008_130000"))
     monkeypatch.setattr(local_runner, "record_from_mic", lambda capture, listeners=(): pytest.fail("recorded"))
-    monkeypatch.setattr(
-        session,
-        "whisper_transcribe",
-        lambda input_wav, config, output_base: (transcribed.append(input_wav), fake_whisper(input_wav, config, output_base)),
-    )
+    def whisper_noting_format(input_wav, config, output_base):
+        with wave.open(str(input_wav)) as w:
+            transcribed.append((w.getframerate(), w.getnchannels()))
+        fake_whisper(input_wav, config, output_base)
+
+    monkeypatch.setattr(session, "whisper_transcribe", whisper_noting_format)
     monkeypatch.setattr(session, "setup_logging", lambda ws: None)
     monkeypatch.setattr(local_runner, "copy_to_clipboard", clipboard.append)
     monkeypatch.setitem(session.PIPELINE_MAP, "standard", FailingPipeline)
@@ -169,8 +171,7 @@ def test_existing_file_is_reprocessed_without_recording(tmp_path, monkeypatch):
     local_runner.run_local_pipeline("standard", {}, audio_file=source)
 
     assert (workspace / "20261008_130000_capture.wav").read_bytes() == source.read_bytes()
-    with wave.open(str(transcribed[0])) as w:
-        assert (w.getframerate(), w.getnchannels()) == (16000, 1)
+    assert transcribed == [(16000, 1)]
     assert clipboard == ["salut"]
 
 
@@ -210,7 +211,7 @@ def test_cancel_with_server_aborts_and_leaves_nothing(server_up, tmp_path):
 def test_server_failure_falls_back_to_local_processing(server_up):
     FakeUpload.answer = ConnectionError("server went away")
     workspace, clipboard, transcribed = server_up()
-    assert transcribed == [workspace / "20261008_120000_raw.wav"]
+    assert [p.parent for p in transcribed] == [workspace / "chunks"]
     assert clipboard == ["salut"]
 
 
@@ -224,3 +225,32 @@ def test_overrides_the_server_does_not_accept_are_processed_locally(server_up, m
     monkeypatch.setattr(local_runner, "record_from_mic", fake_mic("process"))
     local_runner.run_local_pipeline("standard", {"threads": "8"})
     assert FakeUpload.instances == []
+
+
+def test_live_local_recording_feeds_the_chunker(run, monkeypatch):
+    started = []
+    original = session.start_transcription
+
+    def spy(*args, **kwargs):
+        job = original(*args, **kwargs)
+        started.append(kwargs.get("live"))
+        return job
+
+    monkeypatch.setattr(local_runner, "start_transcription", spy)
+    workspace, clipboard, transcribed = run()
+    assert started == [True]
+    assert clipboard == ["salut"]
+
+
+def test_quit_cancels_the_live_chunker(run, monkeypatch):
+    jobs = []
+    original = session.start_transcription
+
+    def spy(*args, **kwargs):
+        job = original(*args, **kwargs)
+        jobs.append(job)
+        return job
+
+    monkeypatch.setattr(local_runner, "start_transcription", spy)
+    run("quit")
+    assert jobs and jobs[0]._cancelled.is_set()
