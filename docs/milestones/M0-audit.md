@@ -165,3 +165,10 @@ Live tests (real whisper, GPU or Ollama) are marked `@pytest.mark.live` and excl
 | 8 | VRAM timing | The whisper model loads **when recording starts**, so it is ready for the chunks and the final flush, and is **freed before the LLM step**. |
 | 9 | Desktop use | Configurable global keyboard shortcuts launch the tool in the background and type or paste the result into the active window (M4). This needs `xdotool` on X11, which is not installed yet. |
 | 10 | Fillers | Phrases made only of fillers are kept. Whisper's invented trailing phrases ("Thank you.", etc.) are filtered out. |
+
+## 7. Backlog: punctuation and intent (later phase)
+
+Raised 2026-10-08: whisper's punctuation often misses the intent (missing marks, or sentence ends where there are none), and short chunks may make this worse. Options, cheapest first:
+1. **Style prompt.** Pass a well-punctuated sentence (or the previous chunk's text) as `--prompt`. Costs nothing, and its effect can be measured with `optimization/chunking_experiment.py` (`end_f1`, `comma_f1`).
+2. **Dedicated punctuation-restoration model**, e.g. a multilingual token classifier covering en/fr/de/it. Small, runs on CPU so it needs no VRAM, and is deterministic.
+3. **LLM punctuation pass.** Best at intent, but it costs VRAM and latency and can rewrite words. It would have to be constrained to punctuation and case only, with a check that the word sequence is unchanged.
