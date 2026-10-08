@@ -47,28 +47,6 @@ r"""
     This set is used to identify and filter out backchannel words during
     the post-processing stage of the transcription pipeline.
     """
-PURE_FILLER_RE = re.compile(
-    "^(Mm-hmm|Mhm|Mm|Hmm|-hmm|Yeah|Yep|Wow|Nice|Sure|Right|Okay|Cool|Oh|Uh-huh)[.\\s,!?]*$",
-    re.IGNORECASE,
-)
-r"""
-    Compiled regex pattern for identifying pure filler words.
-    
-    This pattern matches common filler words like 'Mm-hmm', 'Yeah', or
-    'Wow' with optional trailing punctuation. Used in the deterministic
-    cleaner to strip non-content speech artifacts.
-    """
-FILLER_PATTERN = re.compile(
-    "^[\\s.,!?]*(mm[-\\s]?hmm|mhm|mm|hmm|yeah|yep|wow|nice|sure|right|okay|oh|uh[-\\s]?huh|ah|um|i|so)([.\\s,!?]|\\s)*$",
-    re.IGNORECASE,
-)
-r"""
-    Generate a regular expression pattern for filler word identification.
-    
-    The pattern matches common filler words and phrases, including
-    variations of 'mm-hmm', 'yeah', and 'uh-huh', with optional leading or
-    trailing punctuation or whitespace.
-    """
 MAX_WORD_DURATION_MS = 5000
 r"""
     Maximum duration of a word in milliseconds.
@@ -129,20 +107,6 @@ def format_timestamp(ms):
     if h > 0:
         return f"[{h:02d}:{m:02d}:{s:02d}]"
     return f"[{m:02d}:{s:02d}]"
-
-
-def _is_pure_filler(text):
-    stripped = PURE_FILLER_RE.sub("", text).strip()
-    return not stripped
-
-
-def _is_fragment(text):
-    text = text.strip()
-    if FILLER_PATTERN.match(text):
-        return True
-    if not re.search("[a-zA-Z0-9]", text):
-        return True
-    return False
 
 
 def strip_markers_func(text):
@@ -423,10 +387,10 @@ def phrase_level_cleanup(entries, gap_threshold_ms=3000, apply_compression=False
         gap_threshold_ms,
         apply_compression,
     )
-    no_fillers = [e for e in entries if not _is_pure_filler(e["text"].strip())]
-    logger.debug("Filtered out pure fillers. Remaining segments: %d", len(no_fillers))
-    no_fragments = [e for e in no_fillers if not _is_fragment(e["text"])]
-    logger.debug("Filtered out fragments. Remaining segments: %d", len(no_fragments))
+    # Fillers ("Yeah.", "mhm") are kept on purpose: they can carry intent or
+    # hesitation. Only segments with no word characters at all are dropped.
+    no_fragments = [e for e in entries if re.search(r"\w", e["text"])]
+    logger.debug("Dropped wordless segments. Remaining segments: %d", len(no_fragments))
     final_out = []
     cur = None
     for e in no_fragments:

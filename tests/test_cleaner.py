@@ -4,8 +4,6 @@ from dictation_hub.pipeline.core.text_tools import (
     add_confidence_marker,
     compress_repetitions_marked,
     dedup_and_filter_hallucinations,
-    _is_pure_filler,
-    _is_fragment,
     phrase_level_cleanup,
     format_timestamp
 )
@@ -72,28 +70,6 @@ def test_dedup_backchannels_allowed_streaks():
     result = dedup_and_filter_hallucinations(mock_segments)
     assert result[0]["text"] == " yeah yeah okay"
 
-# --- Unit Tests: Filler and Fragment Identification ---
-
-@pytest.mark.parametrize("text, expected", [
-    ("Mm-hmm.", True),
-    # Decision 2026-10-08: phrases made only of fillers are kept (they can carry intent/hesitation).
-    ("Yeah, sure.", False),
-    ("Uh-huh!", True),
-    ("This is real text", False),
-    ("Okay, let's go", False),
-])
-def test_is_pure_filler(text, expected):
-    assert _is_pure_filler(text) == expected
-
-@pytest.mark.parametrize("text, expected", [
-    ("mhm", True),
-    ("yeah ", True),
-    ("...", True),   # Completely non-alphanumeric noise
-    ("I think so", False),
-])
-def test_is_fragment(text, expected):
-    assert _is_fragment(text) == expected
-
 # --- Integration Tests: Phrase Level Cleanup ---
 
 def test_phrase_level_cleanup_merging():
@@ -118,9 +94,19 @@ def test_phrase_level_cleanup_no_merging():
     assert result[0]["text"] == "Hello world."
     assert result[1]["text"] == " This should NOT merge."
 
-def test_phrase_level_cleanup_drops_fillers():
+def test_phrase_level_cleanup_keeps_lone_fillers():
+    # Decision 2026-10-08: fillers can carry intent or hesitation, so they are kept.
     entries = [
         {"start_ms": 0, "end_ms": 1000, "text": "Yeah."},
+        {"start_ms": 10000, "end_ms": 11000, "text": " mhm"},
+    ]
+    result = phrase_level_cleanup(entries)
+    assert [e["text"] for e in result] == ["Yeah.", " mhm"]
+
+
+def test_phrase_level_cleanup_drops_segments_without_words():
+    entries = [
+        {"start_ms": 0, "end_ms": 1000, "text": "..."},
         {"start_ms": 1500, "end_ms": 3000, "text": "Actual dictation."}
     ]
     result = phrase_level_cleanup(entries)
