@@ -136,7 +136,9 @@ def main_run(ctx: typer.Context):
         typer.secho(
             f"[Host] Executing '{profile}' locally via GPU...", fg=typer.colors.MAGENTA
         )
-        run_local_pipeline(profile, overrides, audio_file=invocation.audio_file)
+        run_local_pipeline(
+            profile, overrides, audio_file=invocation.audio_file, force_local=invocation.force_local
+        )
     elif role == "client":
         typer.secho(
             f"[Client] Streaming '{profile}' audio to server...", fg=typer.colors.BLUE

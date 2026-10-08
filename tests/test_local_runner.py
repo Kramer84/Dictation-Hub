@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -17,11 +18,37 @@ def write_tone(path, rate=16000, channels=1, seconds=1):
 
 
 def fake_mic(outcome):
-    def record(capture):
+    def record(capture, listeners=()):
         write_tone(capture)
+        for listener in listeners:
+            listener(b"\x00\x00" * 1600)
+            if outcome == "process":
+                listener(None)
         return outcome
 
     return record
+
+
+class FakeUpload:
+    """Stand-in for client.uploader.ServerUpload."""
+
+    instances = []
+    answer = {"raw_text": "hello", "final_text": "Hello."}
+
+    def __init__(self, url, **kwargs):
+        self.url, self.blocks, self.aborted = url, [], False
+        FakeUpload.instances.append(self)
+
+    def __call__(self, block):
+        self.blocks.append(block)
+
+    def abort(self):
+        self.aborted = True
+
+    def result(self, timeout=None):
+        if isinstance(FakeUpload.answer, Exception):
+            raise FakeUpload.answer
+        return FakeUpload.answer
 
 
 def fake_whisper(input_wav, config, output_base):
@@ -60,10 +87,13 @@ def run(tmp_path, monkeypatch):
     monkeypatch.setattr(session, "setup_logging", lambda ws: None)
     monkeypatch.setattr(local_runner, "copy_to_clipboard", clipboard.append)
     monkeypatch.setitem(session.PIPELINE_MAP, "standard", FailingPipeline)
+    monkeypatch.setattr(local_runner, "server_is_up", lambda base: False)  # never the real server
+    shutil.copy(Path(__file__).resolve().parents[1] / "configs" / "static.json", tmp_path)
+    monkeypatch.setattr(local_runner, "get_config_dir", lambda: tmp_path)
 
-    def invoke(outcome="process"):
+    def invoke(outcome="process", **kwargs):
         monkeypatch.setattr(local_runner, "record_from_mic", fake_mic(outcome))
-        local_runner.run_local_pipeline("standard", {})
+        local_runner.run_local_pipeline("standard", {}, **kwargs)
         return workspace, clipboard, transcribed
 
     return invoke
@@ -106,7 +136,7 @@ def test_dead_capture_exits_with_error(run):
 def test_unknown_profile_fails_before_recording(monkeypatch):
     import typer
 
-    monkeypatch.setattr(local_runner, "record_from_mic", lambda capture: pytest.fail("recorded"))
+    monkeypatch.setattr(local_runner, "record_from_mic", lambda capture, listeners=(): pytest.fail("recorded"))
     monkeypatch.setattr(local_runner, "create_workspace", lambda *a: pytest.fail("workspace created"))
     with pytest.raises(typer.Exit) as exc:
         local_runner.run_local_pipeline("standrad", {})
@@ -126,7 +156,7 @@ def test_existing_file_is_reprocessed_without_recording(tmp_path, monkeypatch):
     transcribed = []
     clipboard = []
     monkeypatch.setattr(local_runner, "create_workspace", lambda *a: (workspace, "20261008_130000"))
-    monkeypatch.setattr(local_runner, "record_from_mic", lambda capture: pytest.fail("recorded"))
+    monkeypatch.setattr(local_runner, "record_from_mic", lambda capture, listeners=(): pytest.fail("recorded"))
     monkeypatch.setattr(
         session,
         "whisper_transcribe",
@@ -142,3 +172,55 @@ def test_existing_file_is_reprocessed_without_recording(tmp_path, monkeypatch):
     with wave.open(str(transcribed[0])) as w:
         assert (w.getframerate(), w.getnchannels()) == (16000, 1)
     assert clipboard == ["salut"]
+
+
+@pytest.fixture
+def server_up(run, monkeypatch):
+    FakeUpload.instances.clear()
+    FakeUpload.answer = {"raw_text": "hello", "final_text": "Hello."}
+    monkeypatch.setattr(local_runner, "server_is_up", lambda base: True)
+    monkeypatch.setattr(local_runner, "ServerUpload", FakeUpload)
+    monkeypatch.setenv("SERVER_IP", "100.1.2.3")
+    return run
+
+
+def test_running_server_receives_the_live_recording(server_up, tmp_path):
+    workspace, clipboard, transcribed = server_up()
+    (upload,) = FakeUpload.instances
+    assert upload.url.startswith("http://100.1.2.3:8000/transcribe?profile=standard")
+    assert upload.blocks[-1] is None and not upload.aborted
+    assert clipboard == ["Hello."] and transcribed == []
+    assert not list((tmp_path / "spool").glob("*.wav"))  # server keeps the audio
+
+
+def test_quit_with_server_aborts_upload_and_keeps_audio_locally(server_up, tmp_path):
+    workspace, clipboard, transcribed = server_up("quit")
+    assert FakeUpload.instances[0].aborted
+    assert (workspace / "20261008_120000_capture.wav").is_file()
+    assert clipboard == [] and transcribed == []
+
+
+def test_cancel_with_server_aborts_and_leaves_nothing(server_up, tmp_path):
+    workspace, clipboard, _ = server_up("cancel")
+    assert FakeUpload.instances[0].aborted
+    assert not any(workspace.iterdir())  # no local workspace content was created
+    assert not list((tmp_path / "spool").glob("*.wav"))
+
+
+def test_server_failure_falls_back_to_local_processing(server_up):
+    FakeUpload.answer = ConnectionError("server went away")
+    workspace, clipboard, transcribed = server_up()
+    assert transcribed == [workspace / "20261008_120000_raw.wav"]
+    assert clipboard == ["salut"]
+
+
+def test_local_flag_skips_the_server(server_up):
+    workspace, clipboard, transcribed = server_up(force_local=True)
+    assert FakeUpload.instances == []
+    assert transcribed and clipboard == ["salut"]
+
+
+def test_overrides_the_server_does_not_accept_are_processed_locally(server_up, monkeypatch):
+    monkeypatch.setattr(local_runner, "record_from_mic", fake_mic("process"))
+    local_runner.run_local_pipeline("standard", {"threads": "8"})
+    assert FakeUpload.instances == []

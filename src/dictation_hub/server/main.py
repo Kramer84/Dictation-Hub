@@ -1,11 +1,13 @@
 import json
 import os
+import shutil
 import time
 from pathlib import Path
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, JSONResponse
+from starlette.requests import ClientDisconnect
 
 from dictation_hub.pipeline.core.static_config import WhisperPipelineConfig
 from dictation_hub.core.config_manager import USER_CONFIG_DIR
@@ -69,6 +71,11 @@ def execute_pipeline(workspace: Path, raw_audio: Path, timestamp: str, profile_n
     return response
 
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 @app.post("/transcribe")
 async def transcribe(request: Request):
     timestamp = time.strftime(static_config.storage.folder_format)
@@ -80,9 +87,14 @@ async def transcribe(request: Request):
     workspace.mkdir(parents=True, exist_ok=True)
     raw_audio = workspace / f"{timestamp}_client.wav"
 
-    with open(raw_audio, "wb") as f:
-        async for chunk in request.stream():
-            f.write(chunk)
+    try:
+        with open(raw_audio, "wb") as f:
+            async for chunk in request.stream():
+                f.write(chunk)
+    except ClientDisconnect:
+        # The client quit or cancelled mid-recording; it keeps its own copy.
+        shutil.rmtree(workspace, ignore_errors=True)
+        return JSONResponse(status_code=499, content={"error": "Upload aborted by client."})
 
     if raw_audio.stat().st_size < 100:
         return {"raw_text": "Error: Received empty audio stream.", "final_text": ""}

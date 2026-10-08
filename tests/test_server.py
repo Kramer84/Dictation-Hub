@@ -120,3 +120,28 @@ def test_whisper_failure_returns_an_error_instead_of_crashing(server, tmp_path, 
     resp = server.post("/transcribe?profile=standard", content=tone_wav_bytes(tmp_path))
     assert resp.status_code == 200
     assert resp.json()["error"] == "Whisper execution failed."
+
+
+def test_health_endpoint(server):
+    resp = server.get("/health")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"
+
+
+def test_aborted_upload_leaves_no_workspace(tmp_path, monkeypatch):
+    """A client that disconnects mid-upload (q/c keys) leaves nothing behind."""
+    import asyncio
+    from starlette.requests import ClientDisconnect
+
+    monkeypatch.setattr(main.static_config.storage, "base_dir", tmp_path / "store")
+
+    class AbortedRequest:
+        query_params = {"profile": "standard"}
+
+        async def stream(self):
+            yield b"RIFF" + b"\x00" * 200
+            raise ClientDisconnect()
+
+    result = asyncio.run(main.transcribe(AbortedRequest()))
+    assert result.status_code == 499
+    assert list((tmp_path / "store").iterdir()) == []

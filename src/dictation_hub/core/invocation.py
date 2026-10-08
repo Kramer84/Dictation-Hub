@@ -21,6 +21,7 @@ class Invocation:
     profile: str
     overrides: Dict[str, str] = field(default_factory=dict)
     audio_file: Optional[Path] = None
+    force_local: bool = False
 
 
 def parse_invocation(args: List[str], default_profile: str = "standard") -> Invocation:
@@ -33,10 +34,13 @@ def parse_invocation(args: List[str], default_profile: str = "standard") -> Invo
     positionals: List[str] = []
     overrides: Dict[str, str] = {}
     audio_file: Optional[Path] = None
+    force_local = False
     i = 0
     while i < len(args):
         token = args[i]
-        if token in ("-f", "--file") or token.startswith("--file="):
+        if token == "--local":
+            force_local = True
+        elif token in ("-f", "--file") or token.startswith("--file="):
             if "=" in token:
                 path = token.split("=", 1)[1]
             elif i + 1 < len(args):
@@ -71,7 +75,7 @@ def parse_invocation(args: List[str], default_profile: str = "standard") -> Invo
         i += 1
     if len(positionals) > 1:
         raise InvocationError(f"Expected a single profile, got: {' '.join(positionals)}")
-    return Invocation(positionals[0] if positionals else default_profile, overrides, audio_file)
+    return Invocation(positionals[0] if positionals else default_profile, overrides, audio_file, force_local)
 
 
 LANGUAGES = ["auto", "en", "fr", "de", "es", "it", "nl", "pt"]
@@ -92,7 +96,10 @@ def _all_options() -> List[Tuple[str, str]]:
         ("-m", "Whisper model"),
         ("-t", "Number of threads"),
     ]
-    long = [("--file", "Reprocess an existing audio file")] + sorted(
+    long = [
+        ("--file", "Reprocess an existing audio file"),
+        ("--local", "Process in this terminal, even if the dictation server is running"),
+    ] + sorted(
         ("--" + name.replace("_", "-"), _option_help(name)) for name in WHISPER_OPTIONS
     )
     return short + long

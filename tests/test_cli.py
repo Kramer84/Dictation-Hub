@@ -13,9 +13,10 @@ def host_run():
     """Invoke the CLI as a host and capture what reaches the local runner."""
     calls = []
 
-    def fake_runner(profile, overrides, audio_file=None):
+    def fake_runner(profile, overrides, audio_file=None, force_local=False):
         calls.append((profile, overrides))
         invoke.audio_file = audio_file
+        invoke.force_local = force_local
 
     with patch.object(cli, "load_machine_role", return_value="host"), patch.object(
         cli, "run_local_pipeline", side_effect=fake_runner
@@ -96,3 +97,10 @@ def test_missing_file_is_an_error(tmp_path):
     assert result.exit_code == 2
     assert "nope.wav" in result.output
     local.assert_not_called()
+
+
+def test_local_flag(host_run):
+    host_run("standard")
+    assert host_run.force_local is False
+    host_run("--local", "standard", "-l", "fr")
+    assert host_run.force_local is True
