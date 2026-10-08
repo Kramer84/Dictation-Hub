@@ -15,7 +15,8 @@ from .config_manager import (
 )
 from .invocation import WHISPER_OPTIONS
 from .postprocess import dispatch_webhook, run_post_processing
-from .record_audio import prepare_audio, record_audio_app
+from .record_audio import prepare_audio
+from .recorder import record_from_mic
 from .utils import copy_to_clipboard, save_metadata
 from .whisper_interface import whisper_transcribe
 
@@ -71,19 +72,26 @@ def run_local_pipeline(
             typer.secho(f"[Router] Reprocessing {audio_file}", fg=typer.colors.MAGENTA)
             prepare_audio(capture, file_wav)
         else:
-            record_audio_app(
-                output=file_wav,
-                normalize=True,
-                remove_silence=False,
-                highpass=False,
-                record_format="cd",
-                record_type="wav",
-                sample_rate=16000,
-                channels=1,
-                codec="pcm_s16le",
-                target_peak=-6.0,
-                raw_output=workspace / f"{timestamp}_capture.wav",
-            )
+            capture = workspace / f"{timestamp}_capture.wav"
+            outcome = record_from_mic(capture)
+            if outcome == "cancel":
+                shutil.rmtree(workspace, ignore_errors=True)
+                typer.secho("[Router] Recording cancelled and discarded.", fg=typer.colors.YELLOW)
+                return
+            if outcome == "quit":
+                typer.secho(
+                    f"[Router] Recording kept without processing. Reprocess with:\n"
+                    f"  dictation-hub {profile} -f {capture}",
+                    fg=typer.colors.YELLOW,
+                )
+                return
+            if outcome == "failed" or not capture.is_file():
+                typer.secho(
+                    "[Router] Error: audio capture failed (is the microphone available?).",
+                    fg=typer.colors.RED,
+                )
+                raise typer.Exit(code=1)
+            prepare_audio(capture, file_wav)
         if not file_wav.is_file():
             typer.secho(
                 "[Router] Error: Audio file was not created. Aborting.",

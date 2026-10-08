@@ -6,9 +6,22 @@ import pytest
 from dictation_hub.core import local_runner
 
 
-def fake_record(output, raw_output, **kwargs):
-    raw_output.write_bytes(b"RIFF-capture")
-    output.write_bytes(b"RIFF-processed")
+def write_tone(path, rate=16000, channels=1, seconds=1):
+    import wave
+
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(channels)
+        w.setsampwidth(2)
+        w.setframerate(rate)
+        w.writeframes(b"\x10\x00\xf0\xff" * (rate * channels * seconds // 2))
+
+
+def fake_mic(outcome):
+    def record(capture):
+        write_tone(capture)
+        return outcome
+
+    return record
 
 
 def fake_whisper(input_wav, config, output_base):
@@ -27,40 +40,73 @@ class FailingPipeline:
         raise TimeoutError("LLM timed out")
 
 
+pytestmark = pytest.mark.skipif(
+    __import__("shutil").which("ffmpeg") is None, reason="ffmpeg not installed"
+)
+
+
 @pytest.fixture
 def run(tmp_path, monkeypatch):
     clipboard = []
+    transcribed = []
     workspace = tmp_path / "ws"
     workspace.mkdir()
     monkeypatch.setattr(local_runner, "create_workspace", lambda *a: (workspace, "20261008_120000"))
-    monkeypatch.setattr(local_runner, "record_audio_app", fake_record)
-    monkeypatch.setattr(local_runner, "whisper_transcribe", fake_whisper)
+    monkeypatch.setattr(
+        local_runner,
+        "whisper_transcribe",
+        lambda input_wav, config, output_base: (transcribed.append(input_wav), fake_whisper(input_wav, config, output_base)),
+    )
     monkeypatch.setattr(local_runner, "setup_logging", lambda ws: None)
     monkeypatch.setattr(local_runner, "copy_to_clipboard", clipboard.append)
     monkeypatch.setitem(local_runner.PIPELINE_MAP, "standard", FailingPipeline)
 
-    def invoke():
+    def invoke(outcome="process"):
+        monkeypatch.setattr(local_runner, "record_from_mic", fake_mic(outcome))
         local_runner.run_local_pipeline("standard", {})
-        return workspace, clipboard
+        return workspace, clipboard, transcribed
 
     return invoke
 
 
 def test_llm_failure_still_delivers_scrubbed_text(run):
-    workspace, clipboard = run()
+    workspace, clipboard, _ = run()
     assert clipboard == ["salut"]
     assert (workspace / "20261008_120000_final.txt").read_text() == "salut"
 
 
 def test_raw_capture_is_kept_in_workspace(run):
-    workspace, _ = run()
-    assert (workspace / "20261008_120000_capture.wav").read_bytes() == b"RIFF-capture"
+    workspace, _, transcribed = run()
+    assert (workspace / "20261008_120000_capture.wav").is_file()
+    assert transcribed == [workspace / "20261008_120000_raw.wav"]
+
+
+def test_quit_keeps_audio_and_skips_processing(run, capsys):
+    workspace, clipboard, transcribed = run("quit")
+    capture = workspace / "20261008_120000_capture.wav"
+    assert capture.is_file()
+    assert transcribed == [] and clipboard == []
+    assert f"-f {capture}" in capsys.readouterr().out
+
+
+def test_cancel_removes_the_workspace(run):
+    workspace, clipboard, transcribed = run("cancel")
+    assert not workspace.exists()
+    assert transcribed == [] and clipboard == []
+
+
+def test_dead_capture_exits_with_error(run):
+    import typer
+
+    with pytest.raises(typer.Exit) as exc:
+        run("failed")
+    assert exc.value.exit_code == 1
 
 
 def test_unknown_profile_fails_before_recording(monkeypatch):
     import typer
 
-    monkeypatch.setattr(local_runner, "record_audio_app", lambda **kw: pytest.fail("recorded"))
+    monkeypatch.setattr(local_runner, "record_from_mic", lambda capture: pytest.fail("recorded"))
     monkeypatch.setattr(local_runner, "create_workspace", lambda *a: pytest.fail("workspace created"))
     with pytest.raises(typer.Exit) as exc:
         local_runner.run_local_pipeline("standrad", {})
@@ -74,17 +120,13 @@ def test_existing_file_is_reprocessed_without_recording(tmp_path, monkeypatch):
     if shutil.which("ffmpeg") is None:
         pytest.skip("ffmpeg not installed")
     source = tmp_path / "old_take.wav"
-    with wave.open(str(source), "wb") as w:
-        w.setnchannels(2)
-        w.setsampwidth(2)
-        w.setframerate(44100)
-        w.writeframes(b"\x10\x00\xf0\xff" * 44100)
+    write_tone(source, rate=44100, channels=2)
     workspace = tmp_path / "ws"
     workspace.mkdir()
     transcribed = []
     clipboard = []
     monkeypatch.setattr(local_runner, "create_workspace", lambda *a: (workspace, "20261008_130000"))
-    monkeypatch.setattr(local_runner, "record_audio_app", lambda **kw: pytest.fail("recorded"))
+    monkeypatch.setattr(local_runner, "record_from_mic", lambda capture: pytest.fail("recorded"))
     monkeypatch.setattr(
         local_runner,
         "whisper_transcribe",
