@@ -7,6 +7,7 @@ import os
 import signal
 import socket
 import subprocess
+import threading
 import time
 from pathlib import Path
 from typing import Callable, List, Optional
@@ -125,6 +126,46 @@ def languagetool_command() -> Optional[List[str]]:
             "--port", "8081", "--allow-origin", "*"]
 
 
+LANGUAGETOOL_URL = "http://127.0.0.1:8081"
+WARM_UP_TEXT = {"en-US": "this is a short warm up sentence", "fr-FR": "ceci est une courte phrase d'essai"}
+
+
+def warm_up_languagetool(
+    languages=("en-US", "fr-FR"),
+    wait: float = 120,
+    get: Optional[Callable] = None,
+    post: Optional[Callable] = None,
+    sleep: Callable[[float], None] = time.sleep,
+) -> None:
+    """Wait for the LanguageTool daemon, then check one sentence per language.
+
+    Its first request per language takes about 4 s (rules load, JVM warms
+    up), later ones about 0.15 s: this moves the slow one out of the first
+    dictation after boot. Failures are only logged.
+    """
+    import requests
+
+    get, post = get or requests.get, post or requests.post
+    waited = 0.0
+    while True:
+        try:
+            get(f"{LANGUAGETOOL_URL}/v2/languages", timeout=2)
+            break
+        except Exception:
+            if waited >= wait:
+                logger.warning("LanguageTool did not come up within %d s; no warm-up.", wait)
+                return
+            sleep(1)
+            waited += 1
+    for language in languages:
+        try:
+            text = WARM_UP_TEXT.get(language, WARM_UP_TEXT["en-US"])
+            post(f"{LANGUAGETOOL_URL}/v2/check", data={"text": text, "language": language}, timeout=30)
+        except Exception as e:
+            logger.warning("LanguageTool warm-up for %s failed: %s", language, e)
+    logger.info("LanguageTool warmed up (%s).", ", ".join(languages))
+
+
 def serve(hosts: List[str], port: int) -> None:
     import uvicorn
 
@@ -143,11 +184,14 @@ def _die_with_parent() -> None:
 
 def run_server(host: str, port: int) -> None:
     """Foreground server on ``host`` (resolved, see resolve_bind_host) and
-    localhost, with LanguageTool as a child that stops with it."""
+    localhost, with LanguageTool as a child that stops with it, warmed up in
+    the background."""
     lt_cmd = languagetool_command()
     lt = subprocess.Popen(
         lt_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, preexec_fn=_die_with_parent
     ) if lt_cmd else None
+    if lt is not None:
+        threading.Thread(target=lambda: warm_up_languagetool(), daemon=True).start()
     try:
         serve(bind_hosts(host), port)
     finally:

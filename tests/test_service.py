@@ -170,3 +170,42 @@ service.run_server("127.0.0.1", 0)
         time.sleep(0.1)
     os.kill(child, 9)
     pytest.fail("LanguageTool outlived the server")
+
+
+# ------------------------------------------------------------ LanguageTool warm-up
+def test_warm_up_waits_for_languagetool_then_checks_each_language():
+    gets, posts, slept = [], [], []
+
+    def get(url, timeout):
+        gets.append(url)
+        if len(gets) < 3:
+            raise ConnectionError("not up yet")
+
+    service.warm_up_languagetool(
+        languages=("en-US", "fr"), get=get,
+        post=lambda url, data, timeout: posts.append(data["language"]), sleep=slept.append,
+    )
+    assert len(gets) == 3 and len(slept) == 2
+    assert posts == ["en-US", "fr"]
+
+
+def test_warm_up_gives_up_quietly():
+    def get(url, timeout):
+        raise ConnectionError("never up")
+
+    posts = []
+    service.warm_up_languagetool(
+        wait=3, get=get, post=lambda *a, **kw: posts.append(a), sleep=lambda s: None
+    )
+    assert posts == []
+
+
+def test_run_server_warms_up_languagetool(monkeypatch):
+    import threading
+
+    warmed = threading.Event()
+    monkeypatch.setattr(service, "languagetool_command", lambda: [sys.executable, "-c", "pass"])
+    monkeypatch.setattr(service, "warm_up_languagetool", lambda **kw: warmed.set())
+    monkeypatch.setattr(service, "serve", lambda hosts, port: warmed.wait(5))
+    service.run_server("127.0.0.1", 8000)
+    assert warmed.is_set()
