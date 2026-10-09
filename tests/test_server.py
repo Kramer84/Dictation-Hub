@@ -66,7 +66,7 @@ def server(tmp_path, monkeypatch):
     monkeypatch.setattr(session, "whisper_transcribe", fake_whisper)
     monkeypatch.setitem(session.PIPELINE_MAP, "standard", RecordingPipeline)
     RecordingPipeline.instances.clear()
-    return TestClient(main.app)
+    return TestClient(main.app, client=("127.0.0.1", 50000))
 
 
 def test_detected_language_reaches_the_pipeline(server, tmp_path):

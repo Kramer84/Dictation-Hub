@@ -189,14 +189,15 @@ def server_up(run, monkeypatch):
     FakeUpload.answer = {"raw_text": "hello", "final_text": "Hello."}
     monkeypatch.setattr(local_runner, "server_is_up", lambda base: True)
     monkeypatch.setattr(local_runner, "ServerUpload", FakeUpload)
-    monkeypatch.setenv("SERVER_IP", "100.1.2.3")
+    monkeypatch.setenv("SERVER_IP", "100.1.2.3")  # the client role's setting, not used on the host
+    monkeypatch.setenv("HOST_BIND_PORT", "8123")
     return run
 
 
 def test_running_server_receives_the_live_recording(server_up, tmp_path):
     workspace, clipboard, transcribed = server_up()
     (upload,) = FakeUpload.instances
-    assert upload.url.startswith("http://100.1.2.3:8000/transcribe?profile=standard")
+    assert upload.url.startswith("http://127.0.0.1:8123/transcribe?profile=standard")
     assert upload.blocks[-1] is None and not upload.aborted
     assert clipboard == ["Hello."] and transcribed == []
     assert not list((tmp_path / "spool").glob("*.wav"))  # server keeps the audio

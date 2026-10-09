@@ -1,4 +1,5 @@
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -14,6 +15,7 @@ from .core.invocation import InvocationError, complete_invocation, parse_invocat
 from .core.config_manager import get_config_dir, load_deployment_env, load_json_config
 from .core.local_runner import run_local_pipeline
 from .pipeline.engine import setup_logging
+from .server import service
 
 
 class DictationRouter(typer.core.TyperGroup):
@@ -184,135 +186,135 @@ def stop_process(process_name: str):
         typer.secho(f"ℹ️ No PID file found for {process_name}.", fg=typer.colors.BLUE)
 
 
-def start_languagetool():
-    """Locates the cached LanguageTool JAR and boots it as a background daemon."""
-    pid_file = get_pid_file("languagetool")
-    if pid_file.exists():
-        try:
-            os.kill(int(pid_file.read_text()), 0)
-            typer.secho("✅ LanguageTool is already running.", fg=typer.colors.GREEN)
-            return
-        except OSError:
-            pid_file.unlink(missing_ok=True)
-    lt_cache_dir = Path.home() / ".cache" / "language_tool_python"
+def _require_host() -> None:
+    if load_machine_role() != "host":
+        typer.secho(
+            "Error: The server can only run on a machine configured as a 'host'.",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+
+
+def _service_installed() -> bool:
+    return service.DEFAULT_UNIT_FILE.is_file()
+
+
+def _executable() -> str:
+    return shutil.which("dictation-hub") or str(Path(sys.argv[0]).resolve())
+
+
+HOST_HELP = (
+    "Address to listen on (localhost is always served too). Default: HOST_BIND_IP "
+    "from config.env, else 'tailscale' (this machine's Tailscale IPv4)."
+)
+
+
+@server_app.command("run")
+def server_run(
+    host: Optional[str] = typer.Option(None, help=HOST_HELP),
+    port: Optional[int] = typer.Option(None, help="Port. Default: HOST_BIND_PORT, else 8000."),
+):
+    """Run the server in the foreground (what the systemd service runs)."""
+    _require_host()
+    setup_logging(verbose=True)
     try:
-        lt_jars = list(lt_cache_dir.rglob("languagetool-server.jar"))
-        if not lt_jars:
-            typer.secho(
-                "⚠️ LanguageTool offline server not found. It will be downloaded dynamically on your first grammar check.",
-                fg=typer.colors.YELLOW,
-            )
-            return
-        lt_jar = lt_jars[0]
+        bind = service.resolve_bind_host(host, wait=service.TAILSCALE_WAIT_S)
+    except service.ServiceError as e:
+        typer.secho(f"❌ {e}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    if service.exposes_all_interfaces(bind):
         typer.secho(
-            "🚀 Booting Local LanguageTool Server on port 8081...", fg=typer.colors.CYAN
+            f"⚠️ Listening on every network ({bind}): Wi-Fi, LAN and Docker too, not only "
+            "Tailscale. Only Tailscale and localhost clients are accepted (HOST_ALLOWED_NETWORKS).",
+            fg=typer.colors.YELLOW,
         )
-        log_file = get_config_dir() / "languagetool.log"
-        with open(log_file, "w") as f:
-            proc = subprocess.Popen(
-                [
-                    "java",
-                    "-cp",
-                    str(lt_jar),
-                    "org.languagetool.server.HTTPServer",
-                    "--port",
-                    "8081",
-                    "--allow-origin",
-                    "*",
-                ],
-                stdout=f,
-                stderr=subprocess.STDOUT,
-                preexec_fn=os.setsid,
-            )
-        pid_file.write_text(str(proc.pid))
-        typer.secho(
-            f"✅ LanguageTool daemonized (PID: {proc.pid})", fg=typer.colors.GREEN
-        )
-    except Exception as e:
-        typer.secho(f"❌ Failed to start LanguageTool: {e}", fg=typer.colors.RED)
+    service.run_server(bind, service.resolve_bind_port(port))
+
+
+@server_app.command("install-service")
+def server_install_service():
+    """Install the systemd user service: starts at boot and restarts on failure."""
+    _require_host()
+    try:
+        service.install_service(_executable())
+    except subprocess.CalledProcessError as e:
+        typer.secho(f"❌ {' '.join(e.cmd)} failed (exit code {e.returncode}).", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    typer.secho(
+        f"✅ {service.UNIT_NAME} installed and started; it starts at boot.\n"
+        "   Logs: dictation-hub server logs",
+        fg=typer.colors.GREEN,
+    )
+
+
+@server_app.command("uninstall-service")
+def server_uninstall_service():
+    """Stop and remove the systemd user service."""
+    service.uninstall_service()
+    typer.secho(f"✅ {service.UNIT_NAME} removed.", fg=typer.colors.GREEN)
 
 
 @server_app.command("start")
 def server_start(
-    host: str = typer.Option(
-        "tailscale",
-        help="Host IP to bind to. Default 'tailscale' binds only the Tailscale IPv4; "
-        "use 127.0.0.1 for local-only.",
-    ),
-    port: int = typer.Option(8000, help="Port to bind to"),
+    host: Optional[str] = typer.Option(None, help=HOST_HELP),
+    port: Optional[int] = typer.Option(None, help="Port. Default: HOST_BIND_PORT, else 8000."),
 ):
-    role = load_machine_role()
-    if role != "host":
-        typer.secho(
-            "Error: Server can only be started on a machine configured as a 'host'.",
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(code=1)
+    """Start the server in the background (through the service when installed)."""
+    _require_host()
+    if _service_installed():
+        subprocess.run(["systemctl", "--user", "start", service.UNIT_NAME])
+        return
     pid_file = get_pid_file("server")
     if pid_file.exists():
         try:
             os.kill(int(pid_file.read_text()), 0)
             typer.secho("⚠️ Server is already running.", fg=typer.colors.YELLOW)
             raise typer.Exit(code=1)
-        except OSError:
+        except (OSError, ValueError):
             pid_file.unlink()
-    if host.lower() == "tailscale":
-        try:
-            host = (
-                subprocess.check_output(["tailscale", "ip", "-4"])
-                .decode("utf-8")
-                .strip()
-            )
-            typer.secho(
-                f"🔒 Locked to Tailscale Interface: {host}", fg=typer.colors.CYAN
-            )
-        except Exception:
-            typer.secho(
-                "❌ Could not determine Tailscale IP. Is Tailscale running?",
-                fg=typer.colors.RED,
-            )
-            raise typer.Exit(1)
-    start_languagetool()
-    typer.secho(
-        f"🚀 Booting FastAPI Transcription Server on {host}:{port}...",
-        fg=typer.colors.CYAN,
-    )
+    cmd = [_executable(), "server", "run"]
+    if host:
+        cmd += ["--host", host]
+    if port:
+        cmd += ["--port", str(port)]
     log_file = get_config_dir() / "server.log"
     with open(log_file, "w") as f:
-        proc = subprocess.Popen(
-            [
-                sys.executable,
-                "-u","-m",
-                "uvicorn",
-                "dictation_hub.server.main:app",
-                "--host", host,
-                "--port", str(port),
-            ],
-            stdout=f,
-            stderr=subprocess.STDOUT,
-            preexec_fn=os.setsid,
-        )
+        proc = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT, start_new_session=True)
     pid_file.write_text(str(proc.pid))
-    typer.secho(f"✅ Server daemonized (PID: {proc.pid})", fg=typer.colors.GREEN)
-    typer.secho(f"📄 Real-time logs available at: {log_file}", fg=typer.colors.BLUE)
+    typer.secho(f"✅ Server started (PID: {proc.pid}). Logs: {log_file}", fg=typer.colors.GREEN)
 
 
 @server_app.command("stop")
 def server_stop():
-    typer.secho("Stopping Dictation Hub services...", fg=typer.colors.YELLOW)
-    stop_process("languagetool")
+    """Stop the server (and its LanguageTool)."""
+    if _service_installed():
+        subprocess.run(["systemctl", "--user", "stop", service.UNIT_NAME])
+        return
     stop_process("server")
-    subprocess.run(
-        ["pkill", "-f", "uvicorn dictation_hub.server.main:app"],
-        stderr=subprocess.DEVNULL,
-    )
+    if get_pid_file("languagetool").exists():  # left over from older versions
+        stop_process("languagetool")
+
+
+@server_app.command("status")
+def server_status():
+    if _service_installed():
+        subprocess.run(["systemctl", "--user", "--no-pager", "status", service.UNIT_NAME])
+        return
+    pid_file = get_pid_file("server")
+    try:
+        os.kill(int(pid_file.read_text()), 0)
+        typer.secho(f"✅ Server running (PID: {pid_file.read_text()})", fg=typer.colors.GREEN)
+    except (OSError, ValueError):
+        typer.secho("Server is not running.", fg=typer.colors.YELLOW)
 
 
 @server_app.command("logs")
-def server_logs():
-    typer.secho("Printing logs in terminal:", fg=typer.colors.YELLOW)
+def server_logs(lines: int = typer.Option(200, "--lines", "-n")):
+    if _service_installed():
+        subprocess.run(["journalctl", "--user", "-u", service.UNIT_NAME, "-n", str(lines), "--no-pager"])
+        return
     log_file = get_config_dir() / "server.log"
     if log_file.is_file():
-        print(log_file.read_text())
+        print("\n".join(log_file.read_text().splitlines()[-lines:]))
     else:
         typer.secho("Log file not found.", fg=typer.colors.RED)

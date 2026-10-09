@@ -104,3 +104,56 @@ def test_local_flag(host_run):
     assert host_run.force_local is False
     host_run("--local", "standard", "-l", "fr")
     assert host_run.force_local is True
+
+
+# ------------------------------------------------------------ server commands
+@pytest.fixture
+def host_role():
+    with patch.object(cli, "load_machine_role", return_value="host"):
+        yield
+
+
+def test_server_run_waits_for_tailscale_and_serves_it(host_role, monkeypatch):
+    from dictation_hub.server import service
+
+    monkeypatch.setenv("HOST_BIND_IP", "tailscale")
+    resolved, served = [], []
+    monkeypatch.setattr(service, "resolve_bind_host", lambda host, wait=0: resolved.append((host, wait)) or "100.71.34.52")
+    monkeypatch.setattr(service, "run_server", lambda host, port: served.append((host, port)))
+    result = runner.invoke(cli.app, ["server", "run", "--port", "8001"])
+    assert result.exit_code == 0, result.output
+    assert resolved[0][0] is None and resolved[0][1] > 0
+    assert served == [("100.71.34.52", 8001)]
+
+
+def test_server_run_warns_when_exposed_on_every_network(host_role, monkeypatch):
+    from dictation_hub.server import service
+
+    monkeypatch.setattr(service, "run_server", lambda host, port: None)
+    result = runner.invoke(cli.app, ["server", "run", "--host", "0.0.0.0"])
+    assert result.exit_code == 0, result.output
+    assert "every network" in result.output
+
+
+def test_install_service_uses_this_executable(host_role, monkeypatch):
+    from dictation_hub.server import service
+
+    installed = []
+    monkeypatch.setattr(service, "install_service", lambda exec_path: installed.append(exec_path))
+    monkeypatch.setattr(cli.shutil, "which", lambda name: "/home/u/.local/bin/dictation-hub")
+    result = runner.invoke(cli.app, ["server", "install-service"])
+    assert result.exit_code == 0, result.output
+    assert installed == ["/home/u/.local/bin/dictation-hub"]
+
+
+def test_server_start_uses_the_service_when_installed(host_role, monkeypatch, tmp_path):
+    from dictation_hub.server import service
+
+    unit = tmp_path / "dictation-hub.service"
+    unit.write_text("[Unit]\n")
+    monkeypatch.setattr(service, "DEFAULT_UNIT_FILE", unit)
+    calls = []
+    monkeypatch.setattr(cli.subprocess, "run", lambda cmd, **kw: calls.append(cmd))
+    result = runner.invoke(cli.app, ["server", "start"])
+    assert result.exit_code == 0, result.output
+    assert calls == [["systemctl", "--user", "start", "dictation-hub.service"]]

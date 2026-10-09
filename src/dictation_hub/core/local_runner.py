@@ -18,10 +18,9 @@ from .utils import copy_to_clipboard
 
 
 def server_base_url() -> str:
-    protocol = os.environ.get("SERVER_PROTOCOL", "http")
-    ip = os.environ.get("SERVER_IP", "127.0.0.1")
-    port = os.environ.get("SERVER_PORT", "8000")
-    return f"{protocol}://{ip}:{port}"
+    """The host's own dictation server: it always listens on localhost too,
+    so this works even while Tailscale is down."""
+    return f"http://127.0.0.1:{os.environ.get('HOST_BIND_PORT', '8000')}"
 
 
 def run_local_pipeline(

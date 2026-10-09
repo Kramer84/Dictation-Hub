@@ -14,6 +14,7 @@ from dictation_hub.pipeline.core.static_config import WhisperPipelineConfig
 from dictation_hub.core.config_manager import USER_CONFIG_DIR
 from dictation_hub.core.chunker import is_streamable_wav
 from dictation_hub.pipeline.engine import setup_logging
+from dictation_hub.server.access import AllowedClientsOnly
 from dictation_hub.core.session import (
     TranscriptionError,
     complete_session,
@@ -44,6 +45,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(AllowedClientsOnly)
 
 
 def load_pipeline_config() -> dict:
