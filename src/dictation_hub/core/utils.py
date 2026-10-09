@@ -23,17 +23,25 @@ def save_metadata(
         json.dump(metadata, f, indent=2)
 
 
-def copy_to_clipboard(text: str) -> None:
+def copy_to_clipboard(text: str) -> bool:
+    """Copy ``text`` with the first clipboard tool found; True if it worked."""
     if not text:
-        return
-    if shutil.which("wl-copy"):
-        subprocess.run(["wl-copy"], input=text.encode("utf-8"))
-        typer.secho("\n[Router] Copied to Wayland clipboard.", fg=typer.colors.GREEN)
-    elif shutil.which("xclip"):
-        subprocess.run(["xclip", "-selection", "clipboard"], input=text.encode("utf-8"))
-        typer.secho("\n[Router] Copied to X11 clipboard.", fg=typer.colors.GREEN)
-    else:
-        typer.secho(
-            "\n[Router] Warning: No clipboard utility found (wl-copy/xclip).",
-            fg=typer.colors.YELLOW,
-        )
+        return False
+    for tool, cmd, name in (
+        ("wl-copy", ["wl-copy"], "Wayland"),
+        ("xclip", ["xclip", "-selection", "clipboard"], "X11"),
+    ):
+        if shutil.which(tool):
+            # Both tools stay in the background to serve the selection: they
+            # must not keep our stdout open, or a pipe reading it never ends.
+            copied = subprocess.run(
+                cmd, input=text.encode("utf-8"),
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+            if copied.returncode == 0:
+                typer.secho(f"📋 Copied to clipboard ({name})", fg=typer.colors.GREEN)
+                return True
+            typer.secho(f"⚠️ Copying to the clipboard with {tool} failed.", fg=typer.colors.YELLOW)
+            return False
+    typer.secho("⚠️ No clipboard tool found (wl-copy/xclip).", fg=typer.colors.YELLOW)
+    return False

@@ -32,9 +32,20 @@ r"""
     """
 
 
-def setup_logging(workspace_dir: Path = None):
+_verbose = False
+
+
+def setup_logging(workspace_dir: Path = None, verbose: bool = None):
+    """Send all log records to ``<workspace>/session.log``; the terminal only
+    gets warnings and errors, or everything with ``verbose``. ``verbose=None``
+    keeps the previous choice (set once by the CLI or the server)."""
+    global _verbose
+    if verbose is not None:
+        _verbose = verbose
 
     root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        handler.close()
     root_logger.handlers.clear()
     root_logger.setLevel(logging.DEBUG)
 
@@ -42,12 +53,16 @@ def setup_logging(workspace_dir: Path = None):
     formatter = logging.Formatter(log_format)
 
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(formatter)
+    if _verbose:
+        console_handler.setLevel(logging.INFO)
+        console_handler.setFormatter(formatter)
+    else:
+        console_handler.setLevel(logging.WARNING)
+        console_handler.setFormatter(logging.Formatter("%(message)s"))
     root_logger.addHandler(console_handler)
 
     if workspace_dir:
-        log_file = workspace_dir / "orchestrator.log"
+        log_file = workspace_dir / "session.log"
         file_handler = logging.FileHandler(log_file, mode="a", encoding="utf-8")
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
@@ -72,7 +87,7 @@ def main():
 
     workspace_path = Path(args.workspace)
 
-    setup_logging(workspace_path)
+    setup_logging(workspace_path, verbose=True)
 
     logger.info("Starting Orchestration Engine")
     logger.debug(

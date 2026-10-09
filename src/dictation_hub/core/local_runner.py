@@ -10,6 +10,7 @@ import typer
 from ..client.uploader import ServerUpload, server_is_up
 from ..pipeline.core.static_config import WhisperPipelineConfig
 from .config_manager import create_workspace, get_config_dir, load_json_config
+from .console import rule, short_path, show_chunk
 from .invocation import WHISPER_OPTIONS
 from .recorder import record_from_mic
 from .session import TranscriptionError, complete_session, process_capture, start_transcription
@@ -63,22 +64,25 @@ def run_local_pipeline(
             )
 
     workspace, timestamp = _new_workspace(static_config, profile)
+    typer.secho(f"[Host] {profile} · local GPU · {short_path(workspace)}", fg=typer.colors.MAGENTA)
     if audio_file is not None:
         capture = workspace / f"{timestamp}_capture{audio_file.suffix}"
         shutil.copy2(audio_file, capture)
-        typer.secho(f"[Router] Reprocessing {audio_file}", fg=typer.colors.MAGENTA)
+        typer.secho(f"   Reprocessing {audio_file}", fg=typer.colors.MAGENTA)
     else:
         # Live: chunks are transcribed while recording, only the last one remains at stop.
         capture = workspace / f"{timestamp}_capture.wav"
         job = start_transcription(
             capture, workspace, timestamp, profile, pipeline_config,
             overrides=cli_overrides, valid_args=sorted(WHISPER_OPTIONS), live=True,
+            on_chunk=show_chunk,
         )
         outcome = record_from_mic(capture, listeners=[job])
         if outcome != "process":
             job.cancel()
         if not _handle_unprocessed(outcome, capture, workspace, profile):
             return
+        typer.secho("⏹  Stopped — finishing the last chunk, then cleanup and grammar…", fg=typer.colors.CYAN)
         try:
             result = complete_session(job, workspace, timestamp, profile, pipeline_config, static_config)
         except TranscriptionError as e:
@@ -94,7 +98,7 @@ def _run_via_server(base_url, profile, overrides, pipeline_config, static_config
     spool_dir.mkdir(parents=True, exist_ok=True)
     spool = spool_dir / f"{time.strftime('%Y%m%d_%H%M%S')}_{profile}.wav"
     upload = ServerUpload(f"{base_url}/transcribe?{urlencode({'profile': profile, **overrides})}")
-    typer.secho(f"[Router] Streaming to dictation server {base_url}", fg=typer.colors.BLUE)
+    typer.secho(f"[Host] {profile} · dictation server {base_url}", fg=typer.colors.BLUE)
 
     outcome = record_from_mic(spool, listeners=[upload])
     if outcome != "process":
@@ -109,6 +113,7 @@ def _run_via_server(base_url, profile, overrides, pipeline_config, static_config
         _handle_unprocessed(outcome, capture, workspace, profile)
         return
 
+    typer.secho("⏹  Stopped — waiting for the server…", fg=typer.colors.CYAN)
     try:
         answer = upload.result()
     except Exception as e:
@@ -126,11 +131,9 @@ def _run_via_server(base_url, profile, overrides, pipeline_config, static_config
 
 
 def _new_workspace(static_config, profile):
-    workspace, timestamp = create_workspace(
+    return create_workspace(
         str(static_config.storage.base_dir), static_config.storage.folder_format, profile
     )
-    typer.secho(f"[Router] Workspace: {workspace} (Profile: {profile})", fg=typer.colors.CYAN)
-    return workspace, timestamp
 
 
 def _handle_unprocessed(outcome: str, capture: Path, workspace: Path, profile: str) -> bool:
@@ -166,6 +169,7 @@ def _process_locally(capture, workspace, timestamp, profile, pipeline_config, st
             static_config=static_config,
             overrides=overrides,
             valid_args=sorted(WHISPER_OPTIONS),
+            on_chunk=show_chunk,
         )
     except TranscriptionError as e:
         typer.secho(f"[Router] Error: {e}", fg=typer.colors.RED)
@@ -174,14 +178,15 @@ def _process_locally(capture, workspace, timestamp, profile, pipeline_config, st
 
 
 def _deliver(raw_text: str, final_text: str, error: Optional[str]) -> None:
+    """Show the delivered text once and copy it. The scrubbed raw text stays in
+    the workspace (<ts>_raw.txt) and is what gets delivered if the LLM failed."""
     if error:
         typer.secho(
-            f"[Router] Post-processing failed ({error}). Falling back to scrubbed text.",
+            f"⚠️ Post-processing failed ({error}); delivering the scrubbed text.",
             fg=typer.colors.YELLOW,
         )
-    typer.secho("\n=== RAW TEXT ===", bold=True)
-    typer.echo(raw_text)
-    if raw_text != final_text and final_text:
-        typer.secho("\n=== POST-PROCESSED TEXT ===", bold=True)
-        typer.echo(final_text)
-    copy_to_clipboard(final_text or raw_text)
+    text = final_text or raw_text
+    typer.echo(rule())
+    typer.echo(text)
+    typer.echo(rule())
+    copy_to_clipboard(text)

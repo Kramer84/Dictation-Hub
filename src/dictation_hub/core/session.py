@@ -7,10 +7,11 @@ transcribed while the user keeps talking, so only the last one is left when
 recording stops.
 """
 import json
+import logging
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional
 
 import typer
 
@@ -22,6 +23,10 @@ from .record_audio import prepare_audio
 from .utils import save_metadata
 from .whisper_interface import load_env_config, speech_pauses, whisper_transcribe
 
+logger = logging.getLogger(__name__)
+
+ChunkReporter = Callable[[int, str], None]
+
 
 class TranscriptionError(RuntimeError):
     """Whisper did not produce a transcript."""
@@ -32,10 +37,15 @@ def _base_env(pipeline_config: dict, profile: str) -> Path:
 
 
 def _chunk_transcriber(
-    pipeline_config: dict, profile: str, overrides: Dict[str, str], valid_args: List[str]
+    pipeline_config: dict,
+    profile: str,
+    overrides: Dict[str, str],
+    valid_args: List[str],
+    on_chunk: Optional[ChunkReporter] = None,
 ) -> Callable[[Path, int], dict]:
     """Per chunk: buzz filter and gain, then whisper. The language found on the
-    first chunk (when not given) is locked for the following ones."""
+    first chunk (when not given) is locked for the following ones. Each chunk's
+    text is logged and passed to ``on_chunk(index, text)``."""
     profile_data = pipeline_config["profiles"][profile]
     state = {"language": overrides.get("language")}
 
@@ -65,6 +75,10 @@ def _chunk_transcriber(
         detected = data.get("result", {}).get("language")
         if (not state["language"] or state["language"] == "auto") and detected and detected != "auto":
             state["language"] = detected
+        text = " ".join(s.get("text", "").strip() for s in data.get("transcription", [])).strip()
+        logger.info("Chunk %d: %s", index + 1, text)
+        if on_chunk is not None:
+            on_chunk(index, text)
         return data
 
     return transcribe
@@ -79,6 +93,7 @@ def start_transcription(
     overrides: Dict[str, str],
     valid_args: List[str],
     live: bool = True,
+    on_chunk: Optional[ChunkReporter] = None,
 ) -> ChunkedTranscription:
     """Begin chunked transcription of ``capture`` (16 kHz mono WAV).
 
@@ -86,13 +101,14 @@ def start_transcription(
     or upload listener (``None`` ends the recording) and call
     ``complete_session`` afterwards.
     """
+    setup_logging(workspace)
     env = load_env_config(_base_env(pipeline_config, profile))
     whisper_dir = env.get("WHISPER_DIR", "~/whisper.cpp")
     vad_model = env.get("VAD_MODEL", "silero-v6.2.0")
     return ChunkedTranscription(
         capture,
         workspace / "chunks",
-        _chunk_transcriber(pipeline_config, profile, overrides, valid_args),
+        _chunk_transcriber(pipeline_config, profile, overrides, valid_args, on_chunk),
         lambda window: speech_pauses(window, whisper_dir, vad_model),
         complete=not live,
     )
@@ -121,7 +137,6 @@ def complete_session(
         chunk_audio.unlink()  # the capture holds the audio; keep the per-chunk JSON
 
     save_metadata(workspace, file_json, profile, timestamp)
-    setup_logging(workspace)
     pipeline_class = PIPELINE_MAP.get(profile, PIPELINE_MAP["standard"])
     pipeline = pipeline_class(
         repo_root=REPO_ROOT,
@@ -155,6 +170,7 @@ def process_capture(
     static_config,
     overrides: Dict[str, str],
     valid_args: List[str],
+    on_chunk: Optional[ChunkReporter] = None,
 ) -> PostProcessResult:
     """Transcribe and deliver a complete recording (``--file``, uploads that
     could not be chunked live, web UI audio).
@@ -169,6 +185,7 @@ def process_capture(
     if not is_streamable_wav(header):
         source = to_16k_mono(capture, workspace / f"{timestamp}_16k.wav")
     job = start_transcription(
-        source, workspace, timestamp, profile, pipeline_config, overrides, valid_args, live=False
+        source, workspace, timestamp, profile, pipeline_config, overrides, valid_args,
+        live=False, on_chunk=on_chunk,
     )
     return complete_session(job, workspace, timestamp, profile, pipeline_config, static_config)

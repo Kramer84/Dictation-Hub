@@ -156,7 +156,8 @@ def control_recording(rec, keys: Iterator[Optional[str]]) -> str:
     except KeyboardInterrupt:
         outcome = "quit"
     rec.stop(send_end=outcome == "process")
-    print()
+    # End a pause/resume status line, if one is showing, without a blank line.
+    print("\r\033[K" if sys.stdout.isatty() else "", end="", flush=True)
     return outcome
 
 

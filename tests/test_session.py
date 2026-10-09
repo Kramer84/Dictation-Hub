@@ -60,7 +60,7 @@ def setup(tmp_path, monkeypatch):
     static = WhisperPipelineConfig.load_from_file(REPO / "configs" / "static.json")
     pipeline_config = {"profiles": {"standard": {"env": "standard.env"}}, "user_information": {}}
 
-    def run(overrides=None, valid_args=("language",), seconds=1):
+    def run(overrides=None, valid_args=("language",), seconds=1, **kwargs):
         write_tone(capture, seconds)
         return session.process_capture(
             capture=capture,
@@ -71,6 +71,7 @@ def setup(tmp_path, monkeypatch):
             static_config=static,
             overrides=overrides or {},
             valid_args=list(valid_args),
+            **kwargs,
         )
 
     return run, workspace, seen
@@ -107,6 +108,13 @@ def test_long_capture_is_transcribed_in_chunks_and_merged(setup):
     full = json.loads((workspace / f"{TS}_full.json").read_text())
     assert [s["offsets"]["from"] for s in full["transcription"]] == [0, 24000, 48000]
     assert [s["text"] for s in full["transcription"]] == [" bonjour 1,", " bonjour 2,", " bonjour 3,"]
+
+
+def test_each_transcribed_chunk_is_reported(setup):
+    run, _, _ = setup
+    reported = []
+    run(seconds=70, on_chunk=lambda index, text: reported.append((index, text)))
+    assert reported == [(0, "bonjour 1,"), (1, "bonjour 2,"), (2, "bonjour 3,")]
 
 
 def test_language_found_on_the_first_chunk_is_locked_for_the_next(setup):

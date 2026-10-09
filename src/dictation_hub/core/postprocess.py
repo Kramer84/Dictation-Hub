@@ -29,7 +29,8 @@ def run_post_processing(
     try:
         final_text = pipeline.execute(json_path)
     except Exception as e:
-        logger.exception("Post-processing failed; falling back to scrubbed text.")
+        # The caller reports the failure; the traceback is for the session log.
+        logger.info("Post-processing failed; falling back to scrubbed text.", exc_info=True)
         error = f"{type(e).__name__}: {e}"
         final_text = None
     raw_text = (

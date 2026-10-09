@@ -1,3 +1,4 @@
+import logging
 import re
 import select
 import subprocess
@@ -6,6 +7,8 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+
+logger = logging.getLogger(__name__)
 
 
 def record_audio(output_path: Path, record_format: str, record_type: str) -> None:
@@ -111,7 +114,7 @@ def process_audio(
     codec: str,
     filters: str = "",
 ) -> None:
-    print(f"-> Processing audio format ({sample_rate / 1000}kHz, mono)...")
+    logger.info("Converting audio to %s kHz, %s channel(s)", sample_rate / 1000, channels)
     cmd = [
         "ffmpeg",
         "-hide_banner",
@@ -148,21 +151,18 @@ def prepare_audio(
     buzz = gsm_buzz_level(input_path)
     gsm_notch = buzz > GSM_BUZZ_THRESHOLD_DB
     if gsm_notch:
-        print(
-            f"   ⚠️ Phone interference detected (217 Hz buzz, +{buzz:.1f} dB): filtering it out. "
-            "Keep phones away from the microphone."
+        logger.warning(
+            "   ⚠️ Phone interference detected (217 Hz buzz, +%.1f dB): filtering it out. "
+            "Keep phones away from the microphone.", buzz
         )
     gain = None
     if normalize:
-        print("   -> Analyzing audio for peak normalization...")
         max_vol = get_max_volume(input_path, GSM_NOTCH if gsm_notch else "")
         if max_vol is not None:
             gain = target_peak - max_vol
-            print(
-                f"   -> Applying static whole-file peak gain adjustment: {gain:.2f}dB (Target: {target_peak}dB)..."
-            )
+            logger.info("Peak normalization: %+.2f dB (target %s dB)", gain, target_peak)
         else:
-            print("   ⚠️ Warning: Could not detect audio peak. Skipping normalization.")
+            logger.warning("   ⚠️ Could not detect the audio peak; skipping normalization.")
     filters = build_ffmpeg_filters(normalize, remove_silence, highpass, gain, gsm_notch)
     process_audio(input_path, output, sample_rate, channels, codec, filters)
 

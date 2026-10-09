@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import subprocess
@@ -6,6 +7,8 @@ from typing import Annotated, Any, Optional
 
 import typer
 from dotenv import dotenv_values
+
+logger = logging.getLogger(__name__)
 
 
 # A short, well-punctuated sentence in the dictation language, passed as
@@ -376,17 +379,19 @@ def whisper_transcribe(
                 cli_exec, model_path, current_args["input_wav"], current_args["threads"]
             )
             if detected:
-                typer.secho(f"-> Detected language: {detected}", fg=typer.colors.CYAN)
+                logger.info("Detected language: %s", detected)
                 current_args["language"] = language = detected
         current_args["initial_prompt"] = compose_prompt(language, current_args["initial_prompt"])
     cmd = build_whisper_command(current_args)
-    typer.secho("-> Executing Whisper Inference...", fg=typer.colors.CYAN)
-    result = subprocess.run(cmd)
+    logger.info("Running whisper on %s", current_args["input_wav"])
+    # whisper.cpp's own output (segments, model loading) goes to the session log.
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    for line in (result.stdout + result.stderr).splitlines():
+        if line.strip():
+            logger.debug("whisper: %s", line)
     if result.returncode == 0:
-        typer.secho(
-            f"✅ Transcription process complete using target: {resolved_output_base}",
-            fg=typer.colors.GREEN,
-        )
+        logger.info("Transcript written to %s.json", resolved_output_base)
     else:
-        typer.secho("❌ Whisper execution failed.", fg=typer.colors.RED)
+        tail = "\n".join(result.stderr.strip().splitlines()[-5:])
+        logger.error("❌ Whisper failed (exit code %s):\n%s", result.returncode, tail)
         raise typer.Exit(code=1)

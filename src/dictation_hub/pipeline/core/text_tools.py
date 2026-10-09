@@ -145,11 +145,10 @@ def grammar_checker(
             logger.info("🚀 Connected to remote server daemon.")
         except Exception as e:
             logger.warning(
-                "⚠️ [Grammar Checker] Failed to connect to local daemon: %s", e
+                "⚠️ LanguageTool daemon not running on port 8081: starting a temporary "
+                "one (adds several seconds). `dictation-hub server start` keeps it running."
             )
-            logger.info(
-                "-> Falling back to a local, self-hosted LanguageTool instance..."
-            )
+            logger.debug("LanguageTool daemon connection error: %s", e)
             tool = language_tool_python.LanguageTool(lt_lang)
         if disable_spellchecking:
             tool.disable_spellchecking()

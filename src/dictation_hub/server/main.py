@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
@@ -12,6 +13,7 @@ from starlette.requests import ClientDisconnect
 from dictation_hub.pipeline.core.static_config import WhisperPipelineConfig
 from dictation_hub.core.config_manager import USER_CONFIG_DIR
 from dictation_hub.core.chunker import is_streamable_wav
+from dictation_hub.pipeline.engine import setup_logging
 from dictation_hub.core.session import (
     TranscriptionError,
     complete_session,
@@ -34,7 +36,14 @@ if not STATIC_JSON_PATH.exists():
 # Load static config
 static_config = WhisperPipelineConfig.load_from_file(STATIC_JSON_PATH)
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # The server's stdout is its log file (server.log, journald): keep the details.
+    setup_logging(verbose=True)
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 def load_pipeline_config() -> dict:

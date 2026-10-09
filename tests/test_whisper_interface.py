@@ -64,6 +64,31 @@ def test_language_without_style_sentence_gets_no_prompt(fake_whisper):
     assert "--prompt" not in calls[0]
 
 
+def test_whisper_output_goes_to_the_log_not_the_terminal(fake_whisper, monkeypatch, caplog, capsys):
+    def run(cmd, **kwargs):
+        assert kwargs.get("capture_output")
+        return subprocess.CompletedProcess(
+            cmd, 0, stdout="[00:00:00.000 --> 00:00:01.000]   Hello there.\n",
+            stderr="read_audio_data: reading audio data\n",
+        )
+
+    monkeypatch.setattr(wi.subprocess, "run", run)
+    with caplog.at_level("DEBUG"):
+        fake_whisper(language="en")
+    assert "Hello there." in caplog.text and "read_audio_data" in caplog.text
+    assert capsys.readouterr().out == ""
+
+
+def test_whisper_failure_shows_its_error(fake_whisper, monkeypatch, caplog):
+    monkeypatch.setattr(
+        wi.subprocess, "run",
+        lambda cmd, **kw: subprocess.CompletedProcess(cmd, 3, stdout="", stderr="error: failed to load model\n"),
+    )
+    with caplog.at_level("ERROR"), pytest.raises(wi.typer.Exit):
+        fake_whisper(language="en")
+    assert "failed to load model" in caplog.text
+
+
 def test_failed_detection_falls_back_to_auto_without_style(fake_whisper, monkeypatch):
     monkeypatch.setattr(wi, "probe_language", lambda *a: None)
     calls = fake_whisper(language="auto")

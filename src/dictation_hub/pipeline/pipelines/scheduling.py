@@ -290,7 +290,6 @@ class SchedulingPipeline(BasePipeline):
             "=== SchedulingPipeline.execute() starting for input_json_path=%s ===",
             input_json_path,
         )
-        print("[SchedulingPipeline] Executing deterministic extraction...")
         logger.debug("Step 1/6: Running deterministic cleaner on input.")
         current_text = self.apply_deterministic_cleaner(input_json_path)
         logger.debug(
@@ -398,9 +397,7 @@ class SchedulingPipeline(BasePipeline):
                     llm_data.raw_start_time,
                     llm_data.raw_end_time,
                 )
-                print(
-                    "[SchedulingPipeline] LLM Extracted Data successfully. Handing off to Python dateparser..."
-                )
+                logger.info("LLM extracted the event data; handing off to dateparser.")
                 logger.debug(
                     "Resolving start datetime via parse_temporal_components()."
                 )
@@ -511,9 +508,7 @@ class SchedulingPipeline(BasePipeline):
                     description=llm_data.description,
                     recurrence=llm_data.recurrence,
                 )
-                print(
-                    "[SchedulingPipeline] Python Logistic Math finalized successfully."
-                )
+                logger.info("Event dates and times computed.")
                 elapsed_attempt = time.monotonic() - attempt_start_time
                 elapsed_total = time.monotonic() - pipeline_start_time
                 logger.info(
@@ -537,17 +532,11 @@ class SchedulingPipeline(BasePipeline):
                     elapsed_attempt,
                     e,
                 )
-                print(
-                    f"⚠️ [SchedulingPipeline] Validation/Parsing Error on attempt {attempt + 1}: {e}"
-                )
                 if attempt == max_retries - 1:
                     logger.error(
                         "Max validation retries (%d) reached. Aborting. Last raw_output: %r",
                         max_retries,
                         raw_output,
-                    )
-                    print(
-                        "❌ [SchedulingPipeline] Max validation retries reached."
                     )
                     raise SchedulingError(
                         f"Validation failed after {max_retries} attempts: {e}"

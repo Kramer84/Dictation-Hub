@@ -106,6 +106,14 @@ def test_llm_failure_still_delivers_scrubbed_text(run):
     assert (workspace / "20261008_120000_final.txt").read_text() == "salut"
 
 
+def test_terminal_shows_chunks_and_the_final_text_only(run, capsys):
+    run()
+    out = capsys.readouterr().out
+    assert "✓ chunk 1  salut" in out
+    assert out.count("salut") == 2  # the chunk line and the delivered text
+    assert "RAW TEXT" not in out and "Executing" not in out
+
+
 def test_raw_capture_is_kept_in_workspace(run):
     workspace, _, transcribed = run()
     assert (workspace / "20261008_120000_capture.wav").is_file()

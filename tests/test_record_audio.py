@@ -75,14 +75,21 @@ def test_gsm_buzz_is_detected_only_when_present(tmp_path):
     assert record_audio.gsm_buzz_level(tmp_path / "buzz.wav") > 6
 
 
-def test_prepare_audio_removes_detected_buzz(tmp_path, capsys):
+def test_prepare_audio_removes_detected_buzz(tmp_path, caplog):
     write_signal(tmp_path / "buzz.wav", buzz=True)
     record_audio.prepare_audio(tmp_path / "buzz.wav", tmp_path / "out.wav")
     assert record_audio.gsm_buzz_level(tmp_path / "out.wav") < 3
-    assert "phone" in capsys.readouterr().out.lower()
+    warnings = [r.getMessage().lower() for r in caplog.records if r.levelname == "WARNING"]
+    assert any("phone" in w for w in warnings)
 
 
-def test_prepare_audio_leaves_clean_audio_unfiltered(tmp_path, capsys):
+def test_prepare_audio_leaves_clean_audio_unfiltered(tmp_path, caplog):
     write_signal(tmp_path / "clean.wav", buzz=False)
     record_audio.prepare_audio(tmp_path / "clean.wav", tmp_path / "out.wav")
-    assert "phone" not in capsys.readouterr().out.lower()
+    assert "phone" not in caplog.text.lower()
+
+
+def test_prepare_audio_prints_nothing(tmp_path, capsys):
+    write_signal(tmp_path / "clean.wav", buzz=False)
+    record_audio.prepare_audio(tmp_path / "clean.wav", tmp_path / "out.wav")
+    assert capsys.readouterr().out == ""

@@ -13,6 +13,7 @@ from .client.streamer import run_remote_stream
 from .core.invocation import InvocationError, complete_invocation, parse_invocation
 from .core.config_manager import get_config_dir, load_deployment_env, load_json_config
 from .core.local_runner import run_local_pipeline
+from .pipeline.engine import setup_logging
 
 
 class DictationRouter(typer.core.TyperGroup):
@@ -131,11 +132,9 @@ def main_run(ctx: typer.Context):
         typer.secho(f"Error: {e}", fg=typer.colors.RED)
         raise typer.Exit(code=2)
     profile, overrides = invocation.profile, invocation.overrides
+    setup_logging(verbose=invocation.verbose)
     role = load_machine_role()
     if role == "host":
-        typer.secho(
-            f"[Host] Executing '{profile}' locally via GPU...", fg=typer.colors.MAGENTA
-        )
         run_local_pipeline(
             profile, overrides, audio_file=invocation.audio_file, force_local=invocation.force_local
         )
