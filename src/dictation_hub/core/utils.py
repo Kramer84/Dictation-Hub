@@ -30,6 +30,7 @@ def copy_to_clipboard(text: str) -> bool:
     for tool, cmd, name in (
         ("wl-copy", ["wl-copy"], "Wayland"),
         ("xclip", ["xclip", "-selection", "clipboard"], "X11"),
+        ("pbcopy", ["pbcopy"], "macOS"),
     ):
         if shutil.which(tool):
             # Both tools stay in the background to serve the selection: they
@@ -43,5 +44,5 @@ def copy_to_clipboard(text: str) -> bool:
                 return True
             typer.secho(f"⚠️ Copying to the clipboard with {tool} failed.", fg=typer.colors.YELLOW)
             return False
-    typer.secho("⚠️ No clipboard tool found (wl-copy/xclip).", fg=typer.colors.YELLOW)
+    typer.secho("⚠️ No clipboard tool found (wl-copy/xclip/pbcopy).", fg=typer.colors.YELLOW)
     return False

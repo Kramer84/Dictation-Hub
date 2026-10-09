@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from dictation_hub.core import local_runner, session
+from dictation_hub.client import remote
+from dictation_hub.core import console, local_runner, session
 
 
 def write_tone(path, rate=16000, channels=1, seconds=1):
@@ -86,7 +87,7 @@ def run(tmp_path, monkeypatch):
         lambda input_wav, config, output_base: (transcribed.append(input_wav), fake_whisper(input_wav, config, output_base)),
     )
     monkeypatch.setattr(session, "setup_logging", lambda ws: None)
-    monkeypatch.setattr(local_runner, "copy_to_clipboard", clipboard.append)
+    monkeypatch.setattr(console, "copy_to_clipboard", clipboard.append)
     monkeypatch.setitem(session.PIPELINE_MAP, "standard", FailingPipeline)
     monkeypatch.setattr(local_runner, "server_is_up", lambda base: False)  # never the real server
     shutil.copy(Path(__file__).resolve().parents[1] / "configs" / "static.json", tmp_path)
@@ -173,7 +174,7 @@ def test_existing_file_is_reprocessed_without_recording(tmp_path, monkeypatch):
 
     monkeypatch.setattr(session, "whisper_transcribe", whisper_noting_format)
     monkeypatch.setattr(session, "setup_logging", lambda ws: None)
-    monkeypatch.setattr(local_runner, "copy_to_clipboard", clipboard.append)
+    monkeypatch.setattr(console, "copy_to_clipboard", clipboard.append)
     monkeypatch.setitem(session.PIPELINE_MAP, "standard", FailingPipeline)
 
     local_runner.run_local_pipeline("standard", {}, audio_file=source)
@@ -188,7 +189,7 @@ def server_up(run, monkeypatch):
     FakeUpload.instances.clear()
     FakeUpload.answer = {"raw_text": "hello", "final_text": "Hello."}
     monkeypatch.setattr(local_runner, "server_is_up", lambda base: True)
-    monkeypatch.setattr(local_runner, "ServerUpload", FakeUpload)
+    monkeypatch.setattr(remote, "ServerUpload", FakeUpload)
     monkeypatch.setenv("SERVER_IP", "100.1.2.3")  # the client role's setting, not used on the host
     monkeypatch.setenv("HOST_BIND_PORT", "8123")
     return run
@@ -222,6 +223,12 @@ def test_server_failure_falls_back_to_local_processing(server_up):
     workspace, clipboard, transcribed = server_up()
     assert [p.parent for p in transcribed] == [workspace / "chunks"]
     assert clipboard == ["salut"]
+
+
+def test_server_answer_without_text_falls_back_to_local_processing(server_up):
+    FakeUpload.answer = {"raw_text": "", "final_text": "", "error": "Whisper execution failed."}
+    workspace, clipboard, transcribed = server_up()
+    assert transcribed and clipboard == ["salut"]
 
 
 def test_local_flag_skips_the_server(server_up):

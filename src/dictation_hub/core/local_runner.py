@@ -1,20 +1,18 @@
 import os
 import shutil
-import time
 from pathlib import Path
 from typing import Dict, Optional
-from urllib.parse import urlencode
 
 import typer
 
-from ..client.uploader import ServerUpload, server_is_up
+from ..client.remote import ServerFailed, new_spool, record_via_server
+from ..client.uploader import server_is_up
 from ..pipeline.core.static_config import WhisperPipelineConfig
 from .config_manager import create_workspace, get_config_dir, load_json_config
-from .console import rule, short_path, show_chunk
+from .console import deliver, short_path, show_chunk
 from .invocation import WHISPER_OPTIONS
 from .recorder import record_from_mic
 from .session import TranscriptionError, complete_session, process_capture, start_transcription
-from .utils import copy_to_clipboard
 
 
 def server_base_url() -> str:
@@ -87,35 +85,17 @@ def run_local_pipeline(
         except TranscriptionError as e:
             typer.secho(f"[Router] Error: {e}", fg=typer.colors.RED)
             raise typer.Exit(code=1)
-        _deliver(result.raw_text, result.final_text, result.error)
+        deliver(result.raw_text, result.final_text, result.error)
         return
     _process_locally(capture, workspace, timestamp, profile, pipeline_config, static_config, cli_overrides)
 
 
 def _run_via_server(base_url, profile, overrides, pipeline_config, static_config) -> None:
-    spool_dir = get_config_dir() / "spool"
-    spool_dir.mkdir(parents=True, exist_ok=True)
-    spool = spool_dir / f"{time.strftime('%Y%m%d_%H%M%S')}_{profile}.wav"
-    upload = ServerUpload(f"{base_url}/transcribe?{urlencode({'profile': profile, **overrides})}")
+    spool = new_spool(profile)
     typer.secho(f"[Host] {profile} · dictation server {base_url}", fg=typer.colors.BLUE)
-
-    outcome = record_from_mic(spool, listeners=[upload])
-    if outcome != "process":
-        upload.abort()
-        if outcome == "cancel":
-            spool.unlink(missing_ok=True)
-            typer.secho("[Router] Recording cancelled and discarded.", fg=typer.colors.YELLOW)
-            return
-        workspace, timestamp = _new_workspace(static_config, profile)
-        capture = workspace / f"{timestamp}_capture.wav"
-        shutil.move(str(spool), capture)
-        _handle_unprocessed(outcome, capture, workspace, profile)
-        return
-
-    typer.secho("⏹  Stopped — waiting for the server…", fg=typer.colors.CYAN)
     try:
-        answer = upload.result()
-    except Exception as e:
+        outcome, answer = record_via_server(base_url, profile, overrides, spool, record=record_from_mic)
+    except ServerFailed as e:
         typer.secho(
             f"[Router] Server processing failed ({e}); processing locally instead.",
             fg=typer.colors.YELLOW,
@@ -125,8 +105,18 @@ def _run_via_server(base_url, profile, overrides, pipeline_config, static_config
         shutil.move(str(spool), capture)
         _process_locally(capture, workspace, timestamp, profile, pipeline_config, static_config, overrides)
         return
+    if outcome != "process":
+        if outcome == "cancel":
+            spool.unlink(missing_ok=True)
+            typer.secho("[Router] Recording cancelled and discarded.", fg=typer.colors.YELLOW)
+            return
+        workspace, timestamp = _new_workspace(static_config, profile)
+        capture = workspace / f"{timestamp}_capture.wav"
+        shutil.move(str(spool), capture)
+        _handle_unprocessed(outcome, capture, workspace, profile)
+        return
     spool.unlink(missing_ok=True)  # the server keeps its own copy in its workspace
-    _deliver(answer.get("raw_text", ""), answer.get("final_text", ""), answer.get("error"))
+    deliver(answer.get("raw_text", ""), answer.get("final_text", ""), answer.get("error"))
 
 
 def _new_workspace(static_config, profile):
@@ -173,19 +163,4 @@ def _process_locally(capture, workspace, timestamp, profile, pipeline_config, st
     except TranscriptionError as e:
         typer.secho(f"[Router] Error: {e}", fg=typer.colors.RED)
         raise typer.Exit(code=1)
-    _deliver(result.raw_text, result.final_text, result.error)
-
-
-def _deliver(raw_text: str, final_text: str, error: Optional[str]) -> None:
-    """Show the delivered text once and copy it. The scrubbed raw text stays in
-    the workspace (<ts>_raw.txt) and is what gets delivered if the LLM failed."""
-    if error:
-        typer.secho(
-            f"⚠️ Post-processing failed ({error}); delivering the scrubbed text.",
-            fg=typer.colors.YELLOW,
-        )
-    text = final_text or raw_text
-    typer.echo(rule())
-    typer.echo(text)
-    typer.echo(rule())
-    copy_to_clipboard(text)
+    deliver(result.raw_text, result.final_text, result.error)

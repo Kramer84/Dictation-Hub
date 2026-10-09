@@ -63,14 +63,16 @@ def test_bare_flag_is_true(host_run):
     assert host_run("standard", "--no-gpu") == ("standard", {"no_gpu": "true"})
 
 
-def test_client_mode_forwards_overrides():
+def test_client_mode_forwards_overrides(monkeypatch):
+    monkeypatch.setenv("SERVER_IP", "100.71.34.52")
     with patch.object(cli, "load_machine_role", return_value="client"), patch.object(
-        cli, "run_remote_stream"
+        cli, "run_client"
     ) as remote:
         result = runner.invoke(cli.app, ["standard", "-l", "fr"])
     assert result.exit_code == 0, result.output
-    assert remote.call_args.kwargs["profile"] == "standard"
-    assert remote.call_args.kwargs["overrides"] == {"language": "fr"}
+    profile, overrides, base_url = remote.call_args.args
+    assert (profile, overrides) == ("standard", {"language": "fr"})
+    assert base_url.startswith("http://100.71.34.52:")
 
 
 @pytest.mark.parametrize(

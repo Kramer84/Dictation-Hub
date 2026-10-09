@@ -10,7 +10,7 @@ import click
 import typer
 from click.shell_completion import CompletionItem
 
-from .client.streamer import run_remote_stream
+from .client.remote import client_base_url, run_client
 from .core.invocation import InvocationError, complete_invocation, parse_invocation
 from .core.config_manager import get_config_dir, load_deployment_env, load_json_config
 from .core.local_runner import run_local_pipeline
@@ -141,21 +141,7 @@ def main_run(ctx: typer.Context):
             profile, overrides, audio_file=invocation.audio_file, force_local=invocation.force_local
         )
     elif role == "client":
-        typer.secho(
-            f"[Client] Streaming '{profile}' audio to server...", fg=typer.colors.BLUE
-        )
-        # Force the router to respect the environment variables
-        protocol = os.environ.get("SERVER_PROTOCOL", "http")
-        ip = os.environ.get("SERVER_IP", "127.0.0.1")
-        port = os.environ.get("SERVER_PORT", "8000")
-        run_remote_stream(
-            profile=profile,
-            overrides=overrides,
-            server_protocol=protocol,
-            server_ip=ip,
-            server_port=port,
-            audio_file=invocation.audio_file,
-        )
+        run_client(profile, overrides, client_base_url(), audio_file=invocation.audio_file)
     else:
         typer.secho("Error: Unknown machine role.", fg=typer.colors.RED)
         raise typer.Exit(code=1)

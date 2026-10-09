@@ -5,6 +5,11 @@ and the final text. Everything else goes to the workspace's session.log
 import shutil
 import sys
 from pathlib import Path
+from typing import Optional
+
+import typer
+
+from .utils import copy_to_clipboard
 
 
 def chunk_line(index: int, text: str, width: int) -> str:
@@ -31,3 +36,18 @@ def short_path(path: Path) -> str:
         return "~/" + str(Path(path).relative_to(Path.home()))
     except ValueError:
         return str(path)
+
+
+def deliver(raw_text: str, final_text: str, error: Optional[str]) -> None:
+    """Show the delivered text once and copy it. The scrubbed raw text stays in
+    the workspace (<ts>_raw.txt) and is what gets delivered if the LLM failed."""
+    if error:
+        typer.secho(
+            f"⚠️ Post-processing failed ({error}); delivering the scrubbed text.",
+            fg=typer.colors.YELLOW,
+        )
+    text = final_text or raw_text
+    typer.echo(rule())
+    typer.echo(text)
+    typer.echo(rule())
+    copy_to_clipboard(text)
