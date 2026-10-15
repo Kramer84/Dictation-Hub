@@ -152,6 +152,7 @@ The following skills are embedded in `skills/` to guide implementation passes:
 *   **`skills/optimize-for-gpu`**: Configuring compute parameters, VRAM usage, and CUDA runtime flags for `whisper.cpp`.
 *   **`skills/get-available-resources`**: Pre-flight inspection of GPU drivers, CUDA devices, and system memory.
 *   **`skills/setup-pre-commit`**: Configuring repository hooks for automated formatting and linting.
+*   **`skills/integrating-dictation-hub`**: Calling Dictation-Hub from other projects (`dictation-hub answer`, `dictation_hub.api`), building the LLM schema step with Mistral defaults, and lessons from the scheduling tool.
 *   **`skills/handoff`**: Summarizing session progress, open architectural decisions, and current work state.
 
 ---
