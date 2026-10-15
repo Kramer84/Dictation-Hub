@@ -20,6 +20,7 @@ dependencies = [
     "dateparser",
     "python-dotenv",
     "websockets",
+    "curses"
 ]
 
 [dependency-groups]

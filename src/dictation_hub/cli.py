@@ -1,3 +1,5 @@
+import json
+from datetime import datetime
 import os
 import shutil
 import signal
@@ -24,17 +26,17 @@ class DictationRouter(typer.core.TyperGroup):
     def parse_args(self, ctx, args):
         r"""
         Parse command-line arguments for the CLI application.
-        
+
         This method extends the default argument parsing behavior to handle
         special cases like empty argument lists and non-command arguments.
-        
+
         Parameters
         ----------
         ctx : click.Context
             The Click context object for the current command.
         args : list[str]
             The list of command-line arguments to parse.
-        
+
         Returns
         -------
         click.Context
@@ -52,14 +54,14 @@ class DictationRouter(typer.core.TyperGroup):
     def shell_complete(self, ctx, incomplete):
         r"""
         Generate completion suggestions for the given incomplete input.
-        
+
         Parameters
         ----------
         ctx : click.Context
             The Click context object for the current command.
         incomplete : str
             The incomplete input string to be completed.
-        
+
         Returns
         -------
         List[CompletionItem]
@@ -107,12 +109,12 @@ app.add_typer(server_app, name="server")
 def load_machine_role() -> str:
     r"""
     Retrieve the machine role from the deployment environment.
-    
+
     Returns
     -------
     str
         The machine role as defined in the deployment environment.
-    
+
     See Also
     --------
     load_deployment_env :
@@ -145,6 +147,119 @@ def main_run(ctx: typer.Context):
     else:
         typer.secho("Error: Unknown machine role.", fg=typer.colors.RED)
         raise typer.Exit(code=1)
+
+
+@app.command("browse")
+def browse(
+    directory: Optional[Path] = typer.Argument(
+        None, help="Directory containing whisper transcription folders (defaults to ~/.whisper_transcriptions)."
+    )
+):
+    """Interactively browse transcriptions using left/right arrow keys."""
+    import curses
+
+    base_dir = directory or (Path.home() / ".whisper_transcriptions")
+    base_dir = base_dir.expanduser()
+
+    if not base_dir.is_dir():
+        typer.secho(f"Error: Directory {base_dir} does not exist.", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    subdirs = sorted(
+        [d for d in base_dir.iterdir() if d.is_dir() and (d / "metadata.json").exists()],
+        key=lambda x: x.name,
+        reverse=True,
+    )
+
+    if not subdirs:
+        typer.secho(f"No valid transcription folders found in {base_dir}.", fg=typer.colors.YELLOW)
+        raise typer.Exit(code=0)
+
+    def run_browser(stdscr):
+        curses.curs_set(0)
+        stdscr.keypad(True)
+        current_idx = 0
+
+        while True:
+            stdscr.clear()
+            height, width = stdscr.getmaxyx()
+
+            dir_path = subdirs[current_idx]
+
+            # Load metadata
+            meta = {}
+            metadata_file = dir_path / "metadata.json"
+            if metadata_file.exists():
+                try:
+                    meta = json.loads(metadata_file.read_text())
+                except Exception:
+                    pass
+
+            profile = meta.get("profile", "unknown")
+            language = meta.get("language", "unknown")
+            raw_ts = meta.get("timestamp", dir_path.name)
+
+            formatted_date = raw_ts
+            try:
+                dt = datetime.strptime(raw_ts, "%Y%m%d_%H%M%S")
+                formatted_date = dt.strftime("%A, %B %d, %Y at %H:%M:%S")
+            except Exception:
+                pass
+
+            # Find final text file
+            final_files = list(dir_path.glob("*_final.txt"))
+            content = "No _final.txt found in this folder."
+            if final_files:
+                try:
+                    content = final_files[0].read_text(encoding="utf-8")
+                except Exception as e:
+                    content = f"Error reading file: {e}"
+
+            # Header info
+            header_lines = [
+                f" Transcription {current_idx + 1} of {len(subdirs)} | Folder: {dir_path.name} ",
+                f" Date: {formatted_date} | Profile: {profile} | Language: {language} ",
+                "-" * min(width - 1, 80)
+            ]
+
+            row = 0
+            for hline in header_lines:
+                if row < height - 1:
+                    try:
+                        stdscr.addstr(row, 0, hline[:width - 1], curses.A_BOLD)
+                    except curses.error:
+                        pass
+                    row += 1
+
+            # Content lines
+            for line in content.splitlines():
+                if row >= height - 1:
+                    break
+                try:
+                    stdscr.addstr(row, 0, line[:width - 1])
+                except curses.error:
+                    pass
+                row += 1
+
+            # Footer instructions
+            footer = " [←/→] Navigate files | [q/ESC] Quit "
+            if height > 1:
+                try:
+                    stdscr.addstr(height - 1, 0, footer[:width - 1], curses.A_REVERSE)
+                except curses.error:
+                    pass
+
+            stdscr.refresh()
+
+            key = stdscr.getch()
+            if key in (ord('q'), ord('Q'), 27):
+                break
+            elif key == curses.KEY_RIGHT:
+                current_idx = (current_idx + 1) % len(subdirs)
+            elif key == curses.KEY_LEFT:
+                current_idx = (current_idx - 1) % len(subdirs)
+
+    curses.wrapper(run_browser)
 
 
 def get_pid_file(process_name: str) -> Path:
