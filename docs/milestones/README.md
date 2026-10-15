@@ -6,7 +6,7 @@ The roadmap lives in `CLAUDE.md` §2. This folder tracks **progress**: what was 
 |----|-------|--------|-----|
 | M0 | Audit, defect catalog, architecture proposal | 🟢 Done | [M0-audit.md](M0-audit.md) |
 | M0.5 | Stabilize: repair tests, fix high-severity defects test-first | 🟢 Done (merged to main) | [M0.5-stabilize.md](M0.5-stabilize.md) |
-| M1 | Session orchestrator, recording controls, 16 kHz capture, `--file`, server autostart/fallback | 🟡 In progress | [M1-session.md](M1-session.md) |
+| M1 | Session orchestrator, recording controls, 16 kHz capture, `--file`, server autostart/fallback | 🟢 Done (merged to main; boot-time reboot test pending) | [M1-session.md](M1-session.md) |
 | M1b | Chunked capture & incremental transcription (VRAM-frugal) | 🟢 Done | [M1b-chunking.md](M1b-chunking.md) |
 | M2 | GPU pre-flight & fail-fast | ⚪ Not started | — |
 | M3 | CLI router redesign & completion | ⚪ Not started | — |
@@ -16,6 +16,24 @@ The roadmap lives in `CLAUDE.md` §2. This folder tracks **progress**: what was 
 | M7 | External integration API: `dictate()` + `answer`, schema profiles as data | 🟢 Done | [M7-external-api.md](M7-external-api.md) |
 
 Legend: ⚪ not started · 🟡 in progress / blocked on decision · 🟢 done
+
+## Next up (as of 2026-10-15)
+
+Everything is merged to `main`; no branch is open. Suggested order, with the user's priorities first:
+
+1. **Real-world check of M7.** Run `dictation-hub answer --schema <module:Class>` once with a real `MISTRAL_API_KEY` and microphone (all M7 tests use fakes). Confirm that `mistral-small-latest` works on the account and that stdout is clean JSON while the recorder display goes to stderr. Then wire the annotation tool to it.
+2. **Reboot test** of the systemd service (M1/S6): the server must answer before anyone logs in.
+3. **M2 GPU pre-flight** (D13): `whisper-cli` silently falls back to CPU when CUDA init fails. Use `nvidia-smi` exit status and the whisper backend line; fail fast on large models.
+4. **M3 CLI/completion** leftovers (D05: client flags). **M4** `--type-active`/`--paste`. **M5** voice-prefix routing. **M6** pre-commit and lint (also D31: dependency hygiene).
+
+Small open items:
+*   **Provider default.** The user prefers Mistral only for large loads and complex tasks, but `api.extract` defaults to Mistral so that `answer --schema …` needs no profile. Decide: keep, or default to local and let complex schemas opt into Mistral.
+*   The server does not return the detected language, so `answer` run through the server prompts with `auto`. Add `language` to the `/transcribe` response.
+*   Two "now"s: the LLM prompt's context uses today's date, the scheduling pipeline resolves relative dates against the recording time (see `skills/integrating-dictation-hub/lessons-from-scheduling.md`).
+*   Chunk progress lines are not shown when going through the server (single POST). French LanguageTool checks cost about 1.7 s each time.
+*   A trailing-hallucination filter ("Thank you.", "Sous-titres réalisés par…") is still to do; the dictionary has no such rules. Punctuation backlog: `M0-audit.md` §7.
+*   Still open from the M0 audit (details in `M0-audit.md`): D14 (resident `whisper-server`), D15/D16 (config sources and validation), D24 (library code calling `sys.exit`/`typer.Exit`), D26 (`REPO_ROOT` assumptions; non-editable installs break), D29 (LanguageTool language map), D31 (dependency hygiene). `optimization/` still uses the legacy `core/record_audio.py` and its own copy of the chunk-cut logic.
+*   `CLAUDE.md` §5 and this table are the first places to update when work advances.
 
 ## Log
 
@@ -34,3 +52,5 @@ Legend: ⚪ not started · 🟡 in progress / blocked on decision · 🟢 done
 - **2026-10-15** — M7 ticket 3: `dictation-hub answer -f clip.wav [--profile-file p.json --schema mod:Class]` prints one JSON document (no `--json` flag: it always does), exit codes 0/1/2/4, nothing on the clipboard, pipeline output redirected to stderr. Code in `answer_cli.py`, registered with two lines in `cli.py`. Next: live recording (ticket 4).
 - **2026-10-15** — M7 done: `answer` records live (server first, local fallback; client role needs the server), exit 3 on cancel/quit, tickets 4–5 finished and the skill switched from planned to current. A test caught a leftover spool file after a cancel through the server. 198 tests pass.
 - **2026-10-15** — M7 follow-ups: Mistral-first defaults for the LLM step (no profile needed), early `MISTRAL_API_KEY` check, retry with error feedback, fenced-JSON tolerance, detected language in the prompt, `schema` key in profile files. Skill extended with `llm-step.md` and `lessons-from-scheduling.md`. 208 tests pass.
+- **2026-10-15** — Everything pushed to `origin/main`; `m1-session` merged and deleted. Documentation brought up to date for resuming: `CLAUDE.md` (fourth entry point, status line, M7, skills section, cheatsheet without unimplemented flags, new §6 "Resuming Work" with repo map, conventions, gotchas) and a "Next up" list in this file.
+

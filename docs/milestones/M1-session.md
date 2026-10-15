@@ -1,7 +1,7 @@
 # M1 — Session, Recording Controls, `--file`, Boot-time Server
 
 - **Started:** 2026-10-08 (branch `m1-session`)
-- **Status:** 🟡 In progress
+- **Status:** 🟢 Done 2026-10-09, merged to `main` 2026-10-15. Only the reboot test of the boot-time service (S6) is pending.
 - **Approach:** vertical TDD slices. Each one is a failing test at a public seam, then the minimal code to pass it.
 
 ## Slices

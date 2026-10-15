@@ -55,12 +55,16 @@ The system exposes three distinct entry points running against a centralized GPU
 
 ```
 
+A fourth, programmatic entry point serves other projects (e.g. a data-annotation tool that has already asked the user a question): `dictation-hub answer` and `dictation_hub.api.dictate()`. Transcription is always the server's `standard` profile; the caller's own Pydantic schema and prompt then run as one LLM call on the calling side (Mistral by default), returning one JSON document. See `skills/integrating-dictation-hub/` and `docs/milestones/M7-external-api.md`.
+
 ---
 
 ## 2. Engineering Milestones & Roadmap
 
 Development is phased to ensure that architectural gaps and existing bugs are cataloged, analyzed, and agreed upon before major code modifications occur.
 
+> **Status (2026-10-15):** M0, M0.5, M1 (reboot test of the boot service still pending), M1b and M7 are done and merged to `main`. M2, M3, M4, M5, M6 are not started. Next up and open items: `docs/milestones/README.md` → "Next up". Section 6 below tells you how to resume.
+>
 > **Progress tracking:** status, decisions and the per-milestone log live in [`docs/milestones/`](docs/milestones/README.md). Update `docs/milestones/README.md` (status table + dated log entry) whenever a milestone advances or a design decision is made. The M0 audit (defect catalog D01–D31, architecture proposal, open decisions) is in [`docs/milestones/M0-audit.md`](docs/milestones/M0-audit.md).
 >
 > **Development style:** test-driven (`skills/tdd`). Write the failing test first, at an agreed seam. Tests must run without a mic, GPU or LLM. Mark live tests `@pytest.mark.live`.
@@ -138,22 +142,17 @@ Development is phased to ensure that architectural gaps and existing bugs are ca
 *   **Linting & Pre-Commit (`skills/setup-pre-commit`)**:
     *   Standardize code style, formatting, and type checks across the codebase.
 
+### Milestone 7: External Integration API (done 2026-10-15)
+*   `dictation_hub.api` (`extract`, `dictate`) and the `dictation-hub answer` subcommand: record (or take `-f`), transcribe with the server's `standard` profile, run one schema-enforced LLM step (Mistral-first defaults, retry with error feedback), print one JSON document. Exit codes 0 ok / 1 recording or transcription failed / 2 bad input / 3 cancelled or quit / 4 LLM step failed.
+*   Details, decisions and tickets: `docs/milestones/M7-external-api.md`. Agent guide: `skills/integrating-dictation-hub/`.
+
 ---
 
-## 3. Integrated Agent Skills
+## 3. Agent Skills
 
-The following skills are embedded in `skills/` to guide implementation passes:
+Only **`skills/integrating-dictation-hub`** lives in this repo (calling Dictation-Hub from other projects, building the LLM schema step with Mistral defaults, lessons from the scheduling tool). `.claude/skills` is a symlink to `skills/`.
 
-*   **`skills/diagnosing-bugs`**: Root cause analysis for subprocess signal handling, Click argument parser failures, and audio capture crashes.
-*   **`skills/improve-codebase-architecture`**: Decoupling the monolithic `local_runner.py` and `cli.py` modules into focused components.
-*   **`skills/tdd`**: Constructing unit and integration tests for argument parsing, schema validation, and pipeline transformations without requiring live audio input.
-*   **`skills/implement-spec`**: Translating milestone definitions and requirements into concrete implementation passes.
-*   **`skills/to-tickets`**: Decomposing milestone objectives into granular, trackable tasks.
-*   **`skills/optimize-for-gpu`**: Configuring compute parameters, VRAM usage, and CUDA runtime flags for `whisper.cpp`.
-*   **`skills/get-available-resources`**: Pre-flight inspection of GPU drivers, CUDA devices, and system memory.
-*   **`skills/setup-pre-commit`**: Configuring repository hooks for automated formatting and linting.
-*   **`skills/integrating-dictation-hub`**: Calling Dictation-Hub from other projects (`dictation-hub answer`, `dictation_hub.api`), building the LLM schema step with Mistral defaults, and lessons from the scheduling tool.
-*   **`skills/handoff`**: Summarizing session progress, open architectural decisions, and current work state.
+The other skills this project relies on (`tdd`, `diagnosing-bugs`, `handoff`, `code-review`, `wayfinder`, `model-router`, `writing-for-agents`, `codebase-index-keeper`) are **untracked, machine-local symlinks** into `/home/kramer84/ai_skills/…`, created by the user's `skills sync --profile core-dev --target .claude/skills/`. Do not commit them (absolute paths). On a machine without them, `tdd` means: write the failing test at an agreed public seam first, then the minimum code; one slice at a time. The older embedded copies (`implement-spec`, `to-tickets`, `optimize-for-gpu`, `get-available-resources`, `setup-pre-commit`, `improve-codebase-architecture`) were removed in commit `d26dbb4` and can be read from git history (`git show f34cfbb:skills/<name>/SKILL.md`). M2 will want `optimize-for-gpu` and `get-available-resources`; M6 `setup-pre-commit`.
 
 ---
 
@@ -172,36 +171,59 @@ The following skills are embedded in `skills/` to guide implementation passes:
 ## 5. Developer Cheatsheet & Common Commands
 
 ```bash
-# Environment sync (using uv)
+# Environment and tests (tests need no mic, GPU or LLM; ~100 s; 9 `live` tests are deselected)
 uv sync
+uv run pytest                      # or: .venv/bin/python -m pytest
+uv run pytest -m live              # needs real hardware / Ollama / Mistral
 
-# Reinstall shell completion
+# Shell completion
 dictation-hub --install-completion bash  # or zsh
 
-# Host Mode: Run standard dictation locally
+# Dictate (host: records, uses the local server if running, else in-process)
+dictation-hub standard
+dictation-hub standard -l fr --threads 8      # any whisper option; -v shows every detail
+dictation-hub standard -f /path/to/recording.wav   # reprocess a file (--local skips the server)
+dictation-hub browse                          # browse past transcriptions
+
+# Client machine: set DICTATION_ROLE="client" and SERVER_IP/SERVER_PORT in ~/.config/dictation_hub/config.env
 dictation-hub standard
 
-# Host Mode: Run with parameter overrides
-dictation-hub standard -l fr --threads 8
+# For other projects: one JSON document on stdout (needs MISTRAL_API_KEY for the default LLM step)
+dictation-hub answer --schema my_project.schemas:Annotation
+dictation-hub answer --profile-file annotate.json -f clip.wav
 
-# Host Mode: Reprocess an existing audio file
-dictation-hub --file /path/to/recording.wav scheduling
+# Server
+dictation-hub server install-service          # systemd --user unit, starts at boot (lingering)
+dictation-hub server start [--host H] [--port P] | stop | status | logs
 
-# Host Mode: Dictate and paste directly into focused desktop window
-dictation-hub standard --type-active
-
-# Client Mode: Stream audio to host GPU server
-dictation-hub standard --ip 192.168.1.50 --port 8000
-
-# Server Management
-dictation-hub server start [--host 0.0.0.0] [--port 8000]
-dictation-hub server stop
-dictation-hub server logs
-
-# Direct Pipeline Execution (Engine Debugging)
-uv run python -m dictation_hub.pipeline.engine \
-    --profile scheduling \
-    --input /path/to/<timestamp>_full.json \
-    --workspace /path/to/workspace/
-
+# Direct pipeline execution (engine debugging)
+uv run python -m dictation_hub.pipeline.engine --profile scheduling \
+    --input /path/to/<timestamp>_full.json --workspace /path/to/workspace/
 ```
+
+Not implemented yet: `--type-active` / `--paste` (M4), GPU pre-flight (M2), voice-prefix routing (M5).
+
+---
+
+## 6. Resuming Work
+
+**Where things stand:** `main` on GitHub (`Kramer84/Dictation-Hub`) holds everything above. No feature branch is open. Read `docs/milestones/README.md` (status table, dated log, "Next up") before choosing work.
+
+**Repo map** (`src/dictation_hub/`):
+*   `cli.py` — Typer router: bare profile names go to the hidden `run` command; `answer`, `browse`, `server …`. `answer_cli.py` — the `answer` command.
+*   `api.py` — `extract`, `dictate`, `DictationResult` (external API). 
+*   `core/` — `recorder.py` (mic, keys, listeners), `chunker.py` (silence cuts, chunked transcription), `session.py` (one flow capture → transcript → pipeline → webhook; used by CLI and server), `local_runner.py` (host CLI flow, server-first routing), `postprocess.py` (degradation to scrubbed text), `invocation.py` (CLI parsing and completion), `whisper_interface.py`, `config_manager.py`, `console.py` (terminal output, clipboard). `record_audio.py` is legacy (still used by `optimization/` and `session.py`'s audio preparation).
+*   `client/` — `remote.py` (client role and server upload), `uploader.py`. `server/` — `main.py` (FastAPI), `service.py` (systemd, bind), `access.py` (Tailscale/localhost filter), `n8n_dispatcher.py`.
+*   `pipeline/` — `engine.py` (`PIPELINE_MAP`), `pipelines/` (one class per profile; `base.py` has `call_llm`), `core/` (`text_tools.py` scrubber and LanguageTool, `llm_providers.py` Mistral/Ollama).
+*   Config: seeds in `configs/`, live copies in `~/.config/dictation_hub/` (edit those; they are not overwritten). Workspaces: `~/.whisper_transcriptions/<ts>_<profile>/`.
+
+**Conventions that matter:**
+*   TDD at agreed seams; fake the mic (`record_from_mic`), whisper (`session.whisper_transcribe`) and the LLM (`LocalProvider.generate` / `MistralProvider.generate`). Examples: `tests/test_api.py`, `tests/test_local_runner.py`. The user is not fluent in test jargon: say "a fake LLM answer" instead of "stub", and "the place a test calls the code from" instead of "seam".
+*   Log every design decision and milestone step in `docs/milestones/README.md` (dated entry) and the milestone's own file.
+*   Commits end with the Co-Authored-By line; push only when asked. Branch off `main` for new work.
+*   `git checkout` onto a branch that still contains the old `skills/<name>/` folders collides with the untracked symlinks; use `git fetch . branch:main` to fast-forward without switching.
+
+**LLM provider preference:** Mistral is preferred only for large loads and complex tasks; simple LLM steps should stay local (Ollama). `api.extract` currently *defaults* to Mistral, which is an open question (see `docs/milestones/README.md`).
+
+**Known gotchas:** the `uv tool` install of `dictation-hub` is editable from this checkout; a stale non-editable install ignores repo changes. French LanguageTool checks cost about 1.7 s every time. Chunk progress lines do not show when going through the server. When the server transcribes, the detected language does not come back (prompt says `auto`).
+

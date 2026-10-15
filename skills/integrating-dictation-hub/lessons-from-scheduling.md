@@ -31,4 +31,4 @@ Source: `src/dictation_hub/pipeline/pipelines/scheduling.py`, `tests/test_schedu
 3. Put cross-field rules in a `model_validator` with a message a model can act on.
 4. Test the validators and the Python post-computation without any LLM; fake the provider for the flow; add at most a few live tests.
 5. Decide which clock and which language the post-computation uses, and write it down in the schema docstring.
-6. Run it with a small Mistral model first; move to `mistral-large-latest` only if retries show real reasoning failures.
+6. Start on the local model for a simple schema; use Mistral for large inputs or complex tasks (`mistral-small-latest`, then `mistral-large-latest` only if retries show real reasoning failures).

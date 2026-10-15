@@ -1,6 +1,6 @@
 # M7 — External Integration API (`dictate()` + `answer`)
 
-- **Status:** 🟢 Implemented 2026-10-15 (tickets 1–5). Branch: new, off `main` once `m1-session` is merged.
+- **Status:** 🟢 Implemented 2026-10-15 (tickets 1–5). Merged to `main` and pushed 2026-10-15.
 - **Motivation:** other projects (first case: a data-annotation tool that asks a question, the user answers aloud, a Pydantic-validated record comes back) must be able to use Dictation-Hub for recording, transcription and schema extraction. Today the only non-interactive seam is `POST /transcribe`, which returns an unvalidated JSON string and only knows profiles registered on the host.
 - **Agent guide:** `skills/integrating-dictation-hub/` (written ahead of the code; its `[M7]` sections describe this milestone).
 
@@ -33,7 +33,7 @@ Seams: `api.extract()` and `api.dictate()` in Python, and `dictation-hub answer`
 `-f clip.wav` is for tests and retrying a saved capture; by default `answer` records the user.
 
 ## Additions after the five tickets (2026-10-15)
-- **Defaults for the LLM step, Mistral first:** no profile is needed. `provider` defaults to `mistral`, `model` to `mistral-small-latest` (`qwen2.5-coder:7b-instruct` for `local`), plus a generic extraction prompt; every key of `post_processing[0]` is optional. A missing `MISTRAL_API_KEY` is bad input (exit 2) and is checked before recording. The key line was added to `configs/config.env.template`.
+- **Defaults for the LLM step (Mistral; preferred by the user only for large loads and complex tasks, see README "Next up"):** no profile is needed. `provider` defaults to `mistral`, `model` to `mistral-small-latest` (`qwen2.5-coder:7b-instruct` for `local`), plus a generic extraction prompt; every key of `post_processing[0]` is optional. A missing `MISTRAL_API_KEY` is bad input (exit 2) and is checked before recording. The key line was added to `configs/config.env.template`.
 - **Retry with feedback** (`retries=2`): a rejected answer is retried with the validation error appended to the input, the idea from the scheduling pipeline. Fenced ```json answers are accepted.
 - **Language:** the language whisper detected reaches the prompt's `{language}` (`auto` when the server transcribed, since it does not return it yet). `language` is in the result.
 - **`schema` in the profile file** is read (the argument wins).

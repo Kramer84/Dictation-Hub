@@ -29,6 +29,10 @@ A profile only lists what it changes:
 { "post_processing": [ { "model": "mistral-large-latest", "prompt": "…" } ] }
 ```
 
+## Which provider to choose (the user's preference)
+
+**Mistral is preferred only for large loads and complex tasks**: long transcripts, many or interdependent fields, ambiguity that needs reasoning (`mistral-large-latest` for the hardest). Short, simple extractions belong on the local model (`"provider": "local"`, Ollama): it is free, private and needs no key. The code's *default* is currently Mistral (`mistral-small-latest`) so that `answer --schema …` works without a profile; for a simple schema, put `{"post_processing": [{"provider": "local"}]}` in the profile file. Whether the default itself should flip to local is an open question (`docs/milestones/README.md`, "Next up").
+
 ## What the model actually receives
 
 1. **System message**: your `prompt` with `{language}` replaced (the language whisper detected; `auto` when unknown, e.g. when the server did the transcription), then an appended block with the current date, time, day of week, timezone and the `user_information` from `pipeline_config.json` (`CURRENT_CONTEXT`), then an appended `MANDATORY JSON OUTPUT SCHEMA` block holding `schema.model_json_schema()`.

@@ -8,7 +8,7 @@ description: How to call Dictation-Hub from another project (e.g. a data-annotat
 Dictation-Hub turns speech into text, then runs a **profile** (deterministic scrub, then an optional LLM step). An external tool wants: *ask a question → user speaks → validated structured result back*.
 
 Files in this skill:
-- `llm-step.md` — **how the LLM step is built**: defaults (Mistral first), what the model receives, schema and prompt rules, retries, tests. Read this before writing a schema.
+- `llm-step.md` — **how the LLM step is built**: defaults and which provider to choose, what the model receives, schema and prompt rules, retries, tests. Read this before writing a schema.
 - `lessons-from-scheduling.md` — what the scheduling tool teaches about building such tools, plus a checklist.
 - `profiles.md` — profile file formats. `contract.md` — the result and exit codes.
 
@@ -51,7 +51,7 @@ dictation-hub answer -f clip.wav --schema my_proj.schemas:Annotation   # retry/t
 
 ## Defaults at a glance
 
-No profile needed: provider **mistral**, model `mistral-small-latest`, generic extraction prompt, 2 retries with the validation error fed back, fenced JSON accepted. Override any of it with a `post_processing[0]` in a profile file, e.g. `{"post_processing": [{"model": "mistral-large-latest"}]}`; use `"provider": "local"` for Ollama (no key). Details and reasons: `llm-step.md`.
+No profile needed: provider **mistral**, model `mistral-small-latest`, generic extraction prompt, 2 retries with the validation error fed back, fenced JSON accepted. Override any of it with a `post_processing[0]` in a profile file, e.g. `{"post_processing": [{"model": "mistral-large-latest"}]}`; use `"provider": "local"` for Ollama (no key). Mistral is the user's choice only for large loads and complex tasks; simple schemas should use `"provider": "local"` (see `llm-step.md`, "Which provider to choose").
 
 ## HTTP contract (for callers with their own WAV)
 
