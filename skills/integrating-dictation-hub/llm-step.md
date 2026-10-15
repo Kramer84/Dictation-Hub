@@ -31,7 +31,7 @@ A profile only lists what it changes:
 
 ## Which provider to choose (the user's preference)
 
-**Mistral is preferred only for large loads and complex tasks**: long transcripts, many or interdependent fields, ambiguity that needs reasoning (`mistral-large-latest` for the hardest). Short, simple extractions belong on the local model (`"provider": "local"`, Ollama): it is free, private and needs no key. The code's *default* is currently Mistral (`mistral-small-latest`) so that `answer --schema …` works without a profile; for a simple schema, put `{"post_processing": [{"provider": "local"}]}` in the profile file. Whether the default itself should flip to local is an open question (`docs/milestones/README.md`, "Next up").
+**Mistral is preferred only for large loads and complex tasks**: long transcripts, many or interdependent fields, ambiguity that needs reasoning (`mistral-large-latest` for the hardest). Short, simple extractions belong on the local model (`"provider": "local"`, Ollama): it is free, private and needs no key. The code's *default* is currently Mistral (`mistral-small-latest`) so that `answer --schema …` works without a profile; for a simple schema, put `{"post_processing": [{"provider": "local"}]}` in the profile file. The default deliberately stays Mistral because Ollama is not guaranteed to be installed; a future check for Ollama may choose the default per machine (`docs/milestones/README.md`, "Next up").
 
 ## What the model actually receives
 

@@ -223,7 +223,7 @@ Not implemented yet: `--type-active` / `--paste` (M4), GPU pre-flight (M2), voic
 *   Commits end with the Co-Authored-By line; push only when asked. Branch off `main` for new work.
 *   `git checkout` onto a branch that still contains the old `skills/<name>/` folders collides with the untracked symlinks; use `git fetch . branch:main` to fast-forward without switching.
 
-**LLM provider preference:** Mistral is preferred only for large loads and complex tasks; simple LLM steps should stay local (Ollama). `api.extract` currently *defaults* to Mistral, which is an open question (see `docs/milestones/README.md`).
+**LLM provider preference:** Mistral is preferred only for large loads and complex tasks; simple LLM steps should stay local (Ollama). `api.extract` *defaults* to Mistral on purpose (Ollama may be absent; do not switch it). A future Ollama-availability check may pick the default per machine.
 
 **Known gotchas:** the `uv tool` install of `dictation-hub` is editable from this checkout; a stale non-editable install ignores repo changes. French LanguageTool checks cost about 1.7 s every time. Chunk progress lines do not show when going through the server. When the server transcribes, the detected language does not come back (prompt says `auto`).
 

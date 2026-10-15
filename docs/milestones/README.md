@@ -27,7 +27,7 @@ Everything is merged to `main`; no branch is open. Suggested order, with the use
 4. **M3 CLI/completion** leftovers (D05: client flags). **M4** `--type-active`/`--paste`. **M5** voice-prefix routing. **M6** pre-commit and lint (also D31: dependency hygiene).
 
 Small open items:
-*   **Provider default.** The user prefers Mistral only for large loads and complex tasks, but `api.extract` defaults to Mistral so that `answer --schema …` needs no profile. Decide: keep, or default to local and let complex schemas opt into Mistral.
+*   **Provider default (decided 2026-10-15): stays Mistral.** The user prefers Mistral only for large loads and complex tasks, but Ollama is not guaranteed to be present, so `api.extract` keeps Mistral as the default (`answer --schema …` needs no profile). Later idea: probe for Ollama (e.g. a quick request to `http://localhost:11434`) and choose the default provider from what is available, with simple schemas preferring local when it is.
 *   The server does not return the detected language, so `answer` run through the server prompts with `auto`. Add `language` to the `/transcribe` response.
 *   Two "now"s: the LLM prompt's context uses today's date, the scheduling pipeline resolves relative dates against the recording time (see `skills/integrating-dictation-hub/lessons-from-scheduling.md`).
 *   Chunk progress lines are not shown when going through the server (single POST). French LanguageTool checks cost about 1.7 s each time.
@@ -53,4 +53,4 @@ Small open items:
 - **2026-10-15** — M7 done: `answer` records live (server first, local fallback; client role needs the server), exit 3 on cancel/quit, tickets 4–5 finished and the skill switched from planned to current. A test caught a leftover spool file after a cancel through the server. 198 tests pass.
 - **2026-10-15** — M7 follow-ups: Mistral-first defaults for the LLM step (no profile needed), early `MISTRAL_API_KEY` check, retry with error feedback, fenced-JSON tolerance, detected language in the prompt, `schema` key in profile files. Skill extended with `llm-step.md` and `lessons-from-scheduling.md`. 208 tests pass.
 - **2026-10-15** — Everything pushed to `origin/main`; `m1-session` merged and deleted. Documentation brought up to date for resuming: `CLAUDE.md` (fourth entry point, status line, M7, skills section, cheatsheet without unimplemented flags, new §6 "Resuming Work" with repo map, conventions, gotchas) and a "Next up" list in this file.
-
+- **2026-10-15** — Provider default decided: stays Mistral, because Ollama may not be installed. A future Ollama-availability check may choose the default per machine.
