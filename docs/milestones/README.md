@@ -13,6 +13,7 @@ The roadmap lives in `CLAUDE.md` §2. This folder tracks **progress**: what was 
 | M4 | Desktop active-window injection | ⚪ Not started | — |
 | M5 | Voice-prefix intent routing | ⚪ Not started | — |
 | M6 | Hardening, tests, pre-commit | ⚪ Not started (tests are written alongside every milestone, TDD) | — |
+| M7 | External integration API: `dictate()` + `answer`, schema profiles as data | 🟢 Done | [M7-external-api.md](M7-external-api.md) |
 
 Legend: ⚪ not started · 🟡 in progress / blocked on decision · 🟢 done
 
@@ -28,3 +29,8 @@ Legend: ⚪ not started · 🟡 in progress / blocked on decision · 🟢 done
 - **2026-10-09** — Quiet terminal output: one line per chunk plus the final text, with the details in `session.log` (`-v` shows them). S6 decisions: start at boot, Tailscale-only bind. Spotting transcription anomalies such as "TaylorScale" is deferred to a later pass over past transcriptions.
 - **2026-10-09** — S6 host side: boot-time systemd user service with lingering, Tailscale and localhost bind (waits for Tailscale), a client filter limited to Tailscale and localhost, and the host CLI on localhost. Verified per interface, including from a Docker container. Remaining for M1: a reboot test and the client role.
 - **2026-10-09** — Client role moved to the new recorder and keys, sharing the host's server path. M1 is complete except for a reboot test of the service.
+- **2026-10-15** — M7 specified: other projects get a Python `dictate()` plus a thin `answer` CLI (same package, server unchanged, no notification layer). Schema profiles become data (`schema: module:Class` plus a generic `SchemaPipeline`). Agent guide written in `skills/integrating-dictation-hub/`; the project's other embedded skills were removed from the working tree by the user.
+- **2026-10-15** — M7 decisions closed: subcommand `answer`; transcription is always the server's `standard` profile; the caller's schema step runs on the calling side. Tickets 1–2 done test-first in `src/dictation_hub/api.py` (`extract`, `dictate` on an audio file, host and client role; 9 tests in `tests/test_api.py`). Next: `answer -f` (ticket 3).
+- **2026-10-15** — M7 ticket 3: `dictation-hub answer -f clip.wav [--profile-file p.json --schema mod:Class]` prints one JSON document (no `--json` flag: it always does), exit codes 0/1/2/4, nothing on the clipboard, pipeline output redirected to stderr. Code in `answer_cli.py`, registered with two lines in `cli.py`. Next: live recording (ticket 4).
+- **2026-10-15** — M7 done: `answer` records live (server first, local fallback; client role needs the server), exit 3 on cancel/quit, tickets 4–5 finished and the skill switched from planned to current. A test caught a leftover spool file after a cancel through the server. 198 tests pass.
+- **2026-10-15** — M7 follow-ups: Mistral-first defaults for the LLM step (no profile needed), early `MISTRAL_API_KEY` check, retry with error feedback, fenced-JSON tolerance, detected language in the prompt, `schema` key in profile files. Skill extended with `llm-step.md` and `lessons-from-scheduling.md`. 208 tests pass.

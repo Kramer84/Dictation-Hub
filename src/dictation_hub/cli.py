@@ -12,6 +12,7 @@ import click
 import typer
 from click.shell_completion import CompletionItem
 
+from .answer_cli import answer_command
 from .client.remote import client_base_url, run_client
 from .core.invocation import InvocationError, complete_invocation, parse_invocation
 from .core.config_manager import get_config_dir, load_deployment_env, load_json_config
@@ -104,6 +105,7 @@ def installed_models() -> list:
 app = typer.Typer(cls=DictationRouter)
 server_app = typer.Typer(help="Manage the dictation backend server.")
 app.add_typer(server_app, name="server")
+app.command("answer")(answer_command)
 
 
 def load_machine_role() -> str:
@@ -157,6 +159,7 @@ def browse(
 ):
     """Interactively browse transcriptions using left/right arrow keys."""
     import curses
+    import textwrap
 
     base_dir = directory or (Path.home() / ".whisper_transcriptions")
     base_dir = base_dir.expanduser()
@@ -199,12 +202,21 @@ def browse(
             language = meta.get("language", "unknown")
             raw_ts = meta.get("timestamp", dir_path.name)
 
-            formatted_date = raw_ts
+            date_str = "unknown"
+            time_str = "unknown"
             try:
                 dt = datetime.strptime(raw_ts, "%Y%m%d_%H%M%S")
-                formatted_date = dt.strftime("%A, %B %d, %Y at %H:%M:%S")
+                date_str = dt.strftime("%d/%m/%Y")
+                time_str = dt.strftime("%H:%M:%S")
             except Exception:
-                pass
+                if "_" in raw_ts:
+                    parts = raw_ts.split("_")
+                    if len(parts[0]) == 8:
+                        d_raw = parts[0]
+                        date_str = f"{d_raw[6:8]}/{d_raw[4:6]}/{d_raw[0:4]}"
+                    if len(parts) > 1 and len(parts[1]) == 6:
+                        t_raw = parts[1]
+                        time_str = f"{t_raw[0:2]}:{t_raw[2:4]}:{t_raw[4:6]}"
 
             # Find final text file
             final_files = list(dir_path.glob("*_final.txt"))
@@ -215,34 +227,53 @@ def browse(
                 except Exception as e:
                     content = f"Error reading file: {e}"
 
-            # Header info
+            # Header lines layout
             header_lines = [
-                f" Transcription {current_idx + 1} of {len(subdirs)} | Folder: {dir_path.name} ",
-                f" Date: {formatted_date} | Profile: {profile} | Language: {language} ",
-                "-" * min(width - 1, 80)
+                f"Transcription {current_idx + 1} of {len(subdirs)}",
+                f"Folder: {dir_path.name}",
+                f"Date: {date_str}",
+                f"Time: {time_str}",
+                f"Profile: {profile}",
+                f"Language: {language}",
+                "-" * min(width - 1, 59)
             ]
 
             row = 0
             for hline in header_lines:
                 if row < height - 1:
                     try:
-                        stdscr.addstr(row, 0, hline[:width - 1], curses.A_BOLD)
+                        stdscr.addstr(row, 0, hline[:width - 1])
                     except curses.error:
                         pass
                     row += 1
 
-            # Content lines
-            for line in content.splitlines():
+            # Word-wrap content text to fit terminal width
+            wrapped_lines = []
+
+            # Define your target punctuation list for line breaks
+            target_punctuations = ['.', '?', '!', '...']
+            for p in target_punctuations:
+                content = content.replace(f"{p} ", f"{p}\n")
+            for paragraph in content.splitlines():
+                if not paragraph.strip():
+                    wrapped_lines.append("")
+                else:
+                    wrapped_lines.extend(textwrap.wrap(paragraph, width=max(width - 1, 10)))
+
+            # Display content lines (reserving space for header and footer)
+            max_content_rows = height - row - 1
+            content_to_show = wrapped_lines[:max_content_rows]
+            for cline in content_to_show:
                 if row >= height - 1:
                     break
                 try:
-                    stdscr.addstr(row, 0, line[:width - 1])
+                    stdscr.addstr(row, 0, cline[:width - 1])
                 except curses.error:
                     pass
                 row += 1
 
-            # Footer instructions
-            footer = " [←/→] Navigate files | [q/ESC] Quit "
+            # Standard bottom navigation footer
+            footer = f"<<< previous         {date_str} {time_str}         next >>>   [{current_idx + 1}/{len(subdirs)}]"
             if height > 1:
                 try:
                     stdscr.addstr(height - 1, 0, footer[:width - 1], curses.A_REVERSE)

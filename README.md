@@ -81,6 +81,19 @@ Press `Enter` or `Ctrl+C` to stop recording and receive the processed text in yo
 
 Navigate to `http://<YOUR_TAILSCALE_IP>:8000` on your mobile browser. Select your profile from the dropdown, tap the microphone button to stream audio, and copy the formatted result directly to your phone's clipboard.
 
+### 4. Using Dictation-Hub from another project
+
+Another tool that has already asked you a question can call `dictation-hub answer`, which records your spoken answer and prints one JSON document (`ok`, `raw_text`, `final_text`, `data`, `error`, `workspace`, `audio`) on stdout:
+
+```bash
+export MISTRAL_API_KEY=...                  # or MISTRAL_API_KEY="..." in ~/.config/dictation_hub/config.env
+dictation-hub answer --schema my_project.schemas:Annotation          # Mistral defaults, no profile needed
+dictation-hub answer --profile-file annotate.json                    # optional: own prompt/model/provider, names the schema
+dictation-hub answer -f clip.wav          # transcribe a saved recording instead; text only without a schema
+```
+
+Exit codes: 0 ok, 1 recording or transcription failed, 2 bad input, 3 cancelled or quit, 4 schema step failed (cleaned text still returned). From Python: `from dictation_hub.api import dictate`. The format of the profile file and the details are in `skills/integrating-dictation-hub/`.
+
 ## Optimization & Tuning Suite
 
 Because different microphones, rooms, and voices yield different results, this repository contains a standalone `optimization/` suite to find the mathematical best fit for your specific hardware.
