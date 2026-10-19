@@ -95,7 +95,7 @@ Development is phased to ensure that architectural gaps and existing bugs are ca
 ### Milestone 1: Audio Capture Resilience, Recording Controls & Offline Reprocessing
 *   **Explicit Recording Controls**:
     *   Replace the Enter/Ctrl-C stop behavior with explicit key commands (e.g. `s` start/stop, `q` quit); exact keymap to be agreed during M0. Ctrl-C may simply quit.
-    *   Send `SIGINT` to the recording subprocess (`arecord` / `ffmpeg`) so audio file containers are cleanly finalized before normalization.
+    *   Send `SIGINT` to the recording subprocess (`arecord` / `parec` / `ffmpeg`; see "Audio capture backends" in §6) so audio file containers are cleanly finalized before normalization.
 *   **Audio Reprocessing Fallback (`--file` / `-f`)**:
     *   Add `--file /path/to/audio.wav` flag to bypass live recording.
     *   Enable rerunning transcription and downstream pipelines on existing raw files without re-recording.
@@ -185,6 +185,9 @@ dictation-hub standard -l fr --threads 8      # any whisper option; -v shows eve
 dictation-hub standard -f /path/to/recording.wav   # reprocess a file (--local skips the server)
 dictation-hub browse                          # browse past transcriptions
 
+# WSL2 / no ALSA card: works out of the box through parec; to force a source or tool:
+DICTATION_CAPTURE_COMMAND='parec --format=s16le --rate=16000 --channels=1 --raw' dictation-hub standard
+
 # Client machine: set DICTATION_ROLE="client" and SERVER_IP/SERVER_PORT in ~/.config/dictation_hub/config.env
 dictation-hub standard
 
@@ -212,7 +215,7 @@ Not implemented yet: `--type-active` / `--paste` (M4), GPU pre-flight (M2), voic
 **Repo map** (`src/dictation_hub/`):
 *   `cli.py` — Typer router: bare profile names go to the hidden `run` command; `answer`, `browse`, `server …`. `answer_cli.py` — the `answer` command.
 *   `api.py` — `extract`, `dictate`, `DictationResult` (external API). 
-*   `core/` — `recorder.py` (mic, keys, listeners), `chunker.py` (silence cuts, chunked transcription), `session.py` (one flow capture → transcript → pipeline → webhook; used by CLI and server), `local_runner.py` (host CLI flow, server-first routing), `postprocess.py` (degradation to scrubbed text), `invocation.py` (CLI parsing and completion), `whisper_interface.py`, `config_manager.py`, `console.py` (terminal output, clipboard). `record_audio.py` is legacy (still used by `optimization/` and `session.py`'s audio preparation).
+*   `core/` — `recorder.py` (mic capture backend choice, keys, listeners), `chunker.py` (silence cuts, chunked transcription), `session.py` (one flow capture → transcript → pipeline → webhook; used by CLI and server), `local_runner.py` (host CLI flow, server-first routing), `postprocess.py` (degradation to scrubbed text), `invocation.py` (CLI parsing and completion), `whisper_interface.py`, `config_manager.py`, `console.py` (terminal output, clipboard). `record_audio.py` is legacy (still used by `optimization/` and `session.py`'s audio preparation).
 *   `client/` — `remote.py` (client role and server upload), `uploader.py`. `server/` — `main.py` (FastAPI), `service.py` (systemd, bind), `access.py` (Tailscale/localhost filter), `n8n_dispatcher.py`.
 *   `pipeline/` — `engine.py` (`PIPELINE_MAP`), `pipelines/` (one class per profile; `base.py` has `call_llm`), `core/` (`text_tools.py` scrubber and LanguageTool, `llm_providers.py` Mistral/Ollama).
 *   Config: seeds in `configs/`, live copies in `~/.config/dictation_hub/` (edit those; they are not overwritten). Workspaces: `~/.whisper_transcriptions/<ts>_<profile>/`.
@@ -225,5 +228,7 @@ Not implemented yet: `--type-active` / `--paste` (M4), GPU pre-flight (M2), voic
 
 **LLM provider preference:** Mistral is preferred only for large loads and complex tasks; simple LLM steps should stay local (Ollama). `api.extract` *defaults* to Mistral on purpose (Ollama may be absent; do not switch it). A future Ollama-availability check may pick the default per machine.
 
-**Known gotchas:** the `uv tool` install of `dictation-hub` is editable from this checkout; a stale non-editable install ignores repo changes. French LanguageTool checks cost about 1.7 s every time. Chunk progress lines do not show when going through the server. When the server transcribes, the detected language does not come back (prompt says `auto`).
+**Audio capture backends (`core/recorder.py: capture_command()`):** the recorder needs a command that writes 16 kHz mono s16le PCM to stdout. It picks the first that applies: (1) `DICTATION_CAPTURE_COMMAND`, an explicit override (also used to replay a take in real time); (2) `arecord`, when `arecord -l` lists a sound card (native Linux); (3) `parec` (PulseAudio/PipeWire-pulse); (4) `ffmpeg` (`-f avfoundation` on macOS, `-f pulse` elsewhere). If none exists, recording fails with a message naming what to install. The refactor to one shared recorder (M1) had dropped the old client's backend probing (ffmpeg-pulse, arecord-pulse, SoX `rec`, `parecord`) and hardcoded `arecord`, which broke **WSL2/WSLg**: there ALSA has no sound card (`arecord: audio open error`) and the microphone exists only as a PulseAudio source (`RDPSource` via `PULSE_SERVER=unix:/mnt/wslg/PulseServer`). Fixed 2026-10-19. Diagnose a capture failure with `arecord -l`, `pactl list short sources`, and by running the command from `capture_command()` by hand; when a capture process dies, its stderr is now shown. SoX `rec` and `AUDIO_BACKEND` are not supported any more; use `DICTATION_CAPTURE_COMMAND`.
+
+**Known gotchas:** on WSL2 the Windows microphone must be allowed for desktop apps (Windows Settings → Privacy → Microphone), or `parec` records silence; `pactl info` should show `Default Source: RDPSource`. The `uv tool` install of `dictation-hub` is editable from this checkout; a stale non-editable install ignores repo changes. French LanguageTool checks cost about 1.7 s every time. Chunk progress lines do not show when going through the server. When the server transcribes, the detected language does not come back (prompt says `auto`).
 

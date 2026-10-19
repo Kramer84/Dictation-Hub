@@ -34,8 +34,9 @@ def wav_seconds(path):
         return w.getnframes() / w.getframerate()
 
 
-def test_capture_command_streams_16k_mono_pcm():
-    cmd = recorder.arecord_command()
+def test_capture_command_streams_16k_mono_pcm(monkeypatch):
+    fake_tools(monkeypatch, {"arecord"}, alsa_card=True)
+    cmd = recorder.capture_command()
     assert cmd[0] == "arecord"
     assert cmd[cmd.index("-r") + 1] == "16000" and cmd[cmd.index("-c") + 1] == "1"
     assert cmd[cmd.index("-t") + 1] == "raw"
@@ -90,6 +91,9 @@ class FakeRecorder:
 
     def start(self):
         self.calls.append("start")
+
+    def error_text(self):
+        return ""
 
     def pause(self):
         self.calls.append("pause")
@@ -182,4 +186,37 @@ def test_blocks_stay_sample_aligned(tmp_path):
 
 def test_capture_command_can_be_overridden_for_testing(monkeypatch):
     monkeypatch.setenv("DICTATION_CAPTURE_COMMAND", "ffmpeg -re -i 'my take.wav' -f s16le -")
-    assert recorder.arecord_command() == ["ffmpeg", "-re", "-i", "my take.wav", "-f", "s16le", "-"]
+    assert recorder.capture_command() == ["ffmpeg", "-re", "-i", "my take.wav", "-f", "s16le", "-"]
+
+
+def fake_tools(monkeypatch, tools, alsa_card):
+    """Pretend only ``tools`` are installed and ALSA does (not) see a sound card."""
+    monkeypatch.delenv("DICTATION_CAPTURE_COMMAND", raising=False)
+    monkeypatch.setattr(recorder.shutil, "which", lambda name: f"/usr/bin/{name}" if name in tools else None)
+    monkeypatch.setattr(recorder, "alsa_has_capture_card", lambda: alsa_card)
+
+
+def test_capture_uses_arecord_when_alsa_sees_a_sound_card(monkeypatch):
+    fake_tools(monkeypatch, {"arecord", "parec", "ffmpeg"}, alsa_card=True)
+    assert recorder.capture_command()[0] == "arecord"
+
+
+def test_capture_uses_pulseaudio_when_alsa_has_no_sound_card(monkeypatch):
+    """WSL2/WSLg: the microphone exists only as a PulseAudio source."""
+    fake_tools(monkeypatch, {"arecord", "parec", "ffmpeg"}, alsa_card=False)
+    cmd = recorder.capture_command()
+    assert cmd[0] == "parec"
+    assert "--format=s16le" in cmd and "--rate=16000" in cmd and "--channels=1" in cmd and "--raw" in cmd
+
+
+def test_capture_falls_back_to_ffmpeg_pulse_without_parec(monkeypatch):
+    fake_tools(monkeypatch, {"arecord", "ffmpeg"}, alsa_card=False)
+    cmd = recorder.capture_command()
+    assert cmd[0] == "ffmpeg" and cmd[cmd.index("-f") + 1] == "pulse"
+    assert cmd[-1] == "-" and "s16le" in cmd
+
+
+def test_capture_without_any_tool_says_what_to_install(monkeypatch):
+    fake_tools(monkeypatch, set(), alsa_card=False)
+    with pytest.raises(recorder.CaptureUnavailable, match="DICTATION_CAPTURE_COMMAND"):
+        recorder.capture_command()

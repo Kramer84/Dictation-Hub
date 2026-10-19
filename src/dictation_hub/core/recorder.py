@@ -1,9 +1,11 @@
 import os
 import select
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import termios
 import threading
 import tty
@@ -19,20 +21,47 @@ SAMPLE_WIDTH = 2
 BLOCK_BYTES = SAMPLE_RATE * SAMPLE_WIDTH // 10  # 100 ms
 
 
-def arecord_command() -> List[str]:
-    """16 kHz mono PCM on stdout: whisper's native input.
+class CaptureUnavailable(RuntimeError):
+    """No tool to record from the microphone could be found."""
 
-    An A/B against CD-format capture (optimization/ab_capture.sh) gave
-    identical results on this machine.
 
-    DICTATION_CAPTURE_COMMAND replaces it (any command writing 16 kHz mono
-    s16le PCM to stdout), e.g. to replay a recording in real time for testing:
+def alsa_has_capture_card() -> bool:
+    """True when ALSA lists at least one capture card (False on WSL2/WSLg, where
+    the microphone is only a PulseAudio source and ``arecord`` finds no device)."""
+    try:
+        listing = subprocess.run(["arecord", "-l"], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return "card " in listing
+
+
+def capture_command() -> List[str]:
+    """A command writing 16 kHz mono s16le PCM (whisper's native input) to stdout.
+
+    DICTATION_CAPTURE_COMMAND replaces the choice (any such command), e.g. to
+    replay a recording in real time for testing:
     ffmpeg -re -i take.wav -f s16le -ar 16000 -ac 1 -
+
+    Otherwise the first backend that applies wins:
+    1. arecord, when ALSA sees a sound card (native Linux);
+    2. parec (PulseAudio / PipeWire-pulse; WSL2 with WSLg, where ALSA has no card);
+    3. ffmpeg: avfoundation on macOS, pulse elsewhere.
     """
     override = os.environ.get("DICTATION_CAPTURE_COMMAND")
     if override:
         return shlex.split(override)
-    return ["arecord", "-q", "-f", "S16_LE", "-r", str(SAMPLE_RATE), "-c", "1", "-t", "raw"]
+    rate = str(SAMPLE_RATE)
+    if shutil.which("arecord") and alsa_has_capture_card():
+        return ["arecord", "-q", "-f", "S16_LE", "-r", rate, "-c", "1", "-t", "raw"]
+    if shutil.which("parec"):
+        return ["parec", "--format=s16le", f"--rate={rate}", "--channels=1", "--raw"]
+    if shutil.which("ffmpeg"):
+        source = ["-f", "avfoundation", "-i", ":default"] if sys.platform == "darwin" else ["-f", "pulse", "-i", "default"]
+        return ["ffmpeg", "-loglevel", "error", "-nostdin", *source, "-f", "s16le", "-ar", rate, "-ac", "1", "-"]
+    raise CaptureUnavailable(
+        "no audio capture tool found: install pulseaudio-utils (parec), alsa-utils (arecord) or ffmpeg, "
+        "or set DICTATION_CAPTURE_COMMAND to a command writing 16 kHz mono s16le PCM to stdout"
+    )
 
 
 class Recorder:
@@ -48,7 +77,7 @@ class Recorder:
     def __init__(
         self,
         output: Path,
-        command_factory: Callable[[], List[str]] = arecord_command,
+        command_factory: Callable[[], List[str]] = capture_command,
         listeners: Iterable[Callable[[Optional[bytes]], None]] = (),
     ):
         self.output = output
@@ -58,16 +87,19 @@ class Recorder:
         self.paused = False
         self._reader: Optional[threading.Thread] = None
         self._wav = None
+        self._stderr = None
 
     def start(self) -> None:
+        command = self.command_factory()
         self._wav = wave.open(str(self.output), "wb")
         self._wav.setnchannels(1)
         self._wav.setsampwidth(SAMPLE_WIDTH)
         self._wav.setframerate(SAMPLE_RATE)
+        self._stderr = tempfile.TemporaryFile()
         self.process = subprocess.Popen(
-            self.command_factory(),
+            command,
             stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
+            stderr=self._stderr,
             start_new_session=True,
         )
         self._reader = threading.Thread(target=self._pump, daemon=True)
@@ -116,6 +148,13 @@ class Recorder:
                 listener(None)
         self.process = None
 
+    def error_text(self) -> str:
+        """What the capture command wrote to stderr (why it died, if it did)."""
+        if self._stderr is None:
+            return ""
+        self._stderr.seek(0)
+        return self._stderr.read().decode(errors="replace").strip()
+
     def is_alive(self) -> bool:
         return self.process is not None and self.process.poll() is None
 
@@ -127,7 +166,11 @@ def control_recording(rec, keys: Iterator[Optional[str]]) -> str:
     Ctrl-C: keep the audio, skip processing), ``cancel`` (c: discard) or
     ``failed`` (the capture process died). ``None`` keys are idle ticks.
     """
-    rec.start()
+    try:
+        rec.start()
+    except (CaptureUnavailable, OSError) as exc:
+        print(f"\r\033[K⚠️  Cannot start audio capture: {exc}", file=sys.stderr)
+        return "failed"
     paused = False
     outcome = "process"
     try:
@@ -135,6 +178,8 @@ def control_recording(rec, keys: Iterator[Optional[str]]) -> str:
             if key is None:
                 if not rec.is_alive():
                     rec.stop(send_end=False)
+                    if rec.error_text():
+                        print(f"\r\033[K⚠️  Audio capture stopped: {rec.error_text()[-500:]}", file=sys.stderr)
                     return "failed"
                 continue
             if key == " ":
