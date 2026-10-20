@@ -15,6 +15,7 @@ from typing import Callable, List, Optional
 UNIT_NAME = "dictation-hub.service"
 DEFAULT_UNIT_FILE = Path.home() / ".config" / "systemd" / "user" / UNIT_NAME
 TAILSCALE_WAIT_S = 300
+GRACEFUL_SHUTDOWN_S = 5  # then open requests are cut, so `server stop` is quick
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +172,9 @@ def serve(hosts: List[str], port: int) -> None:
 
     sockets = open_sockets(hosts, port)
     logger.warning("Dictation server listening on %s, port %d", ", ".join(hosts), port)
-    config = uvicorn.Config("dictation_hub.server.main:app", port=port)
+    config = uvicorn.Config(
+        "dictation_hub.server.main:app", port=port, timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_S
+    )
     uvicorn.Server(config).run(sockets=sockets)
 
 
