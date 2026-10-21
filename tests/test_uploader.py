@@ -105,3 +105,24 @@ def test_upload_is_chunked_while_streaming(live_server, monkeypatch):
     result = upload.result(timeout=60)
     assert result["final_text"] == "Hello there."
     assert len(calls) == 3
+
+
+def test_stalled_connection_is_reported_instead_of_waiting_for_the_timeout():
+    # A server that accepts the connection but never reads: sends block once the buffers are full.
+    import socket
+
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    port = listener.getsockname()[1]
+    upload = uploader.ServerUpload(f"http://127.0.0.1:{port}/transcribe", stall_timeout=1.0)
+    try:
+        for _ in range(8000):  # ~25 MB, far more than the socket buffers hold
+            upload(PCM_BLOCK)
+        upload(None)
+        started = time.time()
+        with pytest.raises(uploader.UploadStalled):
+            upload.result()
+        assert time.time() - started < 10
+    finally:
+        listener.close()

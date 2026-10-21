@@ -16,7 +16,11 @@ import typer
 from ..core.config_manager import get_config_dir
 from ..core.console import deliver
 from ..core.recorder import record_from_mic
-from .uploader import ServerUpload, server_is_up
+from .uploader import ServerUpload, UploadStalled, server_is_up
+
+
+RESEND_ATTEMPTS = 3
+RETRY_DELAY = 3.0  # seconds, multiplied by the attempt number
 
 
 class ServerFailed(RuntimeError):
@@ -66,8 +70,14 @@ def record_via_server(
         upload.abort()
         return outcome, None
     typer.secho("⏹  Stopped — waiting for the server…", fg=typer.colors.CYAN)
+    url = transcribe_url(base_url, profile, overrides)
     try:
-        return outcome, check_answer(upload.result())
+        try:
+            answer = upload.result()
+        except UploadStalled as e:
+            typer.secho(f"⚠️  Live upload stalled ({e}); resending the saved recording…", fg=typer.colors.YELLOW)
+            answer = send_recording(url, spool)
+        return outcome, check_answer(answer)
     except Exception as e:
         raise ServerFailed(str(e)) from e
 
@@ -77,6 +87,18 @@ def upload_file(url: str, path: Path) -> dict:
         resp = requests.post(url, data=f, timeout=(5, 600))
     resp.raise_for_status()
     return resp.json()
+
+
+def send_recording(url: str, path: Path) -> dict:
+    """Upload a saved recording, retrying when the network drops or times out."""
+    for attempt in range(1, RESEND_ATTEMPTS + 1):
+        try:
+            return upload_file(url, path)
+        except (requests.ConnectionError, requests.Timeout) as e:
+            if attempt == RESEND_ATTEMPTS:
+                raise
+            typer.secho(f"⚠️  Upload failed ({e}); retrying ({attempt}/{RESEND_ATTEMPTS - 1})…", fg=typer.colors.YELLOW)
+            time.sleep(RETRY_DELAY * attempt)
 
 
 def run_client(
@@ -95,7 +117,7 @@ def run_client(
     if audio_file is not None:
         typer.secho(f"   Uploading {audio_file}", fg=typer.colors.BLUE)
         try:
-            answer = check_answer(upload_file(transcribe_url(base_url, profile, overrides), audio_file))
+            answer = check_answer(send_recording(transcribe_url(base_url, profile, overrides), audio_file))
         except Exception as e:
             typer.secho(f"❌ The server did not deliver ({e}).", fg=typer.colors.RED)
             raise typer.Exit(code=1)

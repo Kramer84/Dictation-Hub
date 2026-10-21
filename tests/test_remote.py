@@ -1,7 +1,8 @@
 import pytest
+import requests
 import typer
 
-from dictation_hub.client import remote
+from dictation_hub.client import remote, uploader
 from dictation_hub.core import console
 
 
@@ -47,6 +48,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(remote, "ServerUpload", FakeUpload)
     monkeypatch.setattr(remote, "server_is_up", lambda base, timeout=2: True)
     monkeypatch.setattr(remote, "get_config_dir", lambda: tmp_path)
+    monkeypatch.setattr(remote, "RETRY_DELAY", 0)
     monkeypatch.setattr(console, "copy_to_clipboard", clipboard.append)
 
     def run(outcome="process", **kwargs):
@@ -126,3 +128,49 @@ def test_client_url_comes_from_the_config(monkeypatch):
     monkeypatch.setenv("SERVER_IP", "100.71.34.52")
     monkeypatch.setenv("SERVER_PORT", "8000")
     assert remote.client_base_url() == "http://100.71.34.52:8000"
+
+
+def test_stalled_live_upload_is_resent_from_the_saved_recording(client, monkeypatch):
+    FakeUpload.answer = uploader.UploadStalled("no progress")
+    sent = []
+
+    def upload_file(url, path):
+        sent.append((url, path.read_bytes()))
+        return {"raw_text": "salut", "final_text": "Salut."}
+
+    monkeypatch.setattr(remote, "upload_file", upload_file)
+    clipboard, spooled = client()
+    assert sent == [("http://100.71.34.52:8000/transcribe?profile=standard&language=fr", b"RIFF-recording")]
+    assert clipboard == ["Salut."] and spooled == []
+
+
+def test_resend_is_retried_and_the_recording_kept_when_it_keeps_failing(client, monkeypatch, capsys):
+    FakeUpload.answer = uploader.UploadStalled("no progress")
+    attempts = []
+
+    def upload_file(url, path):
+        attempts.append(path)
+        raise requests.ConnectionError("link down")
+
+    monkeypatch.setattr(remote, "upload_file", upload_file)
+    with pytest.raises(typer.Exit):
+        client()
+    assert len(attempts) == 3
+    spooled = list(remote.get_config_dir().joinpath("spool").glob("*.wav"))
+    assert len(spooled) == 1 and f"-f {spooled[0]}" in capsys.readouterr().out
+
+
+def test_file_upload_succeeds_after_a_transient_failure(client, tmp_path, monkeypatch):
+    wav = tmp_path / "take.wav"
+    wav.write_bytes(b"RIFF-take")
+    calls = []
+
+    def upload_file(url, path):
+        calls.append(path)
+        if len(calls) == 1:
+            raise requests.ConnectionError("blip")
+        return {"raw_text": "salut", "final_text": "Salut."}
+
+    monkeypatch.setattr(remote, "upload_file", upload_file)
+    clipboard, _ = client(audio_file=wav)
+    assert len(calls) == 2 and clipboard == ["Salut."]
