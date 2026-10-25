@@ -53,6 +53,41 @@ class FakeServer:
             raise answer
         return answer
 
+    def resend(self, url, path):
+        return FakeResend(self, url, path)
+
+
+SENDING = object()  # a resend that is still on its way
+
+
+class FakeResend:
+    """Stand-in for remote.BackgroundUpload: done at once, unless the answer is SENDING."""
+
+    def __init__(self, server, url, path):
+        self.sending = bool(server.uploads) and server.uploads[0] is SENDING
+        if self.sending:
+            server.sent.append((url, path.read_bytes()))
+            server.uploads.pop(0)
+            self.sent = 0
+        else:
+            try:
+                self.answer = server.upload_file(url, path)
+            except Exception as e:
+                self.answer = e
+
+    def done(self):
+        return not self.sending
+
+    def progress(self):
+        if self.sending and getattr(self, "growing", False):
+            self.sent += 1000
+        return self.sent if self.sending else 0
+
+    def result(self, timeout=None):
+        if isinstance(self.answer, Exception):
+            raise self.answer
+        return self.answer
+
 
 DONE = {"state": "done", "result": {"raw_text": "salut", "final_text": "Salut."}}
 
@@ -84,6 +119,7 @@ def client(tmp_path, monkeypatch):
     server = FakeServer()
     monkeypatch.setattr(remote, "fetch_status", server.fetch_status)
     monkeypatch.setattr(remote, "upload_file", server.upload_file)
+    monkeypatch.setattr(remote, "BackgroundUpload", server.resend)
     monkeypatch.setattr(console, "copy_to_clipboard", clipboard.append)
 
     def run(outcome="process", **kwargs):
@@ -252,3 +288,28 @@ def test_file_upload_succeeds_after_a_transient_failure(client, tmp_path):
     client.server.uploads = [requests.ConnectionError("blip"), {"raw_text": "salut", "final_text": "Salut."}]
     clipboard, _ = client(audio_file=wav)
     assert len(client.server.sent) == 2 and clipboard == ["Salut."]
+
+
+def test_resend_still_on_its_way_is_not_sent_again(client):
+    """A resend over a slow link keeps going while the server reports progress."""
+    FakeUpload.answer = requests.ReadTimeout("Read timed out.")
+    client.server.statuses = [
+        {"state": "unknown"},
+        {"state": "receiving", "received": 1000},
+        {"state": "receiving", "received": 2000},
+        {"state": "processing"},
+        DONE,
+    ]
+    client.server.uploads = [SENDING]
+    clipboard, _ = client()
+    assert len(client.server.sent) == 1 and clipboard == ["Salut."]
+
+
+def test_resend_still_sending_counts_as_progress_when_the_server_cannot_be_asked(client, monkeypatch):
+    """Status checks fail on a bad link, but the resend's own bytes keep moving."""
+    FakeUpload.answer = requests.ReadTimeout("Read timed out.")
+    monkeypatch.setattr(FakeResend, "growing", True, raising=False)
+    client.server.statuses = [{"state": "unknown"}, None, None, None, DONE]
+    client.server.uploads = [SENDING]
+    clipboard, _ = client()
+    assert len(client.server.sent) == 1 and clipboard == ["Salut."]

@@ -7,6 +7,8 @@ from typing import Optional
 
 import requests
 
+from . import net
+
 _ABORT = object()
 
 
@@ -27,7 +29,7 @@ def streaming_wav_header(rate: int = 16000, channels: int = 1, width: int = 2) -
 
 def server_is_up(base_url: str, timeout: float = 0.5) -> bool:
     try:
-        return requests.get(f"{base_url}/health", timeout=timeout).ok
+        return net.session().get(f"{base_url}/health", timeout=timeout).ok
     except requests.RequestException:
         return False
 
@@ -46,7 +48,7 @@ class ServerUpload:
         self.stall_timeout = stall_timeout
         self._last_pull = time.monotonic()  # when the connection last took audio from the queue
         self._queue: "queue.Queue" = queue.Queue()
-        self._session = requests.Session()
+        self._session = net.session()
         self._result: Optional[dict] = None
         self._error: Optional[BaseException] = None
         self._aborted = False

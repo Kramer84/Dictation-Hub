@@ -12,6 +12,7 @@ import hashlib
 import os
 import re
 import socket
+import threading
 import time
 from pathlib import Path
 from typing import Callable, Dict, Optional, Tuple
@@ -23,6 +24,7 @@ import typer
 from ..core.config_manager import get_config_dir
 from ..core.console import deliver
 from ..core.recorder import record_from_mic
+from . import net
 from .uploader import ServerUpload, UploadStalled, server_is_up
 
 
@@ -123,55 +125,102 @@ def record_via_server(
 def fetch_status(base_url: str, rec_id: str) -> Optional[dict]:
     """What the server knows of a recording, or None when it cannot be reached."""
     try:
-        return requests.get(f"{base_url}/result/{rec_id}", timeout=(5, 10)).json()
+        return net.session().get(f"{base_url}/result/{rec_id}", timeout=(5, 10)).json()
     except (requests.RequestException, ValueError):
         return None
 
 
-def upload_file(url: str, path: Path, timeout: float = 600) -> dict:
+def upload_file(url: str, path: Path, timeout: float = 600, on_progress: Optional[Callable[[int], None]] = None) -> dict:
+    def blocks(f):
+        while block := f.read(64 * 1024):
+            on_progress(len(block))
+            yield block
+
     with open(path, "rb") as f:
-        resp = requests.post(url, data=f, timeout=(5, timeout))
+        resp = net.session().post(url, data=blocks(f) if on_progress else f, timeout=(5, timeout))
     resp.raise_for_status()
     return resp.json()
+
+
+class BackgroundUpload:
+    """Sends a saved recording from a background thread, so the client can keep
+    asking the server about it meanwhile. ``progress()`` is the number of bytes
+    handed to the network so far."""
+
+    def __init__(self, url: str, path: Path):
+        self._sent = 0
+        self._answer: Optional[dict] = None
+        self._error: Optional[BaseException] = None
+        self._thread = threading.Thread(target=self._run, args=(url, path), daemon=True)
+        self._thread.start()
+
+    def _count(self, n: int) -> None:
+        self._sent += n
+
+    def _run(self, url: str, path: Path) -> None:
+        try:
+            self._answer = upload_file(url, path, on_progress=self._count)
+        except BaseException as e:  # reported by result()
+            self._error = e
+
+    def done(self) -> bool:
+        return not self._thread.is_alive()
+
+    def progress(self) -> int:
+        return self._sent
+
+    def result(self, timeout: Optional[float] = None) -> dict:
+        self._thread.join(timeout)
+        if self._thread.is_alive():
+            raise TimeoutError("the upload is still running")
+        if self._error is not None:
+            raise self._error
+        return self._answer
 
 
 def recover(base_url: str, url: str, rec_id: str, path: Path, live=None) -> dict:
     """Get the answer for a recording whose upload did not answer.
 
     Polls the server: ``done`` is the answer; ``processing`` and a growing
-    ``receiving`` count are waited for; ``unknown``, or no progress (or no
-    server) for STALL_TIMEOUT, resends ``path``. A resend that times out
-    while the server works on it is not sent again. ``live`` is the original
-    upload, whose answer is still taken if it arrives.
+    ``receiving`` count are waited for, and so is a resend whose own bytes are
+    still moving (status checks can fail on a bad link while the upload works).
+    ``unknown`` with no upload running, or no progress (or no server) for
+    STALL_TIMEOUT, resends ``path`` in the background, at most RESEND_ATTEMPTS
+    times. ``live`` is the original upload, whose answer is still taken if it
+    arrives.
     """
     deadline = time.monotonic() + RECOVERY_TIMEOUT
-    progress_at, received, resends = time.monotonic(), -1, 0
+    progress_at, received, sent, resends = time.monotonic(), -1, -1, 0
     while time.monotonic() < deadline:
         if live is not None and live.done():
             try:
                 return live.result(timeout=0)
-            except Exception:
+            except Exception as e:
+                if resends:
+                    typer.secho(f"⚠️  Upload failed ({e}).", fg=typer.colors.YELLOW)
                 live = None
         status = fetch_status(base_url, rec_id) or {}
         state = status.get("state")
         if state == "done":
             return status["result"]
-        if state == "processing" or (state == "receiving" and status.get("received", 0) > received):
+        live_sent = getattr(live, "progress", lambda: -1)() if live is not None else -1
+        if (
+            state == "processing"
+            or (state == "receiving" and status.get("received", 0) > received)
+            or live_sent > sent
+        ):
             received = status.get("received", received)
+            sent = live_sent
             progress_at = time.monotonic()
-        elif state == "unknown" or time.monotonic() - progress_at > STALL_TIMEOUT:
+        elif (state == "unknown" and live is None) or time.monotonic() - progress_at > STALL_TIMEOUT:
             if resends == RESEND_ATTEMPTS:
                 break
             if resends:
                 time.sleep(RETRY_DELAY * resends)
             resends += 1
             typer.secho(f"   Sending the saved recording ({resends}/{RESEND_ATTEMPTS})…", fg=typer.colors.YELLOW)
-            live = None
-            try:
-                return upload_file(url, path, timeout=ANSWER_WAIT)
-            except (requests.ConnectionError, requests.Timeout) as e:
-                typer.secho(f"⚠️  Upload failed ({e}).", fg=typer.colors.YELLOW)
-            progress_at, received = time.monotonic(), -1
+            live = BackgroundUpload(url, path)
+            progress_at, received, sent = time.monotonic(), -1, -1
             continue
         time.sleep(POLL_INTERVAL)
     raise ServerFailed(f"no answer after {resends} resend(s)")
