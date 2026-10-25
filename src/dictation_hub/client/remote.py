@@ -3,8 +3,15 @@ and the host CLI when its own server is running.
 
 The recording is streamed to the server while it is made, and kept in a local
 spool file until the server has answered, so a lost connection loses no audio.
+Each recording carries an id: when the answer does not come back on the upload's
+own connection, the client asks the server for it (``GET /result/<id>``) and
+resends the spool file only when the server does not have it or stopped
+receiving it.
 """
+import hashlib
 import os
+import re
+import socket
 import time
 from pathlib import Path
 from typing import Callable, Dict, Optional, Tuple
@@ -21,6 +28,10 @@ from .uploader import ServerUpload, UploadStalled, server_is_up
 
 RESEND_ATTEMPTS = 3
 RETRY_DELAY = 3.0  # seconds, multiplied by the attempt number
+ANSWER_WAIT = 30.0  # seconds to wait for the live answer before asking the server
+STALL_TIMEOUT = 30.0  # seconds without progress on the server before resending
+POLL_INTERVAL = 2.0  # seconds between status checks
+RECOVERY_TIMEOUT = 900.0  # seconds before giving up on a recording
 
 
 class ServerFailed(RuntimeError):
@@ -34,8 +45,34 @@ def client_base_url() -> str:
     return f"{protocol}://{ip}:{port}"
 
 
-def transcribe_url(base_url: str, profile: str, overrides: Dict[str, str]) -> str:
-    return f"{base_url}/transcribe?{urlencode({'profile': profile, **overrides})}"
+def transcribe_url(
+    base_url: str, profile: str, overrides: Dict[str, str], recording_id: Optional[str] = None
+) -> str:
+    params = {"profile": profile, **overrides}
+    if recording_id is not None:
+        params["recording_id"] = recording_id
+    return f"{base_url}/transcribe?{urlencode(params)}"
+
+
+def machine_name() -> str:
+    return socket.gethostname()
+
+
+def spool_id(spool: Path) -> str:
+    """The id the server files a live recording under (also before it exists)."""
+    return re.sub(r"[^A-Za-z0-9_.-]", "-", f"{machine_name()}-{spool.stem}")[:100]
+
+
+def recording_id(path: Path) -> str:
+    """The id of a saved recording sent with ``-f``.
+
+    A spool file keeps the id of its live recording, so resending it finds the
+    result of the first try. Any other file is named by its content, so two
+    different files called ``take.wav`` never share a result.
+    """
+    if path.parent == get_config_dir() / "spool":
+        return spool_id(path)
+    return f"file-{hashlib.sha256(path.read_bytes()).hexdigest()[:16]}"
 
 
 def new_spool(profile: str) -> Path:
@@ -64,41 +101,86 @@ def record_via_server(
     Any other outcome aborts the upload (the server drops its partial copy).
     Raises ServerFailed when the server does not deliver; ``spool`` is kept.
     """
-    upload = ServerUpload(transcribe_url(base_url, profile, overrides))
+    rec_id = spool_id(spool)
+    url = transcribe_url(base_url, profile, overrides, rec_id)
+    upload = ServerUpload(url)
     outcome = (record or record_from_mic)(spool, listeners=[upload])
     if outcome != "process":
         upload.abort()
         return outcome, None
     typer.secho("⏹  Stopped — waiting for the server…", fg=typer.colors.CYAN)
-    url = transcribe_url(base_url, profile, overrides)
     try:
         try:
-            answer = upload.result()
-        except UploadStalled as e:
-            typer.secho(f"⚠️  Live upload stalled ({e}); resending the saved recording…", fg=typer.colors.YELLOW)
-            answer = send_recording(url, spool)
+            answer = upload.result(timeout=ANSWER_WAIT)
+        except Exception as e:  # stalled, timed out, connection lost
+            typer.secho(f"⚠️  No answer yet ({e}); asking the server…", fg=typer.colors.YELLOW)
+            answer = recover(base_url, url, rec_id, spool, live=upload)
         return outcome, check_answer(answer)
     except Exception as e:
         raise ServerFailed(str(e)) from e
 
 
-def upload_file(url: str, path: Path) -> dict:
+def fetch_status(base_url: str, rec_id: str) -> Optional[dict]:
+    """What the server knows of a recording, or None when it cannot be reached."""
+    try:
+        return requests.get(f"{base_url}/result/{rec_id}", timeout=(5, 10)).json()
+    except (requests.RequestException, ValueError):
+        return None
+
+
+def upload_file(url: str, path: Path, timeout: float = 600) -> dict:
     with open(path, "rb") as f:
-        resp = requests.post(url, data=f, timeout=(5, 600))
+        resp = requests.post(url, data=f, timeout=(5, timeout))
     resp.raise_for_status()
     return resp.json()
 
 
-def send_recording(url: str, path: Path) -> dict:
-    """Upload a saved recording, retrying when the network drops or times out."""
-    for attempt in range(1, RESEND_ATTEMPTS + 1):
-        try:
-            return upload_file(url, path)
-        except (requests.ConnectionError, requests.Timeout) as e:
-            if attempt == RESEND_ATTEMPTS:
-                raise
-            typer.secho(f"⚠️  Upload failed ({e}); retrying ({attempt}/{RESEND_ATTEMPTS - 1})…", fg=typer.colors.YELLOW)
-            time.sleep(RETRY_DELAY * attempt)
+def recover(base_url: str, url: str, rec_id: str, path: Path, live=None) -> dict:
+    """Get the answer for a recording whose upload did not answer.
+
+    Polls the server: ``done`` is the answer; ``processing`` and a growing
+    ``receiving`` count are waited for; ``unknown``, or no progress (or no
+    server) for STALL_TIMEOUT, resends ``path``. A resend that times out
+    while the server works on it is not sent again. ``live`` is the original
+    upload, whose answer is still taken if it arrives.
+    """
+    deadline = time.monotonic() + RECOVERY_TIMEOUT
+    progress_at, received, resends = time.monotonic(), -1, 0
+    while time.monotonic() < deadline:
+        if live is not None and live.done():
+            try:
+                return live.result(timeout=0)
+            except Exception:
+                live = None
+        status = fetch_status(base_url, rec_id) or {}
+        state = status.get("state")
+        if state == "done":
+            return status["result"]
+        if state == "processing" or (state == "receiving" and status.get("received", 0) > received):
+            received = status.get("received", received)
+            progress_at = time.monotonic()
+        elif state == "unknown" or time.monotonic() - progress_at > STALL_TIMEOUT:
+            if resends == RESEND_ATTEMPTS:
+                break
+            if resends:
+                time.sleep(RETRY_DELAY * resends)
+            resends += 1
+            typer.secho(f"   Sending the saved recording ({resends}/{RESEND_ATTEMPTS})…", fg=typer.colors.YELLOW)
+            live = None
+            try:
+                return upload_file(url, path, timeout=ANSWER_WAIT)
+            except (requests.ConnectionError, requests.Timeout) as e:
+                typer.secho(f"⚠️  Upload failed ({e}).", fg=typer.colors.YELLOW)
+            progress_at, received = time.monotonic(), -1
+            continue
+        time.sleep(POLL_INTERVAL)
+    raise ServerFailed(f"no answer after {resends} resend(s)")
+
+
+def send_recording(base_url: str, profile: str, overrides: Dict[str, str], path: Path) -> dict:
+    """Upload a saved recording, or fetch its result if the server already has it."""
+    rec_id = recording_id(path)
+    return recover(base_url, transcribe_url(base_url, profile, overrides, rec_id), rec_id, path)
 
 
 def run_client(
@@ -117,7 +199,7 @@ def run_client(
     if audio_file is not None:
         typer.secho(f"   Uploading {audio_file}", fg=typer.colors.BLUE)
         try:
-            answer = check_answer(send_recording(transcribe_url(base_url, profile, overrides), audio_file))
+            answer = check_answer(send_recording(base_url, profile, overrides, audio_file))
         except Exception as e:
             typer.secho(f"❌ The server did not deliver ({e}).", fg=typer.colors.RED)
             raise typer.Exit(code=1)

@@ -1,3 +1,5 @@
+import re
+
 import pytest
 import requests
 import typer
@@ -27,6 +29,33 @@ class FakeUpload:
             raise FakeUpload.answer
         return FakeUpload.answer
 
+    def done(self):
+        return False  # a live upload that failed never answers later here
+
+
+class FakeServer:
+    """What the client sees of the server after the live upload: the status
+    of the recording (``GET /result/<id>``) and resends of the saved file."""
+
+    def __init__(self):
+        self.statuses = [None]  # one per poll, the last one repeats; None = unreachable
+        self.uploads = []  # what the resend answers, one per attempt
+        self.sent = []
+
+    def fetch_status(self, base_url, recording_id):
+        self.status_ids = (base_url, recording_id)
+        return self.statuses.pop(0) if len(self.statuses) > 1 else self.statuses[0]
+
+    def upload_file(self, url, path, timeout=None):
+        self.sent.append((url, path.read_bytes()))
+        answer = self.uploads.pop(0) if self.uploads else requests.ConnectionError("link down")
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+
+DONE = {"state": "done", "result": {"raw_text": "salut", "final_text": "Salut."}}
+
 
 def fake_mic(outcome):
     def record(capture, listeners=()):
@@ -49,6 +78,12 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(remote, "server_is_up", lambda base, timeout=2: True)
     monkeypatch.setattr(remote, "get_config_dir", lambda: tmp_path)
     monkeypatch.setattr(remote, "RETRY_DELAY", 0)
+    monkeypatch.setattr(remote, "POLL_INTERVAL", 0)
+    monkeypatch.setattr(remote, "STALL_TIMEOUT", 0)
+    monkeypatch.setattr(remote, "machine_name", lambda: "laptop")
+    server = FakeServer()
+    monkeypatch.setattr(remote, "fetch_status", server.fetch_status)
+    monkeypatch.setattr(remote, "upload_file", server.upload_file)
     monkeypatch.setattr(console, "copy_to_clipboard", clipboard.append)
 
     def run(outcome="process", **kwargs):
@@ -56,13 +91,17 @@ def client(tmp_path, monkeypatch):
         remote.run_client("standard", {"language": "fr"}, "http://100.71.34.52:8000", **kwargs)
         return clipboard, list((tmp_path / "spool").glob("*.wav"))
 
+    run.server = server
     return run
 
 
 def test_live_recording_is_streamed_and_delivered(client):
     clipboard, spooled = client()
     (upload,) = FakeUpload.instances
-    assert upload.url == "http://100.71.34.52:8000/transcribe?profile=standard&language=fr"
+    assert re.fullmatch(
+        r"http://100\.71\.34\.52:8000/transcribe\?profile=standard&language=fr&recording_id=laptop-\d{8}_\d{6}_standard",
+        upload.url,
+    )
     assert upload.blocks[-1] is None and not upload.aborted
     assert clipboard == ["Salut."]
     assert spooled == []  # the server keeps the audio
@@ -110,16 +149,15 @@ def test_unreachable_server_fails_before_recording(client, monkeypatch, capsys):
 def test_file_is_uploaded_instead_of_recording(client, tmp_path, monkeypatch):
     wav = tmp_path / "take.wav"
     wav.write_bytes(b"RIFF-take")
-    uploaded = []
-
-    def upload_file(url, path):
-        uploaded.append((url, path.read_bytes()))
-        return {"raw_text": "salut", "final_text": "Salut."}
-
-    monkeypatch.setattr(remote, "upload_file", upload_file)
+    client.server.statuses = [{"state": "unknown"}]
+    client.server.uploads = [{"raw_text": "salut", "final_text": "Salut."}]
     monkeypatch.setattr(remote, "record_from_mic", lambda *a, **kw: pytest.fail("recorded"))
     clipboard, _ = client(audio_file=wav)
-    assert uploaded == [("http://100.71.34.52:8000/transcribe?profile=standard&language=fr", b"RIFF-take")]
+    ((url, body),) = client.server.sent
+    assert re.fullmatch(
+        r"http://100\.71\.34\.52:8000/transcribe\?profile=standard&language=fr&recording_id=file-[0-9a-f]{16}", url
+    )
+    assert body == b"RIFF-take"
     assert clipboard == ["Salut."]
 
 
@@ -130,47 +168,87 @@ def test_client_url_comes_from_the_config(monkeypatch):
     assert remote.client_base_url() == "http://100.71.34.52:8000"
 
 
-def test_stalled_live_upload_is_resent_from_the_saved_recording(client, monkeypatch):
-    FakeUpload.answer = uploader.UploadStalled("no progress")
-    sent = []
-
-    def upload_file(url, path):
-        sent.append((url, path.read_bytes()))
-        return {"raw_text": "salut", "final_text": "Salut."}
-
-    monkeypatch.setattr(remote, "upload_file", upload_file)
+def test_lost_answer_is_fetched_from_the_server_without_resending(client):
+    """The live upload's connection died after the server got everything."""
+    FakeUpload.answer = requests.ReadTimeout("Read timed out.")
+    client.server.statuses = [DONE]
     clipboard, spooled = client()
-    assert sent == [("http://100.71.34.52:8000/transcribe?profile=standard&language=fr", b"RIFF-recording")]
+    assert client.server.sent == []
+    assert client.server.status_ids[1] == FakeUpload.instances[0].url.rsplit("recording_id=", 1)[1]
     assert clipboard == ["Salut."] and spooled == []
 
 
-def test_resend_is_retried_and_the_recording_kept_when_it_keeps_failing(client, monkeypatch, capsys):
+def test_recording_the_server_never_got_is_resent(client):
+    """The case of 2026-10-25: a read timeout, and the server knows nothing of it."""
+    FakeUpload.answer = requests.ReadTimeout("Read timed out.")
+    client.server.statuses = [{"state": "unknown"}]
+    client.server.uploads = [{"raw_text": "salut", "final_text": "Salut."}]
+    clipboard, spooled = client()
+    ((url, body),) = client.server.sent
+    assert url == FakeUpload.instances[0].url and body == b"RIFF-recording"
+    assert clipboard == ["Salut."] and spooled == []
+
+
+def test_slow_processing_is_waited_for_not_resent(client):
+    FakeUpload.answer = TimeoutError("No answer from the dictation server.")
+    client.server.statuses = [{"state": "processing"}, {"state": "processing"}, DONE]
+    clipboard, _ = client()
+    assert client.server.sent == [] and clipboard == ["Salut."]
+
+
+def test_upload_still_arriving_is_waited_for_not_resent(client):
+    FakeUpload.answer = TimeoutError("No answer from the dictation server.")
+    client.server.statuses = [
+        {"state": "receiving", "received": 1000},
+        {"state": "receiving", "received": 2000},
+        {"state": "processing"},
+        DONE,
+    ]
+    clipboard, _ = client()
+    assert client.server.sent == [] and clipboard == ["Salut."]
+
+
+def test_upload_stuck_on_the_server_is_resent(client):
     FakeUpload.answer = uploader.UploadStalled("no progress")
-    attempts = []
+    client.server.statuses = [{"state": "receiving", "received": 1000}, {"state": "receiving", "received": 1000}]
+    client.server.uploads = [{"raw_text": "salut", "final_text": "Salut."}]
+    clipboard, _ = client()
+    assert len(client.server.sent) == 1 and clipboard == ["Salut."]
 
-    def upload_file(url, path):
-        attempts.append(path)
-        raise requests.ConnectionError("link down")
 
-    monkeypatch.setattr(remote, "upload_file", upload_file)
+def test_resend_that_times_out_while_the_server_works_is_not_sent_again(client):
+    FakeUpload.answer = requests.ReadTimeout("Read timed out.")
+    client.server.statuses = [{"state": "unknown"}, {"state": "processing"}, DONE]
+    client.server.uploads = [requests.ReadTimeout("Read timed out.")]
+    clipboard, _ = client()
+    assert len(client.server.sent) == 1 and clipboard == ["Salut."]
+
+
+def test_resend_is_retried_and_the_recording_kept_when_it_keeps_failing(client, capsys):
+    FakeUpload.answer = uploader.UploadStalled("no progress")
     with pytest.raises(typer.Exit):
         client()
-    assert len(attempts) == 3
+    assert len(client.server.sent) == 3
     spooled = list(remote.get_config_dir().joinpath("spool").glob("*.wav"))
     assert len(spooled) == 1 and f"-f {spooled[0]}" in capsys.readouterr().out
 
 
-def test_file_upload_succeeds_after_a_transient_failure(client, tmp_path, monkeypatch):
+def test_resending_a_spool_file_reuses_its_recording_id(client, tmp_path, monkeypatch):
+    """`dictation-hub standard -f <spool>` gets the stored result if the server has it."""
+    spool = tmp_path / "spool" / "20261025_192125_standard.wav"
+    spool.parent.mkdir()
+    spool.write_bytes(b"RIFF-recording")
+    client.server.statuses = [DONE]
+    monkeypatch.setattr(remote, "record_from_mic", lambda *a, **kw: pytest.fail("recorded"))
+    clipboard, _ = client(audio_file=spool)
+    assert client.server.status_ids[1] == "laptop-20261025_192125_standard"
+    assert client.server.sent == [] and clipboard == ["Salut."]
+
+
+def test_file_upload_succeeds_after_a_transient_failure(client, tmp_path):
     wav = tmp_path / "take.wav"
     wav.write_bytes(b"RIFF-take")
-    calls = []
-
-    def upload_file(url, path):
-        calls.append(path)
-        if len(calls) == 1:
-            raise requests.ConnectionError("blip")
-        return {"raw_text": "salut", "final_text": "Salut."}
-
-    monkeypatch.setattr(remote, "upload_file", upload_file)
+    client.server.statuses = [{"state": "unknown"}]
+    client.server.uploads = [requests.ConnectionError("blip"), {"raw_text": "salut", "final_text": "Salut."}]
     clipboard, _ = client(audio_file=wav)
-    assert len(calls) == 2 and clipboard == ["Salut."]
+    assert len(client.server.sent) == 2 and clipboard == ["Salut."]

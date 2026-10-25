@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import shutil
 import time
 from contextlib import asynccontextmanager
@@ -67,7 +68,40 @@ async def serve_ui():
     return index_path.read_text(encoding="utf-8")
 
 def _overrides(query_params: dict) -> dict:
-    return {k: v for k, v in query_params.items() if k != "profile" and v != "auto"}
+    return {k: v for k, v in query_params.items() if k not in ("profile", "recording_id") and v != "auto"}
+
+
+# Recordings the client named (``recording_id``), so it can ask for the result
+# again when the connection that carried the upload is lost. Uploads in
+# progress live in memory; finished results are kept on disk.
+RECORDING_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,99}")
+_in_progress: dict = {}  # recording id -> {"state": ..., "received": ..., "owner": ...}
+
+
+def _result_path(recording_id: str) -> Path:
+    return static_config.storage.base_dir / ".results" / f"{recording_id}.json"
+
+
+def recording_status(recording_id: str) -> dict:
+    """``done`` (with the result), ``processing``, ``receiving`` (with the
+    bytes received so far) or ``unknown`` (the client must send it again)."""
+    path = _result_path(recording_id)
+    if path.exists():
+        return {"state": "done", "result": json.loads(path.read_text(encoding="utf-8"))}
+    entry = _in_progress.get(recording_id)
+    if entry is None:
+        return {"state": "unknown"}
+    if entry["state"] == "receiving":
+        return {"state": "receiving", "received": entry["received"]}
+    return {"state": entry["state"]}
+
+
+def _store_result(recording_id: str, result: dict) -> None:
+    path = _result_path(recording_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(result), encoding="utf-8")
+    tmp.replace(path)
 
 
 def _response(run) -> dict:
@@ -107,55 +141,90 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/result/{recording_id}")
+async def get_result(recording_id: str):
+    if not RECORDING_ID.fullmatch(recording_id):
+        return JSONResponse(status_code=400, content={"error": "Invalid recording_id."})
+    status = recording_status(recording_id)
+    return JSONResponse(status_code=404 if status["state"] == "unknown" else 200, content=status)
+
+
 @app.post("/transcribe")
 async def transcribe(request: Request):
-    timestamp = time.strftime(static_config.storage.folder_format)
-    profile_name = dict(request.query_params).get("profile", "standard")
+    query_params = dict(request.query_params)
+    profile_name = query_params.get("profile", "standard")
     if not is_known_profile(profile_name):
         return JSONResponse(status_code=400, content={"error": unknown_profile_message(profile_name)})
+    recording_id = query_params.get("recording_id")
+    if recording_id is not None and not RECORDING_ID.fullmatch(recording_id):
+        return JSONResponse(status_code=400, content={"error": "Invalid recording_id."})
 
+    entry = {"state": "receiving", "received": 0}
+    if recording_id is not None:
+        status = recording_status(recording_id)
+        if status["state"] == "done":
+            # Sent again although it was already processed: answer from the store.
+            async for _ in request.stream():
+                pass
+            return status["result"]
+        # A newer upload of the same recording replaces an older one that may hang.
+        _in_progress[recording_id] = entry
+
+    def release() -> None:
+        if recording_id is not None and _in_progress.get(recording_id) is entry:
+            del _in_progress[recording_id]
+
+    timestamp = time.strftime(static_config.storage.folder_format)
     workspace = static_config.storage.base_dir / f"{timestamp}_{profile_name}"
     workspace.mkdir(parents=True, exist_ok=True)
     raw_audio = workspace / f"{timestamp}_client.wav"
 
-    query_params = dict(request.query_params)
     job, head = None, b""
     try:
-        with open(raw_audio, "wb") as f:
-            async for chunk in request.stream():
-                f.write(chunk)
-                f.flush()  # the chunk worker reads the file while it grows
-                if job is not None:
-                    job(b"")
-                elif head is not None:
-                    head += chunk
-                    if len(head) >= 44:
-                        if is_streamable_wav(head):
-                            config = load_pipeline_config()
-                            job = start_transcription(
-                                raw_audio, workspace, timestamp, profile_name, config,
-                                overrides=_overrides(query_params),
-                                valid_args=config.get("valid_arguments", []),
-                                live=True,
-                            )
-                        head = None
-    except ClientDisconnect:
-        # The client quit or cancelled mid-recording; it keeps its own copy.
-        if job is not None:
-            await run_in_threadpool(job.cancel)
-        shutil.rmtree(workspace, ignore_errors=True)
-        return JSONResponse(status_code=499, content={"error": "Upload aborted by client."})
+        try:
+            with open(raw_audio, "wb") as f:
+                async for chunk in request.stream():
+                    f.write(chunk)
+                    f.flush()  # the chunk worker reads the file while it grows
+                    entry["received"] += len(chunk)
+                    if job is not None:
+                        job(b"")
+                    elif head is not None:
+                        head += chunk
+                        if len(head) >= 44:
+                            if is_streamable_wav(head):
+                                config = load_pipeline_config()
+                                job = start_transcription(
+                                    raw_audio, workspace, timestamp, profile_name, config,
+                                    overrides=_overrides(query_params),
+                                    valid_args=config.get("valid_arguments", []),
+                                    live=True,
+                                )
+                            head = None
+        except ClientDisconnect:
+            # The client quit or cancelled mid-recording; it keeps its own copy.
+            if job is not None:
+                await run_in_threadpool(job.cancel)
+            shutil.rmtree(workspace, ignore_errors=True)
+            return JSONResponse(status_code=499, content={"error": "Upload aborted by client."})
 
-    if raw_audio.stat().st_size < 100:
-        if job is not None:
-            await run_in_threadpool(job.cancel)
-        return {"raw_text": "Error: Received empty audio stream.", "final_text": ""}
+        if raw_audio.stat().st_size < 100:
+            if job is not None:
+                await run_in_threadpool(job.cancel)
+            return {"raw_text": "Error: Received empty audio stream.", "final_text": ""}
 
-    if job is not None:
-        return await run_in_threadpool(finish_live, job, workspace, timestamp, profile_name)
-    return await run_in_threadpool(
-        execute_pipeline, workspace, raw_audio, timestamp, profile_name, query_params
-    )
+        entry["state"] = "processing"
+        if job is not None:
+            result = await run_in_threadpool(finish_live, job, workspace, timestamp, profile_name)
+        else:
+            result = await run_in_threadpool(
+                execute_pipeline, workspace, raw_audio, timestamp, profile_name, query_params
+            )
+        if recording_id is not None and (result.get("final_text") or result.get("raw_text")):
+            _store_result(recording_id, result)
+        return result
+    finally:
+        release()
 
 
 @app.websocket("/ws/transcribe")

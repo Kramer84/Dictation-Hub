@@ -369,6 +369,9 @@ class FakeUpload:
             raise FakeUpload.answer
         return FakeUpload.answer
 
+    def done(self):
+        return False
+
 
 @pytest.fixture
 def with_server(live, tmp_path, monkeypatch):
@@ -376,6 +379,11 @@ def with_server(live, tmp_path, monkeypatch):
     FakeUpload.answer = {"raw_text": "It is a cat.", "final_text": "It is a cat."}
     monkeypatch.setattr(api, "server_is_up", lambda base, timeout=0.5: True)
     monkeypatch.setattr(remote, "ServerUpload", FakeUpload)
+    # After a failed live upload the client asks the server, which is unreachable here.
+    monkeypatch.setattr(remote, "fetch_status", lambda base, rec_id: None)
+    monkeypatch.setattr(remote, "upload_file", lambda *a, **kw: (_ for _ in ()).throw(remote.requests.ConnectionError("down")))
+    monkeypatch.setattr(remote, "STALL_TIMEOUT", 0)
+    monkeypatch.setattr(remote, "RETRY_DELAY", 0)
     monkeypatch.setattr(api, "new_spool", lambda profile: tmp_path / "spool.wav")
     monkeypatch.setenv("HOST_BIND_PORT", "8123")
     return live
@@ -389,7 +397,7 @@ def test_running_server_transcribes_the_live_recording(with_server, tmp_path, mo
     assert result.exit_code == 0
     assert json.loads(result.stdout)["data"]["label"] == "cat"
     (upload,) = FakeUpload.instances
-    assert upload.url == "http://127.0.0.1:8123/transcribe?profile=standard"
+    assert upload.url == "http://127.0.0.1:8123/transcribe?profile=standard&recording_id=" + remote.spool_id(tmp_path / "spool.wav")
     assert not (tmp_path / "spool.wav").exists()  # the server keeps its own copy
 
 

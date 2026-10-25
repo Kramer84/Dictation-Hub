@@ -52,6 +52,9 @@ class FakeUpload:
             raise FakeUpload.answer
         return FakeUpload.answer
 
+    def done(self):
+        return False
+
 
 def fake_whisper(input_wav, config, output_base):
     Path(f"{output_base}.json").write_text(
@@ -190,6 +193,11 @@ def server_up(run, monkeypatch):
     FakeUpload.answer = {"raw_text": "hello", "final_text": "Hello."}
     monkeypatch.setattr(local_runner, "server_is_up", lambda base: True)
     monkeypatch.setattr(remote, "ServerUpload", FakeUpload)
+    # After a failed live upload the client asks the server, which is unreachable here.
+    monkeypatch.setattr(remote, "fetch_status", lambda base, rec_id: None)
+    monkeypatch.setattr(remote, "upload_file", lambda *a, **kw: (_ for _ in ()).throw(remote.requests.ConnectionError("down")))
+    monkeypatch.setattr(remote, "STALL_TIMEOUT", 0)
+    monkeypatch.setattr(remote, "RETRY_DELAY", 0)
     monkeypatch.setenv("SERVER_IP", "100.1.2.3")  # the client role's setting, not used on the host
     monkeypatch.setenv("HOST_BIND_PORT", "8123")
     return run

@@ -145,3 +145,60 @@ def test_aborted_upload_leaves_no_workspace(tmp_path, monkeypatch):
     result = asyncio.run(main.transcribe(AbortedRequest()))
     assert result.status_code == 499
     assert list((tmp_path / "store").iterdir()) == []
+
+
+def test_result_can_be_fetched_by_recording_id(server, tmp_path):
+    """A client that lost the answer to its upload asks for it again."""
+    resp = server.post("/transcribe?profile=standard&recording_id=laptop-20261025_192125", content=tone_wav_bytes(tmp_path))
+    assert resp.status_code == 200
+    status = server.get("/result/laptop-20261025_192125")
+    assert status.status_code == 200
+    assert status.json() == {"state": "done", "result": resp.json()}
+
+
+def test_unknown_recording_id_says_unknown(server):
+    resp = server.get("/result/never-sent")
+    assert resp.status_code == 404
+    assert resp.json()["state"] == "unknown"
+
+
+@pytest.mark.parametrize("bad_id", ["..", ".hidden", "a/b", "x" * 200])
+def test_unsafe_recording_id_is_rejected(server, tmp_path, bad_id):
+    resp = server.post("/transcribe", params={"profile": "standard", "recording_id": bad_id}, content=tone_wav_bytes(tmp_path))
+    assert resp.status_code == 400
+    assert not (tmp_path / "store").exists()
+
+
+def test_resending_a_finished_recording_returns_the_stored_result(server, tmp_path):
+    first = server.post("/transcribe?profile=standard&recording_id=rec-1", content=tone_wav_bytes(tmp_path))
+    runs = len(RecordingPipeline.instances)
+    again = server.post("/transcribe?profile=standard&recording_id=rec-1", content=tone_wav_bytes(tmp_path))
+    assert again.json() == first.json()
+    assert len(RecordingPipeline.instances) == runs  # not transcribed twice
+
+
+def test_recording_id_is_not_a_whisper_option():
+    assert main._overrides({"profile": "standard", "recording_id": "rec-1", "language": "fr"}) == {"language": "fr"}
+
+
+def test_status_reports_bytes_received_while_the_upload_streams(tmp_path, monkeypatch):
+    """The client tells a slow but live upload from a dead one by the byte count."""
+    import asyncio
+    from starlette.requests import ClientDisconnect
+
+    monkeypatch.setattr(main.static_config.storage, "base_dir", tmp_path / "store")
+    seen = []
+
+    class SlowRequest:
+        query_params = {"profile": "standard", "recording_id": "rec-slow"}
+
+        async def stream(self):
+            yield b"RIFF" + b"\x00" * 200
+            seen.append(main.recording_status("rec-slow"))
+            yield b"\x00" * 300
+            seen.append(main.recording_status("rec-slow"))
+            raise ClientDisconnect()
+
+    asyncio.run(main.transcribe(SlowRequest()))
+    assert seen == [{"state": "receiving", "received": 204}, {"state": "receiving", "received": 504}]
+    assert main.recording_status("rec-slow") == {"state": "unknown"}  # dropped: the client must resend

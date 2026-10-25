@@ -91,6 +91,10 @@ class ServerUpload:
             and time.monotonic() - self._last_pull > self.stall_timeout
         )
 
+    def done(self) -> bool:
+        """True once the upload has its answer or has failed."""
+        return not self._thread.is_alive()
+
     def result(self, timeout: Optional[float] = None) -> dict:
         deadline = None if timeout is None else time.monotonic() + timeout
         while self._thread.is_alive() and not self._aborted:

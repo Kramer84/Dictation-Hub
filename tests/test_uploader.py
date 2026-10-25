@@ -126,3 +126,28 @@ def test_stalled_connection_is_reported_instead_of_waiting_for_the_timeout():
         assert time.time() - started < 10
     finally:
         listener.close()
+
+
+def test_upload_is_done_once_answered(live_server):
+    url, _ = live_server
+    upload = uploader.ServerUpload(f"{url}/transcribe?profile=standard")
+    assert not upload.done()
+    upload(PCM_BLOCK)
+    upload(None)
+    upload.result(timeout=30)
+    assert upload.done()
+
+
+def test_saved_recording_sent_twice_is_transcribed_once(live_server, tmp_path, monkeypatch):
+    """Over real HTTP: the second send gets the stored result by recording id."""
+    from dictation_hub.client import remote
+
+    url, store = live_server
+    monkeypatch.setattr(remote, "get_config_dir", lambda: tmp_path)
+    take = tmp_path / "take.wav"
+    take.write_bytes(uploader.streaming_wav_header() + PCM_BLOCK * 10)
+    first = remote.send_recording(url, "standard", {}, take)
+    workspaces = sorted(p for p in store.iterdir() if not p.name.startswith("."))
+    second = remote.send_recording(url, "standard", {}, take)
+    assert first["final_text"] == second["final_text"] == "Hello there."
+    assert sorted(p for p in store.iterdir() if not p.name.startswith(".")) == workspaces
