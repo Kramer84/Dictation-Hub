@@ -8,6 +8,8 @@ from typing import Annotated, Any, Optional
 import typer
 from dotenv import dotenv_values
 
+from . import gpu_guard as gg
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,13 +25,15 @@ STYLE_PROMPTS = {
 }
 
 
-def probe_language(cli_exec: Path, model_path: Path, input_wav: Path, threads: int) -> Optional[str]:
+def probe_language(
+    cli_exec: Path, model_path: Path, input_wav: Path, threads: int, runner=None
+) -> Optional[str]:
     """Ask whisper for the spoken language (first 30 s); None if it cannot tell."""
     cmd = [
         str(cli_exec), "-f", str(input_wav), "-m", str(model_path),
         "-t", str(threads), "-l", "auto", "-dl",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = (runner or (lambda c: subprocess.run(c, capture_output=True, text=True)))(cmd)
     match = re.search(r"auto-detected language: (\w+)", result.stderr or "")
     return match.group(1) if match else None
 
@@ -351,6 +355,12 @@ def whisper_transcribe(
     no_style_prompt: Annotated[
         bool, typer.Option(help="Do not prepend the punctuation style prompt")
     ] = False,
+    gpu_wait: Annotated[
+        int, typer.Option(help="Seconds to wait for free GPU memory before giving up")
+    ] = 120,
+    gpu_retries: Annotated[
+        int, typer.Option(help="Attempts when whisper falls back to the CPU")
+    ] = 3,
 ):
     current_args = locals().copy()
     if config:
@@ -372,11 +382,33 @@ def whisper_transcribe(
     except FileNotFoundError as e:
         typer.secho(f"Error: {e}", fg=typer.colors.RED)
         raise typer.Exit(code=1)
+    if current_args["no_gpu"]:
+        run_whisper = lambda c: subprocess.run(c, capture_output=True, text=True)  # noqa: E731
+    else:
+        need_mib = gg.vram_needed_mib(model_path)
+        # -np also hides the backend lines ("no GPU found") that the guard reads.
+        current_args["no_prints"] = False
+
+        def run_whisper(c):
+            return gg.with_gpu(
+                lambda: gg.run_guarded(c), need_mib,
+                wait_s=current_args["gpu_wait"], retries=current_args["gpu_retries"],
+            )
+
+    try:
+        return _transcribe(current_args, run_whisper, resolved_output_base, cli_exec, model_path)
+    except gg.GpuError as e:
+        logger.error("❌ GPU check failed: %s", e)
+        raise typer.Exit(code=1)
+
+
+def _transcribe(current_args, run_whisper, resolved_output_base, cli_exec, model_path):
     if not current_args["no_style_prompt"]:
         language = current_args["language"]
         if language == "auto":
             detected = probe_language(
-                cli_exec, model_path, current_args["input_wav"], current_args["threads"]
+                cli_exec, model_path, current_args["input_wav"], current_args["threads"],
+                runner=run_whisper,
             )
             if detected:
                 logger.info("Detected language: %s", detected)
@@ -385,7 +417,7 @@ def whisper_transcribe(
     cmd = build_whisper_command(current_args)
     logger.info("Running whisper on %s", current_args["input_wav"])
     # whisper.cpp's own output (segments, model loading) goes to the session log.
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = run_whisper(cmd)
     for line in (result.stdout + result.stderr).splitlines():
         if line.strip():
             logger.debug("whisper: %s", line)
