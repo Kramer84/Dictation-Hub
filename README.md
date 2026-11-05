@@ -34,7 +34,8 @@ By default, the tool ships with several profiles (Standard, Technical, Mail Draf
 
 ### Prerequisites
 1. **Tailscale:** Recommended for secure, seamless connection between your clients and your host server.
-2. **whisper.cpp:** The core inference engine.
+2. **whisper.cpp:** The core inference engine, built with CUDA. Dictation-Hub refuses to run it on the CPU (see GPU safety below).
+3. **For hotkey dictation (X11 desktop):** `sudo apt install xdotool xclip` (required: pastes the text into the focused window), plus `x11-utils` (`xprop`, so terminals get Ctrl+Shift+V) and `libnotify-bin` (`notify-send`, desktop notifications). `dictation-hub toggle` checks for the required ones and says what to install. Wayland (`wtype`) is not supported yet.
 
 ### Setup Steps
 1. **Clone and install whisper.cpp:**
@@ -93,6 +94,25 @@ dictation-hub answer -f clip.wav          # transcribe a saved recording instead
 ```
 
 Exit codes: 0 ok, 1 recording or transcription failed, 2 bad input, 3 cancelled or quit, 4 schema step failed (cleaned text still returned). From Python: `from dictation_hub.api import dictate`. The format of the profile file and the details are in `skills/integrating-dictation-hub/`.
+
+### 5. Dictating with a hotkey or a mouse button
+
+`dictation-hub toggle` is the single command to bind: the first press starts a recording, the next press stops it, and the text is pasted where your cursor is (a notification shows "recording", "transcribing", "pasted"). Presses while the previous recording is still being transcribed are ignored. `dictation-hub toggle --cancel` discards the recording in progress. Extra arguments are those of a normal dictation: `dictation-hub toggle technical -l fr`.
+
+```bash
+# A keyboard combination (GNOME syntax) as a GNOME custom shortcut (not Ctrl+Alt+D: that is GNOME's show-desktop):
+dictation-hub hotkeys install-keyboard '<Super><Shift>y'   # refused if taken or Ctrl+Alt+F1..F12 (VT switch)
+
+# A mouse button or a single key (thumb button, emoji key): find its number, then start a listener at every login
+dictation-hub hotkeys detect                      # press the button or key; prints e.g. button:9 or key:134 (Ctrl-C ends)
+dictation-hub hotkeys install-service button:<n> key:<keycode>   # the numbers `detect` printed
+```
+
+Both can be installed together. The listener only *observes* (X11, through `xinput`): a thumb button still does what it normally does, so remap it first if that gets in the way. Remove with `hotkeys uninstall-keyboard` / `hotkeys uninstall-service`. The background session logs to `$XDG_RUNTIME_DIR/dictation-hub/session.log`.
+
+### GPU safety
+
+Before whisper starts, the GPU is checked with `nvidia-smi`. If other programs hold the memory (for example an Ollama model), whisper waits up to `gpu_wait` seconds (default 120) for it to free up. If whisper reports that it fell back to the CPU, it is stopped at once and retried up to `gpu_retries` times (default 3), then the dictation fails with what to check. `NO_GPU=true` in a profile's env file accepts the CPU.
 
 ## Optimization & Tuning Suite
 

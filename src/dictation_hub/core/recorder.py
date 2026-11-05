@@ -13,6 +13,8 @@ import wave
 from pathlib import Path
 from typing import Callable, Iterable, Iterator, List, Optional
 
+from . import desktop, toggle
+
 KEY_HELP = "[Space] stop & process   [p] pause/resume   [q] quit (keep audio)   [c] cancel"
 
 
@@ -235,5 +237,15 @@ def record_from_mic(capture: Path, listeners: Iterable[Callable[[Optional[bytes]
     Returns the outcome; listeners only get the end-of-stream marker when the
     outcome is ``process``.
     """
-    print(f"🎙️  Recording...  {KEY_HELP}")
-    return control_recording(Recorder(capture, listeners=listeners), terminal_keys())
+    if not desktop.is_active():
+        print(f"🎙️  Recording...  {KEY_HELP}")
+        return control_recording(Recorder(capture, listeners=listeners), terminal_keys())
+    # Started from a hotkey: no terminal; the same key or button that started it stops it.
+    desktop.notify("Dictation recording", "Press the hotkey again to stop.")
+    outcome = control_recording(Recorder(capture, listeners=listeners), toggle.signal_keys())
+    if outcome == "process":
+        toggle.set_phase(toggle.default_state_dir(), "processing")
+        desktop.notify("Dictation transcribing", "")
+    else:
+        desktop.notify("Dictation " + {"cancel": "cancelled", "quit": "stopped"}.get(outcome, "failed"), "")
+    return outcome

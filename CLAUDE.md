@@ -63,7 +63,7 @@ A fourth, programmatic entry point serves other projects (e.g. a data-annotation
 
 Development is phased to ensure that architectural gaps and existing bugs are cataloged, analyzed, and agreed upon before major code modifications occur.
 
-> **Status (2026-10-15):** M0, M0.5, M1 (reboot test of the boot service still pending), M1b and M7 are done and merged to `main`. M2, M3, M4, M5, M6 are not started. Next up and open items: `docs/milestones/README.md` → "Next up". Section 6 below tells you how to resume.
+> **Status (2026-11-05):** M0, M0.5, M1, M1b and M7 are done and merged to `main`; M2 (GPU pre-flight) and the hotkey part of M4 (`toggle`, `hotkeys`) are done in the working tree, not yet committed. M3, M5, M6 and the `--paste` flag of M4 are not started. Next up and open items: `docs/milestones/README.md` → "Next up". Section 6 below tells you how to resume.
 >
 > **Progress tracking:** status, decisions and the per-milestone log live in [`docs/milestones/`](docs/milestones/README.md). Update `docs/milestones/README.md` (status table + dated log entry) whenever a milestone advances or a design decision is made. The M0 audit (defect catalog D01–D31, architecture proposal, open decisions) is in [`docs/milestones/M0-audit.md`](docs/milestones/M0-audit.md).
 >
@@ -204,7 +204,7 @@ uv run python -m dictation_hub.pipeline.engine --profile scheduling \
     --input /path/to/<timestamp>_full.json --workspace /path/to/workspace/
 ```
 
-Not implemented yet: `--type-active` / `--paste` (M4), GPU pre-flight (M2), voice-prefix routing (M5).
+Hotkeys (M4, 2026-11-05): `dictation-hub toggle` (start/stop, pastes into the focused window), `dictation-hub hotkeys install-keyboard|detect|listen|install-service`; code in `core/toggle.py`, `core/desktop.py`, `core/hotkeys.py`. **System requirement: `xdotool` + `xclip` (apt)**; `xprop`, `notify-send` optional. X11 only. Not implemented yet: a `--paste` flag for terminal-started dictations, Wayland (`wtype`), voice-prefix routing (M5). GPU pre-flight (M2) is in `core/gpu_guard.py`: whisper waits for free VRAM, is killed on a CPU fallback and retried; `NO_GPU=true` turns it off.
 
 ---
 

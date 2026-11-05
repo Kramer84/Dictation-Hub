@@ -9,6 +9,7 @@ from typing import Optional
 
 import typer
 
+from . import desktop
 from .utils import copy_to_clipboard
 
 
@@ -50,4 +51,13 @@ def deliver(raw_text: str, final_text: str, error: Optional[str]) -> None:
     typer.echo(rule())
     typer.echo(text)
     typer.echo(rule())
-    copy_to_clipboard(text)
+    if not desktop.is_active():
+        copy_to_clipboard(text)
+        return
+    # Started from a hotkey: nobody watches the terminal, so paste where the cursor is.
+    if not text.strip():
+        desktop.notify("Dictation", "Nothing was transcribed.")
+    elif desktop.paste_text(text):
+        desktop.notify("Dictation pasted", text[:120])
+    else:
+        desktop.notify("Dictation copied", "Not pasted; the text is on the clipboard.")

@@ -14,6 +14,7 @@ from click.shell_completion import CompletionItem
 
 from .answer_cli import answer_command
 from .client.remote import client_base_url, run_client
+from .core import desktop, hotkeys, toggle
 from .core.invocation import InvocationError, complete_invocation, parse_invocation
 from .core.config_manager import get_config_dir, load_deployment_env, load_json_config
 from .core.local_runner import run_local_pipeline
@@ -106,6 +107,8 @@ app = typer.Typer(cls=DictationRouter)
 server_app = typer.Typer(help="Manage the dictation backend server.")
 app.add_typer(server_app, name="server")
 app.command("answer")(answer_command)
+hotkeys_app = typer.Typer(help="Keyboard shortcut and mouse button / key triggers for `toggle`.")
+app.add_typer(hotkeys_app, name="hotkeys")
 
 
 def load_machine_role() -> str:
@@ -126,14 +129,10 @@ def load_machine_role() -> str:
     return config.get("DICTATION_ROLE", "host")
 
 
-@app.command(
-    "run",
-    hidden=True,
-    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
-)
-def main_run(ctx: typer.Context):
+def dispatch(args) -> None:
+    """Parse the dictation command line and run it for this machine's role."""
     try:
-        invocation = parse_invocation(ctx.args)
+        invocation = parse_invocation(list(args))
     except InvocationError as e:
         typer.secho(f"Error: {e}", fg=typer.colors.RED)
         raise typer.Exit(code=2)
@@ -149,6 +148,161 @@ def main_run(ctx: typer.Context):
     else:
         typer.secho("Error: Unknown machine role.", fg=typer.colors.RED)
         raise typer.Exit(code=1)
+
+
+@app.command(
+    "run",
+    hidden=True,
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def main_run(ctx: typer.Context):
+    dispatch(ctx.args)
+
+
+def spawn_session(args, log_dir: Path) -> None:
+    """Start the background dictation session, detached from the caller (a hotkey)."""
+    log_dir.mkdir(parents=True, exist_ok=True)
+    code = "from dictation_hub.cli import app; app()"
+    with open(log_dir / "session.log", "ab") as log:
+        subprocess.Popen(
+            [sys.executable, "-c", code, "session", *args],
+            stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True,
+        )
+
+
+@app.command(
+    "toggle",
+    help="Hotkey entry point: start a dictation, or stop the running one. Extra arguments are those of a normal dictation (profile, -l fr…).",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def toggle_command(
+    ctx: typer.Context,
+    cancel: bool = typer.Option(False, "--cancel", help="Discard the recording in progress."),
+):
+    do_toggle(ctx.args, cancel=cancel)
+
+
+def do_toggle(args, cancel: bool = False) -> None:
+    """One key or button press: start a dictation session, or stop the running one."""
+    state_dir = toggle.default_state_dir()
+    missing = desktop.missing_requirements()
+    if missing:
+        desktop.notify("Dictation cannot start", "Missing: sudo apt install " + " ".join(missing))
+        typer.secho("Missing: sudo apt install " + " ".join(missing), fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    outcome = toggle.press(state_dir, spawn=lambda: spawn_session(args, state_dir), cancel=cancel)
+    if outcome == "busy":
+        desktop.notify("Dictation busy", "Still transcribing the previous recording.")
+    typer.echo(outcome)
+
+
+@app.command(
+    "session",
+    hidden=True,
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def session_command(ctx: typer.Context):
+    """The background worker that `toggle` starts: one dictation, delivered by pasting."""
+    state_dir = toggle.default_state_dir()
+    desktop.activate()
+    toggle.write_state(state_dir, os.getpid(), "recording")
+    try:
+        dispatch(ctx.args)
+    except typer.Exit as e:
+        if e.exit_code:
+            desktop.notify("Dictation failed", "See " + str(state_dir / "session.log"))
+        raise
+    except Exception as e:  # nobody watches this process: say it, don't vanish
+        desktop.notify("Dictation failed", f"{type(e).__name__}: {e}"[:200])
+        raise
+    finally:
+        toggle.clear_state(state_dir)
+
+
+def _toggle_command_path() -> str:
+    return shutil.which("dictation-hub") or sys.argv[0]
+
+
+@hotkeys_app.command("install-keyboard")
+def hotkeys_install_keyboard(
+    binding: str = typer.Argument(..., help="GNOME syntax, e.g. '<Super><Shift>y'."),
+):
+    """Make a GNOME keyboard shortcut run `dictation-hub toggle`."""
+    try:
+        hotkeys.check_binding(binding)
+    except ValueError as e:  # also BindingTaken
+        typer.secho(f"Error: {e}", fg=typer.colors.RED)
+        raise typer.Exit(code=2)
+    hotkeys.install_gnome_shortcut(binding, f"{_toggle_command_path()} toggle")
+    typer.echo(f"Shortcut {binding} now runs `dictation-hub toggle` (replaces the previous one).")
+
+
+@hotkeys_app.command("uninstall-keyboard")
+def hotkeys_uninstall_keyboard():
+    """Remove the GNOME shortcut again."""
+    hotkeys.remove_gnome_shortcut()
+    typer.echo("Shortcut removed.")
+
+
+@hotkeys_app.command("detect")
+def hotkeys_detect():
+    """Print the trigger name (button:9, key:134) of every button or key you press. Ctrl-C ends."""
+    try:
+        for spec in hotkeys.detect(hotkeys.xinput_lines()):
+            typer.echo(spec)
+    except KeyboardInterrupt:
+        pass
+
+
+@hotkeys_app.command("listen")
+def hotkeys_listen(
+    triggers: list[str] = typer.Argument(..., help="button:<n> or key:<keycode>, e.g. button:9 key:134."),
+):
+    """Run `toggle` whenever one of the buttons or keys is pressed (X11)."""
+    try:
+        parsed = [hotkeys.parse_trigger(t) for t in triggers]
+    except ValueError as e:
+        typer.secho(f"Error: {e}", fg=typer.colors.RED)
+        raise typer.Exit(code=2)
+
+    def fire(trigger):
+        try:
+            do_toggle([])
+        except typer.Exit:
+            pass  # already notified; keep listening
+
+    try:
+        hotkeys.listen(hotkeys.xinput_lines(), parsed, fire)
+    except KeyboardInterrupt:
+        pass
+
+
+@hotkeys_app.command("install-service")
+def hotkeys_install_service(
+    triggers: list[str] = typer.Argument(..., help="button:<n> or key:<keycode>."),
+):
+    """Start the button / key listener at every login (systemd user unit)."""
+    try:
+        for t in triggers:
+            hotkeys.parse_trigger(t)
+    except ValueError as e:
+        typer.secho(f"Error: {e}", fg=typer.colors.RED)
+        raise typer.Exit(code=2)
+    unit = Path.home() / ".config" / "systemd" / "user" / hotkeys.LISTENER_UNIT
+    unit.parent.mkdir(parents=True, exist_ok=True)
+    unit.write_text(hotkeys.render_listener_unit(_toggle_command_path(), triggers))
+    subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)
+    subprocess.run(["systemctl", "--user", "enable", "--now", hotkeys.LISTENER_UNIT], check=True)
+    typer.echo(f"Listener running for {' '.join(triggers)}.")
+
+
+@hotkeys_app.command("uninstall-service")
+def hotkeys_uninstall_service():
+    """Stop and remove the listener."""
+    subprocess.run(["systemctl", "--user", "disable", "--now", hotkeys.LISTENER_UNIT], check=False)
+    (Path.home() / ".config" / "systemd" / "user" / hotkeys.LISTENER_UNIT).unlink(missing_ok=True)
+    subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
+    typer.echo("Listener removed.")
 
 
 @app.command("browse")
